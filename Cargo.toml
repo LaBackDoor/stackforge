@@ -13,6 +13,12 @@ homepage = "https://github.com/LaBackDoor/stackforge"
 keywords = ["networking", "python", "automata", "rust"]
 categories = ["network-programming", "science"]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+repository = "https://github.com/LaBackDoor/stackforge"
+
 [lib]
 name = "stackforge"
 crate-type = ["cdylib"]
