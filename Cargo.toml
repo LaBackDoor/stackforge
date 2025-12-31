@@ -14,8 +14,12 @@ keywords = ["networking", "python", "automata", "rust"]
 categories = ["network-programming", "science"]
 publish = false
 
+[package.metadata.release]
+shared-version = true
+tag-name = "v{{version}}"
+
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "GPL-3.0-only"
 repository = "https://github.com/LaBackDoor/stackforge"
@@ -26,8 +30,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.27.2", features = ["extension-module"] }
-stackforge-core = { path = "crates/stackforge-core", version = "0.1.1" }
-stackforge-automata = { path = "crates/stackforge-automata", version = "0.1.1" }
 
 [package.metadata.bin]
 tre-command = { version = "0.4.0", bins = ["tre"] }
