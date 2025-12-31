@@ -22,7 +22,6 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
 
-
       - name: Cache Cargo registry
         uses: actions/cache@v3
         with:
@@ -34,11 +33,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv venv
-          uv sync
+          uv sync --frozen --no-install-project
 
       - name: Build and Install
-        run: uv run maturin develop
+        run: uvx maturin develop
 
       - name: Test Rust
         run: cargo test
