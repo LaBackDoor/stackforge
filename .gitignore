@@ -1,0 +1,19 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+.venv/
+dist/
+stackforge.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Tools
+.bin/

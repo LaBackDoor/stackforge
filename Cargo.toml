@@ -1,0 +1,19 @@
+[workspace]
+members = ["crates/stackforge-core", "crates/stackforge-automata"]
+resolver = "2"
+
+[package]
+name = "stackforge"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[lib]
+name = "stackforge"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27.2", features = ["extension-module"] }
+
+[package.metadata.bin]
+tre-command = { version = "0.4.0", bins = ["tre"] }
