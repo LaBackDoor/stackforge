@@ -7,6 +7,11 @@ name = "stackforge"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-only"
+description = "A high-performance, modular networking stack and automata framework."
+repository = "https://github.com/LaBackDoor/stackforge"
+homepage = "https://github.com/LaBackDoor/stackforge"
+keywords = ["networking", "python", "automata", "rust"]
+categories = ["network-programming", "science"]
 
 [lib]
 name = "stackforge"
