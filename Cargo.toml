@@ -12,6 +12,7 @@ repository = "https://github.com/LaBackDoor/stackforge"
 homepage = "https://github.com/LaBackDoor/stackforge"
 keywords = ["networking", "python", "automata", "rust"]
 categories = ["network-programming", "science"]
+publish = false
 
 [workspace.package]
 version = "0.1.0"
@@ -25,6 +26,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.27.2", features = ["extension-module"] }
+stackforge-core = { path = "crates/stackforge-core", version = "0.1.1" }
+stackforge-automata = { path = "crates/stackforge-automata", version = "0.1.1" }
 
 [package.metadata.bin]
 tre-command = { version = "0.4.0", bins = ["tre"] }
