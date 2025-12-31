@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "stackforge"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "GPL-3.0-only"
 description = "A high-performance, modular networking stack and automata framework."
@@ -12,9 +12,14 @@ repository = "https://github.com/LaBackDoor/stackforge"
 homepage = "https://github.com/LaBackDoor/stackforge"
 keywords = ["networking", "python", "automata", "rust"]
 categories = ["network-programming", "science"]
+publish = false
+
+[package.metadata.release]
+shared-version = true
+tag-name = "v{{version}}"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "GPL-3.0-only"
 repository = "https://github.com/LaBackDoor/stackforge"
