@@ -7,3 +7,8 @@ license.workspace = true
 description = "Automata networking logic for Stackforge."
 
 [dependencies]
+stackforge-core.workspace = true
+bytes.workspace = true
+
+[lints]
+workspace = true

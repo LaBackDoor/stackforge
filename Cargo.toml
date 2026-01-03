@@ -4,9 +4,10 @@ resolver = "2"
 
 [package]
 name = "stackforge"
-version = "0.1.1"
-edition = "2024"
-license = "GPL-3.0-only"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "A high-performance, modular networking stack and automata framework."
 repository = "https://github.com/LaBackDoor/stackforge"
 homepage = "https://github.com/LaBackDoor/stackforge"
@@ -22,7 +23,15 @@ tag-name = "v{{version}}"
 version = "0.1.1"
 edition = "2024"
 license = "GPL-3.0-only"
+authors = ["Stackforge Contributors"]
 repository = "https://github.com/LaBackDoor/stackforge"
+
+[workspace.dependencies]
+bytes = "1.11.0"
+smallvec = "1.15.1"
+thiserror = "2.0.17"
+stackforge-core = { path = "crates/stackforge-core" }
+stackforge-automata = { path = "crates/stackforge-automata" }
 
 [lib]
 name = "stackforge"
@@ -30,6 +39,15 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.27.2", features = ["extension-module"] }
+stackforge-core.workspace = true
+stackforge-automata.workspace = true
+
 
 [package.metadata.bin]
 tre-command = { version = "0.4.0", bins = ["tre"] }
+
+[workspace.lints.rust]
+missing_docs = "allow"
+
+[lints]
+workspace = true

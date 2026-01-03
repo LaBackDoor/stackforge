@@ -7,3 +7,15 @@ license.workspace = true
 description = "Core networking logic for Stackforge."
 
 [dependencies]
+thiserror.workspace = true
+bytes.workspace = true
+smallvec.workspace = true
+pnet_datalink = "0.35.0"
+default-net = "0.22.0"
+rand = { version = "0.9.2", optional = true }
+
+[features]
+default = ["rand"]
+
+[lints]
+workspace = true
