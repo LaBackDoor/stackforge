@@ -5,4 +5,7 @@
 
 mod arp;
 mod ethernet;
+mod field;
+mod layer;
 mod packet;
+mod util;
