@@ -18,6 +18,7 @@ use crate::layer::{
     arp::ArpLayer,
     ethernet::{ETHERNET_HEADER_LEN, EthernetLayer},
     ethertype, ip_protocol,
+    ipv4::Ipv4Layer,
 };
 
 /// Maximum number of layers to store inline before heap allocation.
@@ -164,6 +165,12 @@ impl Packet {
     pub fn ethernet(&self) -> Option<EthernetLayer> {
         self.get_layer(LayerKind::Ethernet)
             .map(|idx| EthernetLayer::new(idx.start, idx.end))
+    }
+
+    /// Get the IPv4 layer view if present.
+    pub fn ipv4(&self) -> Option<Ipv4Layer> {
+        self.get_layer(LayerKind::Ipv4)
+            .map(|idx| Ipv4Layer::new(idx.start, idx.end))
     }
 
     /// Get the ARP layer view if present.

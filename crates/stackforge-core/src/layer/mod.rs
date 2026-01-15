@@ -7,6 +7,7 @@ pub mod arp;
 pub mod bindings;
 pub mod ethernet;
 pub mod field;
+pub mod ipv4;
 pub mod neighbor;
 
 use std::ops::Range;
@@ -16,6 +17,7 @@ pub use arp::{ArpBuilder, ArpLayer};
 pub use bindings::{LAYER_BINDINGS, LayerBinding};
 pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
+pub use ipv4::{Ipv4Builder, Ipv4Flags, Ipv4Layer, Ipv4Options, Ipv4Route};
 pub use neighbor::{NeighborCache, NeighborResolver};
 
 /// Identifies the type of network protocol layer.
@@ -68,7 +70,7 @@ impl LayerKind {
         match self {
             Self::Ethernet | Self::Dot3 => ethernet::ETHERNET_HEADER_LEN,
             Self::Arp => arp::ARP_HEADER_LEN,
-            Self::Ipv4 => 20,
+            Self::Ipv4 => ipv4::IPV4_MIN_HEADER_LEN,
             Self::Ipv6 => 40,
             Self::Icmp | Self::Icmpv6 => 8,
             Self::Tcp => 20,
@@ -169,29 +171,16 @@ pub trait Layer {
     fn header_len(&self, data: &[u8]) -> usize;
 
     /// Compute a hash for packet matching.
-    ///
-    /// This is used to correlate requests with responses.
-    /// Packets that should match (e.g., ARP request/reply) should
-    /// return the same hash value.
     fn hashret(&self, _data: &[u8]) -> Vec<u8> {
         vec![]
     }
 
     /// Check if this packet answers another packet.
-    ///
-    /// Used by sr()/sr1() to match responses to requests.
-    /// For example, an ARP reply answers an ARP request if:
-    /// - reply.op == request.op + 1
-    /// - reply.psrc matches request.pdst
     fn answers(&self, _data: &[u8], _other: &Self, _other_data: &[u8]) -> bool {
         false
     }
 
     /// Extract padding from the packet.
-    ///
-    /// Returns (payload, padding) tuple.
-    /// Some protocols (like ARP) have no payload, so everything
-    /// after the header is padding.
     fn extract_padding<'a>(&self, data: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         let header_len = self.header_len(data);
         (&data[header_len..], &[])
@@ -204,9 +193,6 @@ pub trait Layer {
 }
 
 /// Enum dispatch for protocol layers.
-///
-/// This enum allows efficient static dispatch to layer implementations
-/// without the overhead of dynamic dispatch (vtables).
 #[derive(Debug, Clone)]
 pub enum LayerEnum {
     Ethernet(EthernetLayer),
@@ -277,6 +263,7 @@ impl LayerEnum {
         match self {
             Self::Ethernet(l) => l.hashret(buf),
             Self::Arp(l) => l.hashret(buf),
+            Self::Ipv4(l) => l.hashret(buf),
             _ => vec![],
         }
     }
@@ -298,34 +285,7 @@ impl LayerEnum {
     }
 }
 
-// Placeholder layer structs (to be fully implemented)
-#[derive(Debug, Clone)]
-pub struct Ipv4Layer {
-    pub index: LayerIndex,
-}
-
-impl Ipv4Layer {
-    pub fn summary(&self, buf: &[u8]) -> String {
-        let slice = self.index.slice(buf);
-        if slice.len() >= 20 {
-            let src = std::net::Ipv4Addr::new(slice[12], slice[13], slice[14], slice[15]);
-            let dst = std::net::Ipv4Addr::new(slice[16], slice[17], slice[18], slice[19]);
-            format!("IP {} > {}", src, dst)
-        } else {
-            "IP (truncated)".to_string()
-        }
-    }
-
-    pub fn header_len(&self, buf: &[u8]) -> usize {
-        let slice = self.index.slice(buf);
-        if !slice.is_empty() {
-            ((slice[0] & 0x0F) as usize) * 4
-        } else {
-            20
-        }
-    }
-}
-
+// Placeholder layer structs (to be fully implemented in later weeks)
 #[derive(Debug, Clone)]
 pub struct Ipv6Layer {
     pub index: LayerIndex,
@@ -476,7 +436,6 @@ pub mod ethertype {
         }
     }
 
-    /// Get LayerKind for EtherType
     pub fn to_layer_kind(t: u16) -> Option<LayerKind> {
         match t {
             IPV4 => Some(LayerKind::Ipv4),
@@ -489,7 +448,6 @@ pub mod ethertype {
         }
     }
 
-    /// Get EtherType for LayerKind
     pub fn from_layer_kind(kind: LayerKind) -> Option<u16> {
         match kind {
             LayerKind::Ipv4 => Some(IPV4),
@@ -505,32 +463,7 @@ pub mod ethertype {
 
 /// IP protocol numbers
 pub mod ip_protocol {
-    use crate::LayerKind;
-
-    pub const ICMP: u8 = 1;
-    pub const TCP: u8 = 6;
-    pub const UDP: u8 = 17;
-    pub const ICMPV6: u8 = 58;
-
-    pub fn name(p: u8) -> &'static str {
-        match p {
-            ICMP => "ICMP",
-            TCP => "TCP",
-            UDP => "UDP",
-            ICMPV6 => "ICMPv6",
-            _ => "Unknown",
-        }
-    }
-
-    pub fn to_layer_kind(p: u8) -> Option<LayerKind> {
-        match p {
-            ICMP => Some(LayerKind::Icmp),
-            TCP => Some(LayerKind::Tcp),
-            UDP => Some(LayerKind::Udp),
-            ICMPV6 => Some(LayerKind::Icmpv6),
-            _ => None,
-        }
-    }
+    pub use crate::layer::ipv4::protocol::*;
 }
 
 #[cfg(test)]
