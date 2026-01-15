@@ -3,6 +3,20 @@
 use stackforge_core::prelude::*;
 use std::net::Ipv4Addr;
 
+fn make_arp_request() -> Vec<u8> {
+    let eth = EthernetBuilder::new()
+        .dst(MacAddress::BROADCAST)
+        .src(MacAddress::new([0x00, 0x11, 0x22, 0x33, 0x44, 0x55]))
+        .build_with_payload(LayerKind::Arp);
+
+    let arp = ArpBuilder::who_has(Ipv4Addr::new(192, 168, 1, 100))
+        .hwsrc(MacAddress::new([0x00, 0x11, 0x22, 0x33, 0x44, 0x55]))
+        .psrc(Ipv4Addr::new(192, 168, 1, 1))
+        .build();
+
+    [eth, arp].concat()
+}
+
 #[test]
 fn test_packet_from_bytes() {
     let data = vec![1, 2, 3, 4, 5];
@@ -225,4 +239,87 @@ fn test_packet_into_bytes() {
 
     let bytes = packet.into_bytes();
     assert_eq!(&bytes[..], &data[..]);
+}
+
+#[test]
+fn test_full_arp_request_packet() {
+    let data = make_arp_request();
+    let mut pkt = Packet::from_bytes(data.clone());
+
+    pkt.parse().unwrap();
+
+    // Verify layers
+    assert_eq!(pkt.layer_count(), 2);
+    assert!(pkt.get_layer(LayerKind::Ethernet).is_some());
+    assert!(pkt.get_layer(LayerKind::Arp).is_some());
+
+    // Verify Ethernet
+    let eth = pkt.ethernet().unwrap();
+    assert_eq!(eth.dst(pkt.as_bytes()).unwrap(), MacAddress::BROADCAST);
+    assert_eq!(eth.ethertype(pkt.as_bytes()).unwrap(), ethertype::ARP);
+
+    // Verify ARP
+    let arp = pkt.arp().unwrap();
+    assert!(arp.is_request(pkt.as_bytes()));
+    assert_eq!(
+        arp.pdst(pkt.as_bytes()).unwrap(),
+        Ipv4Addr::new(192, 168, 1, 100)
+    );
+}
+
+#[test]
+fn test_packet_modification() {
+    let data = make_arp_request();
+    let mut pkt = Packet::from_bytes(data);
+    pkt.parse().unwrap();
+
+    // Modify source MAC
+    let eth = pkt.ethernet().unwrap();
+    pkt.with_data_mut(|buf| {
+        eth.set_src(buf, MacAddress::new([0xde, 0xad, 0xbe, 0xef, 0x00, 0x00]))
+            .unwrap();
+    });
+
+    assert!(pkt.is_dirty());
+
+    // Verify modification
+    let eth = pkt.ethernet().unwrap();
+    assert_eq!(
+        eth.src(pkt.as_bytes()).unwrap(),
+        MacAddress::new([0xde, 0xad, 0xbe, 0xef, 0x00, 0x00])
+    );
+}
+
+#[test]
+fn test_arp_compatibility() {
+    // Scapy: ARP(op="who-has", pdst="192.168.1.100")
+    let arp = ArpBuilder::new()
+        .op_name("who-has")
+        .pdst(Ipv4Addr::new(192, 168, 1, 100))
+        .build();
+
+    let layer = ArpLayer::at_offset(0);
+
+    // Verify default values match Scapy
+    assert_eq!(layer.hwtype(&arp).unwrap(), 1); // Ethernet
+    assert_eq!(layer.ptype(&arp).unwrap(), 0x0800); // IPv4
+    assert_eq!(layer.hwlen(&arp).unwrap(), 6);
+    assert_eq!(layer.plen(&arp).unwrap(), 4);
+    assert_eq!(layer.op(&arp).unwrap(), 1); // who-has
+
+    // Check summary format
+    let summary = layer.summary(&arp);
+    assert!(summary.contains("who has") || summary.contains("ARP"));
+}
+
+#[test]
+fn test_opcode_names() {
+    use stackforge_core::arp_opcode;
+
+    assert_eq!(arp_opcode::name(1), "who-has");
+    assert_eq!(arp_opcode::name(2), "is-at");
+    assert_eq!(arp_opcode::from_name("who-has"), Some(1));
+    assert_eq!(arp_opcode::from_name("is-at"), Some(2));
+    assert_eq!(arp_opcode::from_name("request"), Some(1));
+    assert_eq!(arp_opcode::from_name("reply"), Some(2));
 }
