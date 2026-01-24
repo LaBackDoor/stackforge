@@ -365,7 +365,7 @@ impl Ipv4Builder {
 
     /// Build the IPv4 packet.
     pub fn build(&self) -> Vec<u8> {
-        let header_size = self.header_size();
+        let _header_size = self.header_size();
         let total_size = self.packet_size();
 
         let mut buf = vec![0u8; total_size];

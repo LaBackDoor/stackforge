@@ -7,7 +7,6 @@ use std::net::Ipv4Addr;
 
 use crate::layer::field::FieldError;
 
-use super::builder::Ipv4Builder;
 use super::checksum::ipv4_checksum;
 use super::header::{IPV4_MIN_HEADER_LEN, Ipv4Flags, Ipv4Layer, offsets};
 use super::options::Ipv4Options;
@@ -130,7 +129,7 @@ impl Ipv4Fragmenter {
         // Get original header info
         let header_len = layer.calculate_header_len(packet);
         let total_len = layer.total_len(packet).unwrap_or(packet.len() as u16) as usize;
-        let payload_start = header_len;
+        let _payload_start = header_len;
         let payload_len = total_len.saturating_sub(header_len);
 
         // Parse options for copying
@@ -173,7 +172,7 @@ impl Ipv4Fragmenter {
         let original_mf = flags.mf;
 
         while remaining > 0 {
-            let header_size = if is_first {
+            let _header_size = if is_first {
                 first_header_len
             } else {
                 other_header_len
