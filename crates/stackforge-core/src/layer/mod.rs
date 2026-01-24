@@ -9,6 +9,7 @@ pub mod ethernet;
 pub mod field;
 pub mod ipv4;
 pub mod neighbor;
+pub mod tcp;
 
 use std::ops::Range;
 
@@ -19,6 +20,11 @@ pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
 pub use ipv4::{Ipv4Builder, Ipv4Flags, Ipv4Layer, Ipv4Options, Ipv4Route};
 pub use neighbor::{NeighborCache, NeighborResolver};
+pub use tcp::{
+    TCP_FIELDS, TCP_MAX_HEADER_LEN, TCP_MIN_HEADER_LEN, TCP_SERVICES, TcpAoValue, TcpBuilder,
+    TcpFlags, TcpLayer, TcpOption, TcpOptionKind, TcpOptions, TcpOptionsBuilder, TcpSackBlock,
+    TcpTimestamp, service_name, service_port, tcp_checksum, tcp_checksum_ipv4, verify_tcp_checksum,
+};
 
 /// Identifies the type of network protocol layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -73,7 +79,7 @@ impl LayerKind {
             Self::Ipv4 => ipv4::IPV4_MIN_HEADER_LEN,
             Self::Ipv6 => 40,
             Self::Icmp | Self::Icmpv6 => 8,
-            Self::Tcp => 20,
+            Self::Tcp => tcp::TCP_MIN_HEADER_LEN,
             Self::Udp => 8,
             Self::Dns => 12,
             Self::Dot1Q => 4,
@@ -264,6 +270,7 @@ impl LayerEnum {
             Self::Ethernet(l) => l.hashret(buf),
             Self::Arp(l) => l.hashret(buf),
             Self::Ipv4(l) => l.hashret(buf),
+            Self::Tcp(l) => l.hashret(buf),
             _ => vec![],
         }
     }
@@ -334,31 +341,7 @@ impl Icmpv6Layer {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TcpLayer {
-    pub index: LayerIndex,
-}
-
-impl TcpLayer {
-    pub fn summary(&self, buf: &[u8]) -> String {
-        let slice = self.index.slice(buf);
-        if slice.len() >= 4 {
-            let src_port = u16::from_be_bytes([slice[0], slice[1]]);
-            let dst_port = u16::from_be_bytes([slice[2], slice[3]]);
-            format!("TCP {} > {}", src_port, dst_port)
-        } else {
-            "TCP".to_string()
-        }
-    }
-    pub fn header_len(&self, buf: &[u8]) -> usize {
-        let slice = self.index.slice(buf);
-        if slice.len() >= 13 {
-            ((slice[12] >> 4) as usize) * 4
-        } else {
-            20
-        }
-    }
-}
+// TcpLayer is now imported from the tcp module
 
 #[derive(Debug, Clone)]
 pub struct UdpLayer {
