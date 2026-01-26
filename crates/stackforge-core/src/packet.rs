@@ -14,9 +14,10 @@ use smallvec::SmallVec;
 
 use crate::error::{PacketError, Result};
 use crate::layer::{
-    LayerIndex, LayerKind,
+    DnsLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind, RawLayer,
+    TcpLayer, UdpLayer,
     arp::ArpLayer,
-    ethernet::{ETHERNET_HEADER_LEN, EthernetLayer},
+    ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
     ethertype, ip_protocol,
     ipv4::Ipv4Layer,
 };
@@ -177,6 +178,33 @@ impl Packet {
     pub fn arp(&self) -> Option<ArpLayer> {
         self.get_layer(LayerKind::Arp)
             .map(|idx| ArpLayer::new(idx.start, idx.end))
+    }
+
+    /// Get a LayerEnum for a given LayerIndex.
+    pub fn layer_enum(&self, idx: &LayerIndex) -> LayerEnum {
+        match idx.kind {
+            LayerKind::Ethernet => LayerEnum::Ethernet(EthernetLayer::new(idx.start, idx.end)),
+            LayerKind::Dot3 => LayerEnum::Dot3(Dot3Layer::new(idx.start, idx.end)),
+            LayerKind::Arp => LayerEnum::Arp(ArpLayer::new(idx.start, idx.end)),
+            LayerKind::Ipv4 => LayerEnum::Ipv4(Ipv4Layer::new(idx.start, idx.end)),
+            LayerKind::Ipv6 => LayerEnum::Ipv6(Ipv6Layer { index: *idx }),
+            LayerKind::Icmp => LayerEnum::Icmp(IcmpLayer { index: *idx }),
+            LayerKind::Icmpv6 => LayerEnum::Icmpv6(Icmpv6Layer { index: *idx }),
+            LayerKind::Tcp => LayerEnum::Tcp(TcpLayer::new(idx.start, idx.end)),
+            LayerKind::Udp => LayerEnum::Udp(UdpLayer { index: *idx }),
+            LayerKind::Dns => LayerEnum::Dns(DnsLayer { index: *idx }),
+            LayerKind::Raw
+            | LayerKind::Dot1Q
+            | LayerKind::Dot1AD
+            | LayerKind::Dot1AH
+            | LayerKind::LLC
+            | LayerKind::SNAP => LayerEnum::Raw(RawLayer { index: *idx }),
+        }
+    }
+
+    /// Get all layers as LayerEnum objects.
+    pub fn layer_enums(&self) -> Vec<LayerEnum> {
+        self.layers.iter().map(|idx| self.layer_enum(idx)).collect()
     }
 
     // ========================================================================
