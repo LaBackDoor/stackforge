@@ -279,38 +279,127 @@ impl PyPacket {
         PyBytes::new(py, self.inner.payload())
     }
 
-    /// Returns a string representation of the packet.
+    /// Returns a Scapy-style string representation of the packet.
+    ///
+    /// For parsed packets, shows a summary of each layer:
+    /// `<Ether src=00:11:22:33:44:55 dst=ff:ff:ff:ff:ff:ff | IP 192.168.1.1 > 192.168.1.2 | TCP 80 > 8080 [S]>`
     fn __repr__(&self) -> String {
-        let layer_info = if self.inner.is_parsed() {
-            let kinds: Vec<_> = self.inner.layers().iter().map(|l| l.kind.name()).collect();
-            kinds.join(" / ")
+        if !self.inner.is_parsed() {
+            return format!("<Packet len={} [unparsed]>", self.inner.len());
+        }
+
+        let buf = self.inner.as_bytes();
+        let summaries: Vec<String> = self
+            .inner
+            .layer_enums()
+            .iter()
+            .map(|layer| layer.summary(buf))
+            .collect();
+
+        if summaries.is_empty() {
+            format!("<Packet len={} [no layers]>", self.inner.len())
         } else {
-            "unparsed".to_string()
-        };
-        format!("<Packet len={} layers=[{}]>", self.inner.len(), layer_info)
+            format!("<{}>", summaries.join(" | "))
+        }
     }
 
-    /// Returns a human-readable summary of the packet structure.
+    /// Returns a Scapy-style detailed view of the packet structure.
+    ///
+    /// Displays each layer with all its fields, similar to Scapy's show() method:
+    /// ```text
+    /// ###[ Ethernet ]###
+    ///   dst       = ff:ff:ff:ff:ff:ff
+    ///   src       = 00:11:22:33:44:55
+    ///   type      = 0x0800 (IPv4)
+    /// ###[ IP ]###
+    ///   version   = 4
+    ///   ihl       = 5
+    ///   ...
+    /// ```
     fn show(&self) -> String {
         let mut output = String::new();
-        output.push_str(&format!("###[ Packet: {} bytes ]###\n", self.inner.len()));
 
         if !self.inner.is_parsed() {
-            output.push_str("  (not parsed)\n");
+            output.push_str(&format!("###[ Packet: {} bytes ]###\n", self.inner.len()));
+            output.push_str("  (not parsed - call parse() first)\n");
             return output;
         }
 
-        for layer in self.inner.layers() {
-            output.push_str(&format!("###[ {} ]###\n", layer.kind.name()));
-            output.push_str(&format!(
-                "     offset = {}..{} ({} bytes)\n",
-                layer.start,
-                layer.end,
-                layer.len()
-            ));
+        let buf = self.inner.as_bytes();
+
+        for layer_enum in self.inner.layer_enums() {
+            let kind = layer_enum.kind();
+            output.push_str(&format!("###[ {} ]###\n", kind.name()));
+
+            // Get all fields for this layer
+            let fields = layer_enum.show_fields(buf);
+
+            // Calculate max field name length for alignment
+            let max_name_len = fields.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+
+            for (name, value) in fields {
+                output.push_str(&format!(
+                    "  {:<width$} = {}\n",
+                    name,
+                    value,
+                    width = max_name_len
+                ));
+            }
+        }
+
+        // Show payload if any
+        let payload = self.inner.payload();
+        if !payload.is_empty() {
+            output.push_str(&format!("###[ Raw Payload: {} bytes ]###\n", payload.len()));
+            // Show first 32 bytes as hex preview
+            let preview_len = payload.len().min(32);
+            let hex_str: String = payload[..preview_len]
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            output.push_str(&format!("  {}", hex_str));
+            if payload.len() > 32 {
+                output.push_str("...");
+            }
+            output.push('\n');
         }
 
         output
+    }
+
+    /// Returns a compact one-line summary of the packet.
+    ///
+    /// Example: `Ether / IP / TCP 80 > 8080 [S]`
+    fn summary(&self) -> String {
+        if !self.inner.is_parsed() {
+            return format!("Packet ({} bytes, unparsed)", self.inner.len());
+        }
+
+        let buf = self.inner.as_bytes();
+        let layer_names: Vec<String> = self
+            .inner
+            .layers()
+            .iter()
+            .map(|l| l.kind.name().to_string())
+            .collect();
+
+        if layer_names.is_empty() {
+            format!("Packet ({} bytes, no layers)", self.inner.len())
+        } else {
+            // Get summary of the last significant layer
+            let layers = self.inner.layer_enums();
+            if let Some(last) = layers.last() {
+                let last_summary = last.summary(buf);
+                format!(
+                    "{} / {}",
+                    layer_names[..layer_names.len() - 1].join(" / "),
+                    last_summary
+                )
+            } else {
+                layer_names.join(" / ")
+            }
+        }
     }
 
     /// Returns a hexdump of the packet bytes.

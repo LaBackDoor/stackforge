@@ -290,6 +290,422 @@ impl LayerEnum {
             Self::Raw(l) => l.header_len(buf),
         }
     }
+
+    /// Returns a detailed field-by-field representation for show() output.
+    /// Format: Vec<(field_name, field_value)>
+    pub fn show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> {
+        match self {
+            Self::Ethernet(l) => ethernet_show_fields(l, buf),
+            Self::Dot3(l) => dot3_show_fields(l, buf),
+            Self::Arp(l) => arp_show_fields(l, buf),
+            Self::Ipv4(l) => ipv4_show_fields(l, buf),
+            Self::Ipv6(l) => ipv6_show_fields(l, buf),
+            Self::Icmp(l) => icmp_show_fields(l, buf),
+            Self::Icmpv6(l) => icmpv6_show_fields(l, buf),
+            Self::Tcp(l) => tcp_show_fields(l, buf),
+            Self::Udp(l) => udp_show_fields(l, buf),
+            Self::Dns(l) => dns_show_fields(l, buf),
+            Self::Raw(l) => raw_show_fields(l, buf),
+        }
+    }
+}
+
+// ============================================================================
+// Show Fields Implementations
+// ============================================================================
+
+fn ethernet_show_fields(l: &EthernetLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "dst",
+        l.dst(buf)
+            .map(|m| m.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "src",
+        l.src(buf)
+            .map(|m| m.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let etype = l.ethertype(buf).unwrap_or(0);
+    fields.push((
+        "type",
+        format!("{:#06x} ({})", etype, ethertype::name(etype)),
+    ));
+    fields
+}
+
+fn dot3_show_fields(l: &Dot3Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "dst",
+        l.dst(buf)
+            .map(|m| m.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "src",
+        l.src(buf)
+            .map(|m| m.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "len",
+        l.len_field(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields
+}
+
+fn arp_show_fields(l: &ArpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    let hwtype = l.hwtype(buf).unwrap_or(0);
+    fields.push((
+        "hwtype",
+        format!("{:#06x} ({})", hwtype, arp::hardware_type::name(hwtype)),
+    ));
+    let ptype = l.ptype(buf).unwrap_or(0);
+    fields.push(("ptype", format!("{:#06x}", ptype)));
+    fields.push((
+        "hwlen",
+        l.hwlen(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "plen",
+        l.plen(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let op = l.op(buf).unwrap_or(0);
+    fields.push(("op", format!("{} ({})", op, arp::opcode::name(op))));
+    fields.push((
+        "hwsrc",
+        l.hwsrc_raw(buf)
+            .map(|a| a.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "psrc",
+        l.psrc_raw(buf)
+            .map(|a| a.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "hwdst",
+        l.hwdst_raw(buf)
+            .map(|a| a.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "pdst",
+        l.pdst_raw(buf)
+            .map(|a| a.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields
+}
+
+fn ipv4_show_fields(l: &Ipv4Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "version",
+        l.version(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ihl",
+        l.ihl(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "tos",
+        l.tos(buf)
+            .map(|v| format!("{:#04x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "len",
+        l.total_len(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "id",
+        l.id(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "flags",
+        l.flags(buf)
+            .map(|f| f.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "frag",
+        l.frag_offset(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ttl",
+        l.ttl(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let proto = l.protocol(buf).unwrap_or(0);
+    fields.push(("proto", format!("{} ({})", proto, l.protocol_name(buf))));
+    fields.push((
+        "chksum",
+        l.checksum(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "src",
+        l.src(buf)
+            .map(|ip| ip.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dst",
+        l.dst(buf)
+            .map(|ip| ip.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    // Options (if present)
+    let opts_len = l.options_len(buf);
+    if opts_len > 0 {
+        fields.push(("options", format!("[{} bytes]", opts_len)));
+    }
+    fields
+}
+
+fn ipv6_show_fields(l: &Ipv6Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let slice = l.index.slice(buf);
+    let mut fields = Vec::new();
+    if slice.len() >= 40 {
+        let version = (slice[0] >> 4) & 0x0F;
+        fields.push(("version", version.to_string()));
+        let traffic_class = ((slice[0] & 0x0F) << 4) | ((slice[1] >> 4) & 0x0F);
+        fields.push(("tc", format!("{:#04x}", traffic_class)));
+        let flow_label =
+            ((slice[1] as u32 & 0x0F) << 16) | ((slice[2] as u32) << 8) | (slice[3] as u32);
+        fields.push(("fl", format!("{:#07x}", flow_label)));
+        let payload_len = u16::from_be_bytes([slice[4], slice[5]]);
+        fields.push(("plen", payload_len.to_string()));
+        let nh = slice[6];
+        fields.push(("nh", format!("{} ({})", nh, ipv4::protocol::to_name(nh))));
+        let hlim = slice[7];
+        fields.push(("hlim", hlim.to_string()));
+        // src/dst addresses
+        if slice.len() >= 40 {
+            let mut src_bytes = [0u8; 16];
+            let mut dst_bytes = [0u8; 16];
+            src_bytes.copy_from_slice(&slice[8..24]);
+            dst_bytes.copy_from_slice(&slice[24..40]);
+            let src = std::net::Ipv6Addr::from(src_bytes);
+            let dst = std::net::Ipv6Addr::from(dst_bytes);
+            fields.push(("src", src.to_string()));
+            fields.push(("dst", dst.to_string()));
+        }
+    }
+    fields
+}
+
+fn icmp_show_fields(l: &IcmpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let slice = l.index.slice(buf);
+    let mut fields = Vec::new();
+    if !slice.is_empty() {
+        let icmp_type = slice[0];
+        let type_name = match icmp_type {
+            0 => "echo-reply",
+            3 => "dest-unreach",
+            4 => "source-quench",
+            5 => "redirect",
+            8 => "echo-request",
+            11 => "time-exceeded",
+            12 => "parameter-problem",
+            13 => "timestamp",
+            14 => "timestamp-reply",
+            _ => "unknown",
+        };
+        fields.push(("type", format!("{} ({})", icmp_type, type_name)));
+    }
+    if slice.len() > 1 {
+        fields.push(("code", slice[1].to_string()));
+    }
+    if slice.len() >= 4 {
+        let chksum = u16::from_be_bytes([slice[2], slice[3]]);
+        fields.push(("chksum", format!("{:#06x}", chksum)));
+    }
+    if slice.len() >= 8 {
+        let id = u16::from_be_bytes([slice[4], slice[5]]);
+        let seq = u16::from_be_bytes([slice[6], slice[7]]);
+        fields.push(("id", format!("{:#06x}", id)));
+        fields.push(("seq", seq.to_string()));
+    }
+    fields
+}
+
+fn icmpv6_show_fields(l: &Icmpv6Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let slice = l.index.slice(buf);
+    let mut fields = Vec::new();
+    if !slice.is_empty() {
+        let icmp_type = slice[0];
+        let type_name = match icmp_type {
+            1 => "dest-unreach",
+            2 => "pkt-too-big",
+            3 => "time-exceeded",
+            4 => "param-problem",
+            128 => "echo-request",
+            129 => "echo-reply",
+            133 => "router-solicit",
+            134 => "router-advert",
+            135 => "neighbor-solicit",
+            136 => "neighbor-advert",
+            _ => "unknown",
+        };
+        fields.push(("type", format!("{} ({})", icmp_type, type_name)));
+    }
+    if slice.len() > 1 {
+        fields.push(("code", slice[1].to_string()));
+    }
+    if slice.len() >= 4 {
+        let chksum = u16::from_be_bytes([slice[2], slice[3]]);
+        fields.push(("chksum", format!("{:#06x}", chksum)));
+    }
+    fields
+}
+
+fn tcp_show_fields(l: &TcpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "sport",
+        l.src_port(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dport",
+        l.dst_port(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "seq",
+        l.seq(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ack",
+        l.ack(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dataofs",
+        l.data_offset(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "reserved",
+        l.reserved(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "flags",
+        l.flags(buf)
+            .map(|f| f.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "window",
+        l.window(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "chksum",
+        l.checksum(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "urgptr",
+        l.urgent_ptr(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    // Options (if present)
+    let opts_len = l.options_len(buf);
+    if opts_len > 0 {
+        fields.push(("options", format!("[{} bytes]", opts_len)));
+    }
+    fields
+}
+
+fn udp_show_fields(l: &UdpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let slice = l.index.slice(buf);
+    let mut fields = Vec::new();
+    if slice.len() >= 2 {
+        let sport = u16::from_be_bytes([slice[0], slice[1]]);
+        fields.push(("sport", sport.to_string()));
+    }
+    if slice.len() >= 4 {
+        let dport = u16::from_be_bytes([slice[2], slice[3]]);
+        fields.push(("dport", dport.to_string()));
+    }
+    if slice.len() >= 6 {
+        let len = u16::from_be_bytes([slice[4], slice[5]]);
+        fields.push(("len", len.to_string()));
+    }
+    if slice.len() >= 8 {
+        let chksum = u16::from_be_bytes([slice[6], slice[7]]);
+        fields.push(("chksum", format!("{:#06x}", chksum)));
+    }
+    fields
+}
+
+fn dns_show_fields(l: &DnsLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let slice = l.index.slice(buf);
+    let mut fields = Vec::new();
+    if slice.len() >= 12 {
+        let id = u16::from_be_bytes([slice[0], slice[1]]);
+        fields.push(("id", format!("{:#06x}", id)));
+        let flags = u16::from_be_bytes([slice[2], slice[3]]);
+        let qr = if (flags & 0x8000) != 0 {
+            "response"
+        } else {
+            "query"
+        };
+        fields.push(("qr", qr.to_string()));
+        let opcode = (flags >> 11) & 0x0F;
+        fields.push(("opcode", opcode.to_string()));
+        let qdcount = u16::from_be_bytes([slice[4], slice[5]]);
+        fields.push(("qdcount", qdcount.to_string()));
+        let ancount = u16::from_be_bytes([slice[6], slice[7]]);
+        fields.push(("ancount", ancount.to_string()));
+        let nscount = u16::from_be_bytes([slice[8], slice[9]]);
+        fields.push(("nscount", nscount.to_string()));
+        let arcount = u16::from_be_bytes([slice[10], slice[11]]);
+        fields.push(("arcount", arcount.to_string()));
+    }
+    fields
+}
+
+fn raw_show_fields(l: &RawLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let slice = l.index.slice(buf);
+    vec![("load", format!("[{} bytes]", slice.len()))]
 }
 
 // Placeholder layer structs (to be fully implemented in later weeks)
