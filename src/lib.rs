@@ -8,7 +8,10 @@
 
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-use stackforge_core::{LayerKind as RustLayerKind, Packet as RustPacket, PacketError};
+use stackforge_core::{
+    FieldValue, LayerKind as RustLayerKind, MacAddress, Packet as RustPacket, PacketError,
+};
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 /// Python-visible wrapper for LayerKind enum.
 #[pyclass(name = "LayerKind", eq)]
@@ -406,6 +409,221 @@ impl PyPacket {
     fn hexdump(&self) -> String {
         hexdump_bytes(self.inner.as_bytes())
     }
+
+    /// Dynamic field access - allows pkt.src, pkt.dst, etc.
+    ///
+    /// Searches through all layers for a field with the given name and returns
+    /// its value. This enables Scapy-like field access syntax.
+    ///
+    /// Example:
+    ///     >>> pkt.parse()
+    ///     >>> print(pkt.src)  # Returns the MAC or IP source depending on layer
+    fn __getattr__<'py>(&self, py: Python<'py>, name: &str) -> PyResult<Py<PyAny>> {
+        // Search through layers from bottom to top (like Scapy)
+        for layer_enum in self.inner.layer_enums() {
+            if let Some(result) = layer_enum.get_field(self.inner.as_bytes(), name) {
+                return match result {
+                    Ok(value) => field_value_to_python(py, value),
+                    Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{}", e))),
+                };
+            }
+        }
+        Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+            "Packet has no field '{}'",
+            name
+        )))
+    }
+
+    /// Dynamic field mutation - allows pkt.src = "00:11:22:33:44:55", etc.
+    ///
+    /// Searches through all layers for a field with the given name and sets
+    /// its value. This triggers copy-on-write semantics for the underlying buffer.
+    ///
+    /// Example:
+    ///     >>> pkt.parse()
+    ///     >>> pkt.src = "00:11:22:33:44:55"
+    fn __setattr__(&mut self, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Search through layers to find which one has this field
+        let layer_enums = self.inner.layer_enums();
+        for layer_enum in &layer_enums {
+            let field_names = layer_enum.field_names();
+            if field_names.contains(&name) {
+                // Convert Python value to FieldValue
+                let field_value = python_to_field_value(value, name, layer_enum)?;
+
+                // Use copy-on-write mutation
+                self.inner.with_data_mut(|buf| {
+                    if let Some(result) = layer_enum.set_field(buf, name, field_value) {
+                        result
+                            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))
+                    } else {
+                        Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+                            "Field '{}' not writable",
+                            name
+                        )))
+                    }
+                })?;
+                return Ok(());
+            }
+        }
+        Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+            "Packet has no field '{}'",
+            name
+        )))
+    }
+
+    /// Returns all field names available across all layers.
+    #[getter]
+    fn fields(&self) -> Vec<&'static str> {
+        let mut all_fields = Vec::new();
+        for layer_enum in self.inner.layer_enums() {
+            for name in layer_enum.field_names() {
+                if !all_fields.contains(name) {
+                    all_fields.push(*name);
+                }
+            }
+        }
+        all_fields
+    }
+
+    /// Get a field value from a specific layer by kind.
+    ///
+    /// Args:
+    ///     kind: The LayerKind to get the field from
+    ///     name: The field name
+    ///
+    /// Returns:
+    ///     The field value
+    ///
+    /// Raises:
+    ///     KeyError: If the layer or field doesn't exist
+    fn getfieldval<'py>(
+        &self,
+        py: Python<'py>,
+        kind: PyLayerKind,
+        name: &str,
+    ) -> PyResult<Py<PyAny>> {
+        for layer_enum in self.inner.layer_enums() {
+            if layer_enum.kind() == kind.to_rust() {
+                if let Some(result) = layer_enum.get_field(self.inner.as_bytes(), name) {
+                    return match result {
+                        Ok(value) => field_value_to_python(py, value),
+                        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{}", e))),
+                    };
+                } else {
+                    return Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                        "Field '{}' not found in {} layer",
+                        name,
+                        kind.name()
+                    )));
+                }
+            }
+        }
+        Err(pyo3::exceptions::PyKeyError::new_err(format!(
+            "Layer {} not found in packet",
+            kind.name()
+        )))
+    }
+}
+
+/// Convert a FieldValue to a Python object.
+fn field_value_to_python(py: Python<'_>, value: FieldValue) -> PyResult<Py<PyAny>> {
+    match value {
+        FieldValue::U8(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::U16(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::U32(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::U64(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::Mac(v) => Ok(v.to_string().into_pyobject(py)?.into_any().unbind()),
+        FieldValue::Ipv4(v) => Ok(v.to_string().into_pyobject(py)?.into_any().unbind()),
+        FieldValue::Ipv6(v) => Ok(v.to_string().into_pyobject(py)?.into_any().unbind()),
+        FieldValue::Bytes(v) => Ok(PyBytes::new(py, &v).into_any().unbind()),
+    }
+}
+
+/// Convert a Python value to a FieldValue based on context.
+fn python_to_field_value(
+    value: &Bound<'_, PyAny>,
+    field_name: &str,
+    _layer: &stackforge_core::LayerEnum,
+) -> PyResult<FieldValue> {
+    // Try to get the field descriptor to know the expected type
+    // For now, we'll use heuristics based on field name and Python value type
+
+    // If it's a string, try to parse as MAC or IP address
+    if let Ok(s) = value.extract::<String>() {
+        // Try MAC address first
+        if let Ok(mac) = MacAddress::parse(&s) {
+            return Ok(FieldValue::Mac(mac));
+        }
+        // Try IPv4
+        if let Ok(ip) = s.parse::<Ipv4Addr>() {
+            return Ok(FieldValue::Ipv4(ip));
+        }
+        // Try IPv6
+        if let Ok(ip) = s.parse::<Ipv6Addr>() {
+            return Ok(FieldValue::Ipv6(ip));
+        }
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Cannot parse '{}' as a valid field value",
+            s
+        )));
+    }
+
+    // If it's bytes, return as Bytes
+    if let Ok(bytes) = value.extract::<Vec<u8>>() {
+        return Ok(FieldValue::Bytes(bytes));
+    }
+
+    // Try numeric types
+    if let Ok(v) = value.extract::<u64>() {
+        // Try to figure out the right size based on the field
+        // Use layer.field_names() and common field patterns
+        let names_16 = [
+            "type", "len", "sport", "dport", "window", "chksum", "urgptr", "id", "frag", "hwtype",
+            "ptype", "op",
+        ];
+        let names_8 = [
+            "ttl", "proto", "protocol", "ihl", "version", "tos", "hwlen", "plen", "code",
+            "dataofs", "reserved",
+        ];
+        let names_32 = ["seq", "ack"];
+
+        if names_8.contains(&field_name)
+            || v <= u8::MAX as u64
+                && names_16.iter().all(|n| *n != field_name)
+                && names_32.iter().all(|n| *n != field_name)
+        {
+            if let Ok(v8) = u8::try_from(v) {
+                return Ok(FieldValue::U8(v8));
+            }
+        }
+        if names_16.contains(&field_name) {
+            if let Ok(v16) = u16::try_from(v) {
+                return Ok(FieldValue::U16(v16));
+            }
+        }
+        if names_32.contains(&field_name) {
+            if let Ok(v32) = u32::try_from(v) {
+                return Ok(FieldValue::U32(v32));
+            }
+        }
+
+        // Default fallback based on value range
+        if v <= u8::MAX as u64 {
+            return Ok(FieldValue::U8(v as u8));
+        } else if v <= u16::MAX as u64 {
+            return Ok(FieldValue::U16(v as u16));
+        } else if v <= u32::MAX as u64 {
+            return Ok(FieldValue::U32(v as u32));
+        } else {
+            return Ok(FieldValue::U64(v));
+        }
+    }
+
+    Err(pyo3::exceptions::PyTypeError::new_err(format!(
+        "Cannot convert Python value to field type for '{}'",
+        field_name
+    )))
 }
 
 /// Formats bytes as a hexdump string.
