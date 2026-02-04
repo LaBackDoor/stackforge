@@ -170,7 +170,7 @@ fn test_dot3_frame_creation() {
 
 #[test]
 fn test_dot3_extract_padding() {
-    let mut frame = Dot3Builder::new().len(4).build();
+    let mut frame = make_dot3_frame();
     frame.extend_from_slice(&[0xde, 0xad, 0xbe, 0xef]); // Payload
     frame.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // Padding
 

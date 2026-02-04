@@ -9,6 +9,8 @@ pub mod ethernet;
 pub mod field;
 pub mod ipv4;
 pub mod neighbor;
+pub mod raw;
+pub mod stack;
 pub mod tcp;
 
 use std::ops::Range;
@@ -20,6 +22,8 @@ pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
 pub use ipv4::{Ipv4Builder, Ipv4Flags, Ipv4Layer, Ipv4Options, Ipv4Route};
 pub use neighbor::{NeighborCache, NeighborResolver};
+pub use raw::{RAW_FIELDS, RawBuilder, RawLayer};
+pub use stack::{IntoLayerStackEntry, LayerStack, LayerStackEntry};
 pub use tcp::{
     TCP_FIELDS, TCP_MAX_HEADER_LEN, TCP_MIN_HEADER_LEN, TCP_SERVICES, TcpAoValue, TcpBuilder,
     TcpFlags, TcpLayer, TcpOption, TcpOptionKind, TcpOptions, TcpOptionsBuilder, TcpSackBlock,
@@ -152,6 +156,13 @@ impl LayerIndex {
     #[inline]
     pub fn slice<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         &buf[self.start..self.end.min(buf.len())]
+    }
+
+    /// Get mutable bytes for this layer from a buffer
+    #[inline]
+    pub fn slice_mut<'a>(&self, buf: &'a mut [u8]) -> &'a mut [u8] {
+        let end = self.end.min(buf.len());
+        &mut buf[self.start..end]
     }
 
     /// Get payload bytes (everything after this layer)
@@ -305,7 +316,7 @@ impl LayerEnum {
             Self::Tcp(l) => tcp_show_fields(l, buf),
             Self::Udp(l) => udp_show_fields(l, buf),
             Self::Dns(l) => dns_show_fields(l, buf),
-            Self::Raw(l) => raw_show_fields(l, buf),
+            Self::Raw(l) => raw::raw_show_fields(l, buf),
         }
     }
 
@@ -318,13 +329,9 @@ impl LayerEnum {
             Self::Arp(l) => l.get_field(buf, name),
             Self::Ipv4(l) => l.get_field(buf, name),
             Self::Tcp(l) => l.get_field(buf, name),
+            Self::Raw(l) => l.get_field(buf, name),
             // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_)
-            | Self::Icmp(_)
-            | Self::Icmpv6(_)
-            | Self::Udp(_)
-            | Self::Dns(_)
-            | Self::Raw(_) => None,
+            Self::Ipv6(_) | Self::Icmp(_) | Self::Icmpv6(_) | Self::Udp(_) | Self::Dns(_) => None,
         }
     }
 
@@ -342,13 +349,9 @@ impl LayerEnum {
             Self::Arp(l) => l.set_field(buf, name, value),
             Self::Ipv4(l) => l.set_field(buf, name, value),
             Self::Tcp(l) => l.set_field(buf, name, value),
+            Self::Raw(l) => l.set_field(buf, name, value),
             // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_)
-            | Self::Icmp(_)
-            | Self::Icmpv6(_)
-            | Self::Udp(_)
-            | Self::Dns(_)
-            | Self::Raw(_) => None,
+            Self::Ipv6(_) | Self::Icmp(_) | Self::Icmpv6(_) | Self::Udp(_) | Self::Dns(_) => None,
         }
     }
 
@@ -360,13 +363,9 @@ impl LayerEnum {
             Self::Arp(_) => ArpLayer::field_names(),
             Self::Ipv4(_) => Ipv4Layer::field_names(),
             Self::Tcp(_) => TcpLayer::field_names(),
+            Self::Raw(_) => RawLayer::field_names(),
             // Placeholder layers
-            Self::Ipv6(_)
-            | Self::Icmp(_)
-            | Self::Icmpv6(_)
-            | Self::Udp(_)
-            | Self::Dns(_)
-            | Self::Raw(_) => &[],
+            Self::Ipv6(_) | Self::Icmp(_) | Self::Icmpv6(_) | Self::Udp(_) | Self::Dns(_) => &[],
         }
     }
 }
@@ -764,11 +763,6 @@ fn dns_show_fields(l: &DnsLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     fields
 }
 
-fn raw_show_fields(l: &RawLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
-    let slice = l.index.slice(buf);
-    vec![("load", format!("[{} bytes]", slice.len()))]
-}
-
 // Placeholder layer structs (to be fully implemented in later weeks)
 #[derive(Debug, Clone)]
 pub struct Ipv6Layer {
@@ -852,20 +846,6 @@ impl DnsLayer {
     }
     pub fn header_len(&self, _buf: &[u8]) -> usize {
         12
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RawLayer {
-    pub index: LayerIndex,
-}
-
-impl RawLayer {
-    pub fn summary(&self, buf: &[u8]) -> String {
-        format!("Raw ({} bytes)", self.index.slice(buf).len())
-    }
-    pub fn header_len(&self, buf: &[u8]) -> usize {
-        self.index.slice(buf).len()
     }
 }
 
