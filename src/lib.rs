@@ -5,11 +5,26 @@
 //!
 //! The bindings expose the high-performance Rust packet manipulation
 //! engine to Python, enabling Scapy-like ergonomics with native speed.
+//!
+//! ## Layer Stacking
+//!
+//! Stackforge supports Scapy-like layer stacking using the `/` operator:
+//!
+//! ```python
+//! from stackforge import Ether, IP, TCP
+//!
+//! # Build a TCP SYN packet
+//! pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / IP(dst="192.168.1.1") / TCP(dport=80, flags="S")
+//! print(pkt.show())
+//! ```
 
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use stackforge_core::{
-    FieldValue, LayerKind as RustLayerKind, MacAddress, Packet as RustPacket, PacketError,
+    ArpBuilder as RustArpBuilder, EthernetBuilder as RustEthernetBuilder, FieldValue,
+    Ipv4Builder as RustIpv4Builder, LayerKind as RustLayerKind, LayerStack as RustLayerStack,
+    LayerStackEntry as RustLayerStackEntry, MacAddress, Packet as RustPacket, PacketError,
+    TcpBuilder as RustTcpBuilder,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -667,6 +682,804 @@ fn hexdump_bytes(data: &[u8]) -> String {
     output
 }
 
+// ============================================================================
+// Layer Stack (for stacking layers with / operator)
+// ============================================================================
+
+/// A stack of protocol layers that can be combined using the / operator.
+///
+/// Example:
+///     >>> from stackforge import Ether, IP, TCP
+///     >>> pkt = Ether() / IP(dst="192.168.1.1") / TCP(dport=80)
+///     >>> print(pkt.show())
+#[pyclass(name = "LayerStack")]
+#[derive(Clone)]
+pub struct PyLayerStack {
+    inner: RustLayerStack,
+}
+
+#[pymethods]
+impl PyLayerStack {
+    /// Create a new empty layer stack.
+    #[new]
+    fn new() -> Self {
+        Self {
+            inner: RustLayerStack::new(),
+        }
+    }
+
+    /// Build the layer stack into a Packet.
+    fn build(&self) -> PyPacket {
+        PyPacket {
+            inner: self.inner.build_packet(),
+        }
+    }
+
+    /// Build the layer stack into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    /// Get the number of layers in the stack.
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Stack another layer or layer stack on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut new_stack = self.inner.clone();
+
+        // Try to extract as different layer types
+        if let Ok(stack) = other.extract::<PyLayerStack>() {
+            new_stack = new_stack.stack(stack.inner);
+        } else if let Ok(eth) = other.extract::<PyEther>() {
+            new_stack.add(RustLayerStackEntry::Ethernet(eth.inner));
+        } else if let Ok(ip) = other.extract::<PyIP>() {
+            new_stack.add(RustLayerStackEntry::Ipv4(ip.inner));
+        } else if let Ok(tcp) = other.extract::<PyTCP>() {
+            new_stack.add(RustLayerStackEntry::Tcp(tcp.inner));
+        } else if let Ok(arp) = other.extract::<PyARP>() {
+            new_stack.add(RustLayerStackEntry::Arp(arp.inner));
+        } else if let Ok(raw) = other.extract::<PyRaw>() {
+            new_stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            new_stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: new_stack })
+    }
+
+    /// Right-hand division (for stacking raw bytes on left).
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut new_stack = RustLayerStack::new();
+
+        // Add the left operand first
+        if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            new_stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+
+        // Then add our layers
+        new_stack = new_stack.stack(self.inner.clone());
+
+        Ok(PyLayerStack { inner: new_stack })
+    }
+
+    /// Show the packet structure (like Scapy's show()).
+    fn show(&self) -> String {
+        let pkt = self.inner.build_packet();
+        show_packet(&pkt)
+    }
+
+    /// Get a summary of the packet.
+    fn summary(&self) -> String {
+        let pkt = self.inner.build_packet();
+        summary_packet(&pkt)
+    }
+
+    fn __repr__(&self) -> String {
+        let pkt = self.inner.build_packet();
+        repr_packet(&pkt)
+    }
+}
+
+// Helper functions for packet display
+fn show_packet(pkt: &RustPacket) -> String {
+    let mut output = String::new();
+    let buf = pkt.as_bytes();
+
+    for layer_enum in pkt.layer_enums() {
+        let kind = layer_enum.kind();
+        output.push_str(&format!("###[ {} ]###\n", kind.name()));
+
+        let fields = layer_enum.show_fields(buf);
+        let max_name_len = fields.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+
+        for (name, value) in fields {
+            output.push_str(&format!(
+                "  {:<width$} = {}\n",
+                name,
+                value,
+                width = max_name_len
+            ));
+        }
+    }
+
+    let payload = pkt.payload();
+    if !payload.is_empty() {
+        output.push_str(&format!("###[ Raw Payload: {} bytes ]###\n", payload.len()));
+        let preview_len = payload.len().min(32);
+        let hex_str: String = payload[..preview_len]
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join(" ");
+        output.push_str(&format!("  {}", hex_str));
+        if payload.len() > 32 {
+            output.push_str("...");
+        }
+        output.push('\n');
+    }
+
+    output
+}
+
+fn summary_packet(pkt: &RustPacket) -> String {
+    let layer_names: Vec<String> = pkt
+        .layers()
+        .iter()
+        .map(|l| l.kind.name().to_string())
+        .collect();
+
+    if layer_names.is_empty() {
+        format!("Packet ({} bytes)", pkt.len())
+    } else {
+        layer_names.join(" / ")
+    }
+}
+
+fn repr_packet(pkt: &RustPacket) -> String {
+    let buf = pkt.as_bytes();
+    let summaries: Vec<String> = pkt
+        .layer_enums()
+        .iter()
+        .map(|layer| layer.summary(buf))
+        .collect();
+
+    if summaries.is_empty() {
+        format!("<Packet len={}>", pkt.len())
+    } else {
+        format!("<{}>", summaries.join(" | "))
+    }
+}
+
+// ============================================================================
+// Ethernet Layer Builder
+// ============================================================================
+
+/// Ethernet II frame builder.
+///
+/// Example:
+///     >>> eth = Ether(dst="ff:ff:ff:ff:ff:ff", src="00:11:22:33:44:55")
+///     >>> print(eth.show())
+#[pyclass(name = "Ether")]
+#[derive(Clone)]
+pub struct PyEther {
+    inner: RustEthernetBuilder,
+}
+
+#[pymethods]
+impl PyEther {
+    /// Create a new Ethernet frame.
+    ///
+    /// Args:
+    ///     dst: Destination MAC address (default: broadcast)
+    ///     src: Source MAC address (default: 00:00:00:00:00:00)
+    ///     type: EtherType (auto-set based on payload)
+    #[new]
+    #[pyo3(signature = (dst=None, src=None, r#type=None))]
+    fn new(dst: Option<&str>, src: Option<&str>, r#type: Option<u16>) -> PyResult<Self> {
+        let mut builder = RustEthernetBuilder::new();
+
+        if let Some(dst_str) = dst {
+            let mac = MacAddress::parse(dst_str).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+            })?;
+            builder = builder.dst(mac);
+        }
+
+        if let Some(src_str) = src {
+            let mac = MacAddress::parse(src_str).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+            })?;
+            builder = builder.src(mac);
+        }
+
+        if let Some(etype) = r#type {
+            builder = builder.ethertype(etype);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Ethernet(self.inner.clone()));
+
+        // Add the other layer
+        if let Ok(ip) = other.extract::<PyIP>() {
+            stack.add(RustLayerStackEntry::Ipv4(ip.inner));
+        } else if let Ok(tcp) = other.extract::<PyTCP>() {
+            stack.add(RustLayerStackEntry::Tcp(tcp.inner));
+        } else if let Ok(arp) = other.extract::<PyARP>() {
+            stack.add(RustLayerStackEntry::Arp(arp.inner));
+        } else if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<Ether>".to_string()
+    }
+}
+
+// ============================================================================
+// IPv4 Layer Builder
+// ============================================================================
+
+/// IPv4 packet builder.
+///
+/// Example:
+///     >>> ip = IP(dst="192.168.1.1", ttl=64)
+///     >>> print(ip.show())
+#[pyclass(name = "IP")]
+#[derive(Clone)]
+pub struct PyIP {
+    inner: RustIpv4Builder,
+}
+
+#[pymethods]
+impl PyIP {
+    /// Create a new IPv4 packet.
+    ///
+    /// Args:
+    ///     src: Source IP address
+    ///     dst: Destination IP address
+    ///     ttl: Time to live (default: 64)
+    ///     proto: Protocol number (auto-set based on payload)
+    ///     id: Identification field
+    ///     flags: IP flags (DF, MF)
+    ///     tos: Type of service
+    #[new]
+    #[pyo3(signature = (src=None, dst=None, ttl=None, proto=None, id=None, flags=None, tos=None, len=None))]
+    fn new(
+        src: Option<&str>,
+        dst: Option<&str>,
+        ttl: Option<u8>,
+        proto: Option<u8>,
+        id: Option<u16>,
+        flags: Option<&str>,
+        tos: Option<u8>,
+        len: Option<u16>,
+    ) -> PyResult<Self> {
+        let mut builder = RustIpv4Builder::new();
+
+        if let Some(src_str) = src {
+            let ip: Ipv4Addr = src_str.parse().map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
+            })?;
+            builder = builder.src(ip);
+        }
+
+        if let Some(dst_str) = dst {
+            let ip: Ipv4Addr = dst_str.parse().map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
+            })?;
+            builder = builder.dst(ip);
+        }
+
+        if let Some(t) = ttl {
+            builder = builder.ttl(t);
+        }
+
+        if let Some(p) = proto {
+            builder = builder.protocol(p);
+        }
+
+        if let Some(i) = id {
+            builder = builder.id(i);
+        }
+
+        if let Some(flag_str) = flags {
+            for c in flag_str.chars() {
+                match c {
+                    'D' | 'd' => builder = builder.dont_fragment(),
+                    'M' | 'm' => builder = builder.more_fragments(),
+                    _ => {}
+                }
+            }
+        }
+
+        if let Some(t) = tos {
+            builder = builder.tos(t);
+        }
+
+        if let Some(l) = len {
+            builder = builder.total_len(l);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Ipv4(self.inner.clone()));
+
+        // Add the other layer
+        if let Ok(tcp) = other.extract::<PyTCP>() {
+            stack.add(RustLayerStackEntry::Tcp(tcp.inner));
+        } else if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<IP>".to_string()
+    }
+}
+
+// ============================================================================
+// TCP Layer Builder
+// ============================================================================
+
+/// TCP segment builder.
+///
+/// Example:
+///     >>> tcp = TCP(dport=80, sport=12345, flags="S")
+///     >>> print(tcp.show())
+#[pyclass(name = "TCP")]
+#[derive(Clone)]
+pub struct PyTCP {
+    inner: RustTcpBuilder,
+}
+
+#[pymethods]
+impl PyTCP {
+    /// Create a new TCP segment.
+    ///
+    /// Args:
+    ///     sport: Source port (default: 20)
+    ///     dport: Destination port (default: 80)
+    ///     seq: Sequence number
+    ///     ack: Acknowledgment number
+    ///     flags: TCP flags as string (S=SYN, A=ACK, F=FIN, R=RST, P=PSH)
+    ///     window: Window size
+    #[new]
+    #[pyo3(signature = (sport=None, dport=None, seq=None, ack=None, flags=None, window=None, dataofs=None))]
+    fn new(
+        sport: Option<u16>,
+        dport: Option<u16>,
+        seq: Option<u32>,
+        ack: Option<u32>,
+        flags: Option<&str>,
+        window: Option<u16>,
+        dataofs: Option<u8>,
+    ) -> PyResult<Self> {
+        let mut builder = RustTcpBuilder::new();
+
+        if let Some(p) = sport {
+            builder = builder.src_port(p);
+        }
+
+        if let Some(p) = dport {
+            builder = builder.dst_port(p);
+        }
+
+        if let Some(s) = seq {
+            builder = builder.seq(s);
+        }
+
+        if let Some(a) = ack {
+            builder = builder.ack_num(a);
+        }
+
+        if let Some(flag_str) = flags {
+            builder = builder.flags_str(flag_str);
+        }
+
+        if let Some(w) = window {
+            builder = builder.window(w);
+        }
+
+        if let Some(d) = dataofs {
+            builder = builder.data_offset(d);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Tcp(self.inner.clone()));
+
+        // Add the other layer (TCP can only have raw payload)
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<TCP>".to_string()
+    }
+}
+
+// ============================================================================
+// ARP Layer Builder
+// ============================================================================
+
+/// ARP packet builder.
+///
+/// Example:
+///     >>> arp = ARP(op="who-has", pdst="192.168.1.1")
+///     >>> print(arp.show())
+#[pyclass(name = "ARP")]
+#[derive(Clone)]
+pub struct PyARP {
+    inner: RustArpBuilder,
+}
+
+#[pymethods]
+impl PyARP {
+    /// Create a new ARP packet.
+    ///
+    /// Args:
+    ///     op: Operation ("who-has" or "is-at", or numeric 1/2)
+    ///     hwsrc: Hardware source address
+    ///     psrc: Protocol source address
+    ///     hwdst: Hardware destination address
+    ///     pdst: Protocol destination address
+    #[new]
+    #[pyo3(signature = (op=None, hwsrc=None, psrc=None, hwdst=None, pdst=None))]
+    fn new(
+        op: Option<&Bound<'_, PyAny>>,
+        hwsrc: Option<&str>,
+        psrc: Option<&str>,
+        hwdst: Option<&str>,
+        pdst: Option<&str>,
+    ) -> PyResult<Self> {
+        let mut builder = RustArpBuilder::new();
+
+        if let Some(op_val) = op {
+            if let Ok(op_str) = op_val.extract::<String>() {
+                match op_str.to_lowercase().as_str() {
+                    "who-has" | "request" | "1" => builder = builder.op(1), // REQUEST
+                    "is-at" | "reply" | "2" => builder = builder.op(2),     // REPLY
+                    _ => {
+                        return Err(pyo3::exceptions::PyValueError::new_err(
+                            "Invalid ARP operation",
+                        ));
+                    }
+                }
+            } else if let Ok(op_num) = op_val.extract::<u16>() {
+                builder = builder.op(op_num);
+            }
+        }
+
+        if let Some(mac_str) = hwsrc {
+            let mac = MacAddress::parse(mac_str).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+            })?;
+            builder = builder.hwsrc(mac);
+        }
+
+        if let Some(ip_str) = psrc {
+            let ip: Ipv4Addr = ip_str.parse().map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
+            })?;
+            builder = builder.psrc(ip);
+        }
+
+        if let Some(mac_str) = hwdst {
+            let mac = MacAddress::parse(mac_str).map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+            })?;
+            builder = builder.hwdst(mac);
+        }
+
+        if let Some(ip_str) = pdst {
+            let ip: Ipv4Addr = ip_str.parse().map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
+            })?;
+            builder = builder.pdst(ip);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Arp(self.inner.clone()));
+
+        // ARP doesn't really have payloads, but support raw data
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<ARP>".to_string()
+    }
+}
+
+// ============================================================================
+// Raw Layer (Payload)
+// ============================================================================
+
+/// Raw payload data.
+///
+/// Example:
+///     >>> raw = Raw(load=b"Hello, World!")
+///     >>> raw = Raw.from_hex("deadbeef")
+///     >>> raw = Raw.zeros(100)
+#[pyclass(name = "Raw")]
+#[derive(Clone)]
+pub struct PyRaw {
+    data: Vec<u8>,
+}
+
+#[pymethods]
+impl PyRaw {
+    /// Create a raw payload layer.
+    ///
+    /// Args:
+    ///     load: Raw bytes payload (bytes or string)
+    #[new]
+    #[pyo3(signature = (load=None))]
+    fn new(load: Option<&Bound<'_, PyAny>>) -> PyResult<Self> {
+        let data = if let Some(l) = load {
+            if let Ok(bytes) = l.extract::<Vec<u8>>() {
+                bytes
+            } else if let Ok(s) = l.extract::<String>() {
+                s.into_bytes()
+            } else {
+                return Err(pyo3::exceptions::PyTypeError::new_err(
+                    "load must be bytes or string",
+                ));
+            }
+        } else {
+            Vec::new()
+        };
+
+        Ok(Self { data })
+    }
+
+    /// Create a Raw layer from a hex string.
+    ///
+    /// Args:
+    ///     hex_str: Hex string (e.g., "deadbeef" or "de:ad:be:ef")
+    ///
+    /// Returns:
+    ///     Raw layer with the decoded bytes
+    ///
+    /// Example:
+    ///     >>> raw = Raw.from_hex("deadbeef")
+    ///     >>> raw = Raw.from_hex("de ad be ef")
+    #[staticmethod]
+    fn from_hex(hex_str: &str) -> PyResult<Self> {
+        // Remove common separators (spaces, colons, dashes)
+        let clean: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+
+        if clean.is_empty() || clean.len() % 2 != 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid hex string: must be non-empty with even number of hex digits",
+            ));
+        }
+
+        let bytes: Result<Vec<u8>, _> = (0..clean.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&clean[i..i + 2], 16))
+            .collect();
+
+        match bytes {
+            Ok(data) => Ok(Self { data }),
+            Err(_) => Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid hex string",
+            )),
+        }
+    }
+
+    /// Create a Raw layer filled with zeros.
+    ///
+    /// Args:
+    ///     length: Number of zero bytes
+    ///
+    /// Example:
+    ///     >>> raw = Raw.zeros(100)
+    #[staticmethod]
+    fn zeros(length: usize) -> Self {
+        Self {
+            data: vec![0u8; length],
+        }
+    }
+
+    /// Create a Raw layer with a repeated byte value.
+    ///
+    /// Args:
+    ///     byte: Byte value to repeat (0-255)
+    ///     count: Number of times to repeat
+    ///
+    /// Example:
+    ///     >>> raw = Raw.repeat(0x41, 10)  # "AAAAAAAAAA"
+    #[staticmethod]
+    fn repeat(byte: u8, count: usize) -> Self {
+        Self {
+            data: vec![byte; count],
+        }
+    }
+
+    /// Create a Raw layer with a repeated pattern.
+    ///
+    /// Args:
+    ///     pattern: Bytes pattern to repeat
+    ///     length: Total length of the result
+    ///
+    /// Example:
+    ///     >>> raw = Raw.pattern(b"AB", 7)  # b"ABABABA"
+    #[staticmethod]
+    fn pattern(pattern: Vec<u8>, length: usize) -> Self {
+        Self {
+            data: pattern.iter().cycle().take(length).copied().collect(),
+        }
+    }
+
+    /// Get the raw payload data.
+    #[getter]
+    fn load<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.data)
+    }
+
+    /// Get the hex representation of the payload.
+    #[getter]
+    fn hex(&self) -> String {
+        self.data.iter().map(|b| format!("{:02x}", b)).collect()
+    }
+
+    /// Get a hex representation with spaces between bytes.
+    fn hexdump(&self) -> String {
+        self.data
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Pad the payload to a minimum length with zeros.
+    fn pad(&self, min_len: usize) -> Self {
+        let mut data = self.data.clone();
+        if data.len() < min_len {
+            data.resize(min_len, 0);
+        }
+        Self { data }
+    }
+
+    /// Pad the payload to a minimum length with a specific byte.
+    fn pad_with(&self, min_len: usize, byte: u8) -> Self {
+        let mut data = self.data.clone();
+        if data.len() < min_len {
+            data.resize(min_len, byte);
+        }
+        Self { data }
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Raw(self.data.clone()));
+
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.data)
+    }
+
+    fn __len__(&self) -> usize {
+        self.data.len()
+    }
+
+    fn __repr__(&self) -> String {
+        if self.data.len() <= 16 {
+            format!("<Raw load={}>", self.hex())
+        } else {
+            format!("<Raw load={} bytes>", self.data.len())
+        }
+    }
+
+    fn __str__(&self) -> String {
+        self.hexdump()
+    }
+}
+
 /// Stackforge: High-performance network packet manipulation.
 ///
 /// This module provides Python bindings to the Rust networking engine,
@@ -676,5 +1489,13 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPacket>()?;
     m.add_class::<PyLayerKind>()?;
     m.add_class::<PyLayerIndex>()?;
+
+    // Layer builders (Scapy-style)
+    m.add_class::<PyEther>()?;
+    m.add_class::<PyIP>()?;
+    m.add_class::<PyTCP>()?;
+    m.add_class::<PyARP>()?;
+    m.add_class::<PyRaw>()?;
+    m.add_class::<PyLayerStack>()?;
     Ok(())
 }

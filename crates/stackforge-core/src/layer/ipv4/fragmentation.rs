@@ -564,6 +564,7 @@ pub fn fragment_packet(packet: &[u8], mtu: usize) -> Result<Vec<Vec<u8>>, Fragme
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Ipv4Builder;
 
     fn build_large_packet(payload_size: usize) -> Vec<u8> {
         Ipv4Builder::new()
