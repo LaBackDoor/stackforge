@@ -19,11 +19,18 @@ pub mod offsets {
     pub const TYPE: usize = 12;
 }
 
-/// Field descriptors for dynamic access.
+/// Field descriptors for dynamic access (Ethernet II).
 pub static FIELDS: &[FieldDesc] = &[
     FieldDesc::new("dst", offsets::DST, 6, FieldType::Mac),
     FieldDesc::new("src", offsets::SRC, 6, FieldType::Mac),
     FieldDesc::new("type", offsets::TYPE, 2, FieldType::U16),
+];
+
+/// Field descriptors for dynamic access (802.3/Dot3).
+pub static DOT3_FIELDS: &[FieldDesc] = &[
+    FieldDesc::new("dst", offsets::DST, 6, FieldType::Mac),
+    FieldDesc::new("src", offsets::SRC, 6, FieldType::Mac),
+    FieldDesc::new("len", offsets::TYPE, 2, FieldType::U16),
 ];
 
 /// Frame type discrimination result
@@ -395,6 +402,30 @@ impl Dot3Layer {
             .map(|m| m.to_string())
             .unwrap_or_else(|_| "?".into());
         format!("802.3 {} > {}", src, dst)
+    }
+
+    // ========== Dynamic Field Access ==========
+    pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
+        DOT3_FIELDS
+            .iter()
+            .find(|f| f.name == name)
+            .map(|desc| FieldValue::read(buf, &desc.with_offset(self.index.start)))
+    }
+
+    pub fn set_field(
+        &self,
+        buf: &mut [u8],
+        name: &str,
+        value: FieldValue,
+    ) -> Option<Result<(), FieldError>> {
+        DOT3_FIELDS
+            .iter()
+            .find(|f| f.name == name)
+            .map(|desc| value.write(buf, &desc.with_offset(self.index.start)))
+    }
+
+    pub fn field_names() -> &'static [&'static str] {
+        &["dst", "src", "len"]
     }
 }
 

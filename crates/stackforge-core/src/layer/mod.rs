@@ -308,6 +308,67 @@ impl LayerEnum {
             Self::Raw(l) => raw_show_fields(l, buf),
         }
     }
+
+    /// Get a field value by name from this layer.
+    /// Returns None if the field doesn't exist in this layer type.
+    pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
+        match self {
+            Self::Ethernet(l) => l.get_field(buf, name),
+            Self::Dot3(l) => l.get_field(buf, name),
+            Self::Arp(l) => l.get_field(buf, name),
+            Self::Ipv4(l) => l.get_field(buf, name),
+            Self::Tcp(l) => l.get_field(buf, name),
+            // Placeholder layers don't have dynamic field access yet
+            Self::Ipv6(_)
+            | Self::Icmp(_)
+            | Self::Icmpv6(_)
+            | Self::Udp(_)
+            | Self::Dns(_)
+            | Self::Raw(_) => None,
+        }
+    }
+
+    /// Set a field value by name in this layer.
+    /// Returns None if the field doesn't exist in this layer type.
+    pub fn set_field(
+        &self,
+        buf: &mut [u8],
+        name: &str,
+        value: FieldValue,
+    ) -> Option<Result<(), FieldError>> {
+        match self {
+            Self::Ethernet(l) => l.set_field(buf, name, value),
+            Self::Dot3(l) => l.set_field(buf, name, value),
+            Self::Arp(l) => l.set_field(buf, name, value),
+            Self::Ipv4(l) => l.set_field(buf, name, value),
+            Self::Tcp(l) => l.set_field(buf, name, value),
+            // Placeholder layers don't have dynamic field access yet
+            Self::Ipv6(_)
+            | Self::Icmp(_)
+            | Self::Icmpv6(_)
+            | Self::Udp(_)
+            | Self::Dns(_)
+            | Self::Raw(_) => None,
+        }
+    }
+
+    /// Get the list of field names for this layer type.
+    pub fn field_names(&self) -> &'static [&'static str] {
+        match self {
+            Self::Ethernet(_) => EthernetLayer::field_names(),
+            Self::Dot3(_) => Dot3Layer::field_names(),
+            Self::Arp(_) => ArpLayer::field_names(),
+            Self::Ipv4(_) => Ipv4Layer::field_names(),
+            Self::Tcp(_) => TcpLayer::field_names(),
+            // Placeholder layers
+            Self::Ipv6(_)
+            | Self::Icmp(_)
+            | Self::Icmpv6(_)
+            | Self::Udp(_)
+            | Self::Dns(_)
+            | Self::Raw(_) => &[],
+        }
+    }
 }
 
 // ============================================================================
