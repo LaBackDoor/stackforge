@@ -39,7 +39,7 @@ jobs:
         run: uv run maturin develop
 
       - name: Test Rust
-        run: cargo test
+        run: uv run cargo test
 
       - name: Test Python
         run: uv run pytest tests/python
