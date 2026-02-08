@@ -1,4 +1,4 @@
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 # Re-export all public classes from the Rust extension
 from stackforge.stackforge import (
