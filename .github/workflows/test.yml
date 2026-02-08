@@ -36,7 +36,7 @@ jobs:
           uv sync --frozen --no-install-project
 
       - name: Build and Install
-        run: uvx maturin develop
+        run: uv run maturin develop
 
       - name: Test Rust
         run: cargo test
