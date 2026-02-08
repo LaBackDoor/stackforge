@@ -3,6 +3,8 @@
 //! Implements RFC 1071 Internet checksum algorithm used for IPv4 headers.
 //! The checksum is computed lazily - only when the packet is serialized.
 
+use crate::utils::internet_checksum;
+
 /// Compute the Internet checksum (RFC 1071) over a byte slice.
 ///
 /// This is the standard one's complement sum used for IP, ICMP, TCP, and UDP.
@@ -31,31 +33,8 @@ pub fn ipv4_checksum(data: &[u8]) -> u16 {
     internet_checksum(data)
 }
 
-/// Generic Internet checksum implementation (RFC 1071).
-///
-/// Can be used for any protocol that uses the Internet checksum.
-pub fn internet_checksum(data: &[u8]) -> u16 {
-    let mut sum: u32 = 0;
-
-    // Process 16-bit words
-    let mut chunks = data.chunks_exact(2);
-    for chunk in chunks.by_ref() {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
-    }
-
-    // Handle odd byte (pad with zero)
-    if let Some(&last) = chunks.remainder().first() {
-        sum += (last as u32) << 8;
-    }
-
-    // Fold 32-bit sum to 16 bits (add carry)
-    while (sum >> 16) != 0 {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-
-    // One's complement
-    !sum as u16
-}
+// Note: internet_checksum, partial_checksum, and finalize_checksum
+// are now imported from crate::utils::checksum
 
 /// Verify that a checksum is valid.
 ///
@@ -203,35 +182,9 @@ pub fn transport_checksum(
     }
 }
 
-/// Helper to compute partial checksum (before folding and complement).
-///
-/// Useful for computing checksum across multiple data segments.
-pub fn partial_checksum(data: &[u8], initial: u32) -> u32 {
-    let mut sum = initial;
-
-    let mut chunks = data.chunks_exact(2);
-    for chunk in chunks.by_ref() {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
-    }
-
-    if let Some(&last) = chunks.remainder().first() {
-        sum += (last as u32) << 8;
-    }
-
-    sum
-}
-
-/// Finalize a partial checksum.
-///
-/// Folds the 32-bit sum to 16 bits and takes one's complement.
-#[inline]
-pub fn finalize_checksum(sum: u32) -> u16 {
-    let mut s = sum;
-    while (s >> 16) != 0 {
-        s = (s & 0xFFFF) + (s >> 16);
-    }
-    !s as u16
-}
+// Note: partial_checksum and finalize_checksum moved to crate::utils::checksum
+// and are re-exported from this module for backwards compatibility.
+pub use crate::utils::{finalize_checksum, partial_checksum};
 
 /// Zero out checksum field in a buffer at the specified offset.
 #[inline]

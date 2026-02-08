@@ -58,6 +58,10 @@ pub struct TcpBuilder {
     // IP addresses for checksum calculation
     src_ip: Option<IpAddr>,
     dst_ip: Option<IpAddr>,
+
+    // Tracks whether flags were explicitly set by the user.
+    // When true, the default SYN flag has already been cleared.
+    flags_explicitly_set: bool,
 }
 
 /// IP address enum for checksum calculation.
@@ -98,6 +102,7 @@ impl Default for TcpBuilder {
             auto_data_offset: true,
             src_ip: None,
             dst_ip: None,
+            flags_explicitly_set: false,
         }
     }
 }
@@ -199,71 +204,94 @@ impl TcpBuilder {
     /// Set the flags.
     pub fn flags(mut self, flags: TcpFlags) -> Self {
         self.flags = flags;
+        self.flags_explicitly_set = true;
         self
     }
 
     /// Set flags from a string like "S", "SA", "FA", etc.
     pub fn flags_str(mut self, s: &str) -> Self {
         self.flags = TcpFlags::from_str(s);
+        self.flags_explicitly_set = true;
         self
+    }
+
+    /// Clear default flags on first explicit flag call.
+    /// The default has SYN set (matching Scapy's TCP() default), but when
+    /// the user explicitly sets flags via individual methods, the default
+    /// should be cleared first so e.g. `.fin()` produces only FIN, not SYN|FIN.
+    fn clear_defaults_if_needed(&mut self) {
+        if !self.flags_explicitly_set {
+            self.flags = TcpFlags::from_u16(0);
+            self.flags_explicitly_set = true;
+        }
     }
 
     /// Set the SYN flag.
     pub fn syn(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.syn = true;
         self
     }
 
     /// Set the ACK flag.
     pub fn ack(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.ack = true;
         self
     }
 
     /// Set the FIN flag.
     pub fn fin(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.fin = true;
         self
     }
 
     /// Set the RST flag.
     pub fn rst(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.rst = true;
         self
     }
 
     /// Set the PSH flag.
     pub fn psh(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.psh = true;
         self
     }
 
     /// Set the URG flag.
     pub fn urg(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.urg = true;
         self
     }
 
     /// Set the ECE flag.
     pub fn ece(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.ece = true;
         self
     }
 
     /// Set the CWR flag.
     pub fn cwr(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.cwr = true;
         self
     }
 
     /// Set the NS flag.
     pub fn ns(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.ns = true;
         self
     }
 
     /// Set SYN+ACK flags.
     pub fn syn_ack(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.syn = true;
         self.flags.ack = true;
         self
@@ -271,6 +299,7 @@ impl TcpBuilder {
 
     /// Set FIN+ACK flags.
     pub fn fin_ack(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.fin = true;
         self.flags.ack = true;
         self
@@ -278,6 +307,7 @@ impl TcpBuilder {
 
     /// Set PSH+ACK flags.
     pub fn psh_ack(mut self) -> Self {
+        self.clear_defaults_if_needed();
         self.flags.psh = true;
         self.flags.ack = true;
         self

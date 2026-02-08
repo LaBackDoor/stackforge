@@ -18,7 +18,7 @@ use crate::layer::{
     TcpLayer, UdpLayer,
     arp::ArpLayer,
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
-    ethertype, ip_protocol,
+    ethertype, icmp, ip_protocol,
     ipv4::Ipv4Layer,
 };
 
@@ -178,6 +178,24 @@ impl Packet {
     pub fn arp(&self) -> Option<ArpLayer> {
         self.get_layer(LayerKind::Arp)
             .map(|idx| ArpLayer::new(idx.start, idx.end))
+    }
+
+    /// Get the ICMP layer view if present.
+    pub fn icmp(&self) -> Option<IcmpLayer> {
+        self.get_layer(LayerKind::Icmp)
+            .map(|idx| IcmpLayer { index: *idx })
+    }
+
+    /// Get the TCP layer view if present.
+    pub fn tcp(&self) -> Option<TcpLayer> {
+        self.get_layer(LayerKind::Tcp)
+            .map(|idx| TcpLayer::new(idx.start, idx.end))
+    }
+
+    /// Get the UDP layer view if present.
+    pub fn udp(&self) -> Option<UdpLayer> {
+        self.get_layer(LayerKind::Udp)
+            .map(|idx| UdpLayer { index: *idx })
     }
 
     /// Get a LayerEnum for a given LayerIndex.
@@ -407,8 +425,26 @@ impl Packet {
                 actual: self.data.len(),
             });
         }
+
+        // Add ICMP layer
         self.layers
             .push(LayerIndex::new(LayerKind::Icmp, offset, self.data.len()));
+
+        // Check if this is an ICMP error message that contains an embedded packet
+        // Error types: 3 (dest unreach), 4 (source quench), 5 (redirect), 11 (time exceeded), 12 (param problem)
+        if offset < self.data.len() {
+            let icmp_type = self.data[offset];
+            if icmp::is_error_type(icmp_type) {
+                // ICMP error messages have 8-byte header, then embedded IP packet
+                let embedded_offset = offset + 8;
+                if embedded_offset < self.data.len() {
+                    // Try to parse the embedded IP packet
+                    // Silently ignore errors since the embedded packet might be truncated
+                    let _ = self.parse_ipv4(embedded_offset);
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -566,5 +602,215 @@ mod tests {
             eth.src(packet.as_bytes()).unwrap(),
             MacAddress::new([0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff])
         );
+    }
+
+    #[test]
+    fn test_icmp_error_packet_parsing() {
+        // ICMP Destination Unreachable with embedded UDP packet
+        let data = vec![
+            // Ethernet header (14 bytes)
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, // dst
+            0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, // src
+            0x08, 0x00, // ethertype: IPv4
+            // Outer IPv4 header (20 bytes) - ICMP error message from router
+            0x45, 0x00, 0x00, 0x38, // ver/ihl, tos, total len = 56
+            0x00, 0x01, 0x00, 0x00, // id, flags, frag offset
+            0x40, 0x01, 0x00, 0x00, // ttl=64, proto=ICMP, checksum
+            192, 168, 1, 1, // src: router
+            192, 168, 1, 100, // dst: original sender
+            // ICMP Destination Unreachable (8 bytes)
+            0x03, // type = 3 (dest unreachable)
+            0x03, // code = 3 (port unreachable)
+            0x00, 0x00, // checksum
+            0x00, 0x00, 0x00, 0x00, // unused
+            // Embedded original IPv4 header (20 bytes)
+            0x45, 0x00, 0x00, 0x1c, // ver/ihl, tos, total len = 28
+            0xab, 0xcd, 0x00, 0x00, // id, flags, frag offset
+            0x40, 0x11, 0x00, 0x00, // ttl=64, proto=UDP, checksum
+            192, 168, 1, 100, // src: original sender
+            8, 8, 8, 8, // dst: 8.8.8.8 (where packet was sent)
+            // Embedded UDP header (first 8 bytes)
+            0x04, 0xd2, // sport = 1234
+            0x00, 0x35, // dport = 53 (DNS)
+            0x00, 0x14, // length = 20
+            0x00, 0x00, // checksum
+        ];
+
+        let mut packet = Packet::from_bytes(data);
+        packet.parse().unwrap();
+
+        // Should have: Ethernet, IP (outer), ICMP, IP (embedded), UDP (embedded)
+        assert_eq!(packet.layer_count(), 5);
+
+        // Verify outer IP layer
+        assert!(packet.ethernet().is_some());
+        assert!(packet.ipv4().is_some());
+        assert!(packet.icmp().is_some());
+
+        // Verify ICMP error type
+        let icmp = packet.icmp().unwrap();
+        let icmp_type = icmp.icmp_type(packet.as_bytes()).unwrap();
+        assert_eq!(icmp_type, 3); // Destination unreachable
+
+        // Verify embedded packet layers exist
+        // The second IP layer is the embedded one
+        let layers = packet.layers();
+        let _embedded_ip_idx = layers
+            .iter()
+            .rposition(|idx| idx.kind == LayerKind::Ipv4)
+            .unwrap();
+
+        // Verify embedded UDP exists
+        assert!(packet.udp().is_some());
+    }
+
+    #[test]
+    fn test_icmp_time_exceeded_with_tcp() {
+        // ICMP Time Exceeded with embedded TCP packet
+        // Note: ICMP error messages typically only include first 8 bytes of transport header
+        let data = vec![
+            // Ethernet header
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00,
+            // Outer IPv4 header
+            0x45, 0x00, 0x00, 0x4c, // total len = 76 (longer to include full embedded packet)
+            0x00, 0x01, 0x00, 0x00, 0x40, 0x01, 0x00, 0x00, 10, 0, 0, 1, // src: router
+            192, 168, 1, 100, // dst: original sender
+            // ICMP Time Exceeded
+            0x0b, // type = 11 (time exceeded)
+            0x00, // code = 0 (TTL exceeded)
+            0x00, 0x00, // checksum
+            0x00, 0x00, 0x00, 0x00, // unused
+            // Embedded original IPv4 header (20 bytes)
+            0x45, 0x00, 0x00, 0x28, // total len = 40 (20 IP + 20 TCP)
+            0x12, 0x34, 0x00, 0x00, 0x01, 0x06, 0x00, 0x00, // ttl=1, proto=TCP
+            192, 168, 1, 100, // src
+            93, 184, 216, 34, // dst
+            // Embedded TCP header (full 20 bytes for proper parsing)
+            0x04, 0xd2, // sport = 1234
+            0x00, 0x50, // dport = 80 (HTTP)
+            0x00, 0x00, 0x00, 0x01, // seq
+            0x00, 0x00, 0x00, 0x00, // ack
+            0x50, 0x02, 0x20, 0x00, // data offset=5, flags=SYN, window
+            0x00, 0x00, // checksum
+            0x00, 0x00, // urgent pointer
+        ];
+
+        let mut packet = Packet::from_bytes(data);
+        packet.parse().unwrap();
+
+        // Should have: Ethernet, IP (outer), ICMP, IP (embedded), TCP (embedded)
+        assert_eq!(packet.layer_count(), 5);
+
+        // Verify layers exist
+        assert!(packet.icmp().is_some());
+        assert!(packet.tcp().is_some());
+
+        // Verify ICMP type
+        let icmp = packet.icmp().unwrap();
+        assert_eq!(icmp.icmp_type(packet.as_bytes()).unwrap(), 11);
+    }
+
+    #[test]
+    fn test_icmp_with_extensions() {
+        // ICMP Time Exceeded with RFC 4884 extensions (Interface Information)
+        let data = vec![
+            // Ethernet header
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // dst
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, // src
+            0x08, 0x00, // ethertype = IPv4
+            // IPv4 header (outer)
+            0x45, 0x00, 0x00, 0xa0, // version, ihl, tos, total_length (160 bytes)
+            0x00, 0x01, 0x00, 0x00, // id, flags, fragment offset
+            0x40, 0x01, 0x00, 0x00, // ttl=64, proto=ICMP, checksum
+            0xc0, 0xa8, 0x01, 0x01, // src = 192.168.1.1
+            0xc0, 0xa8, 0x01, 0x64, // dst = 192.168.1.100
+            // ICMP header
+            0x0b, // type = Time Exceeded
+            0x00, // code = TTL exceeded
+            0x00, 0x00, // checksum (will be wrong, but OK for parsing test)
+            0x00, 0x00, 0x00, 0x00, // unused
+            // Embedded IP packet (padded to 128 bytes per RFC 4884)
+            0x45, 0x00, 0x00, 0x3c, // Embedded IPv4 header
+            0x12, 0x34, 0x40, 0x00, // id, flags
+            0x01, 0x11, 0x00, 0x00, // ttl=1, proto=UDP, checksum
+            0xc0, 0xa8, 0x01, 0x64, // src = 192.168.1.100
+            0x08, 0x08, 0x08, 0x08, // dst = 8.8.8.8
+            // Embedded UDP header (first 8 bytes)
+            0x04, 0xd2, 0x00, 0x35, // sport=1234, dport=53 (DNS)
+            0x00, 0x28, 0x00, 0x00, // length, checksum
+            // Padding to reach 128 bytes total (from start of embedded IP)
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            // ICMP Extension Header (4 bytes)
+            0x20, 0x00, // version=2, reserved=0
+            0x00, 0x00, // checksum (simplified, would need proper calculation)
+            // ICMP Extension Object - Interface Information (classnum=2)
+            0x00, 0x10, // length = 16 bytes
+            0x02, // classnum = Interface Information
+            0x19, // flags: has_ifindex=1, has_ipaddr=1, has_mtu=1
+            0x00, 0x00, 0x00, 0x02, // ifindex = 2
+            0x00, 0x01, 0x00, 0x00, // AFI = IPv4 (1), reserved
+            0xc0, 0xa8, 0x01, 0x01, // IP = 192.168.1.1
+        ];
+
+        let mut packet = Packet::from_bytes(data.clone());
+        packet.parse().unwrap();
+
+        // Verify ICMP layer exists
+        assert!(packet.icmp().is_some());
+        let icmp = packet.icmp().unwrap();
+
+        // Verify ICMP type
+        assert_eq!(
+            icmp.icmp_type(packet.as_bytes()).unwrap(),
+            crate::layer::icmp::types::types::TIME_EXCEEDED
+        );
+
+        // Test extension detection
+        use crate::layer::icmp;
+        let icmp_offset = packet.layers()[1].end; // After outer IP
+        let icmp_payload = &data[icmp_offset + 8..]; // After ICMP header
+
+        assert!(icmp::has_extensions(
+            crate::layer::icmp::types::types::TIME_EXCEEDED,
+            icmp_payload.len()
+        ));
+
+        // Parse extension header
+        let ext_offset = icmp_offset + 8 + 128; // ICMP header + padded payload
+        if let Some((version, _checksum)) = icmp::parse_extension_header(&data, ext_offset) {
+            assert_eq!(version, 2);
+
+            // Parse extension object
+            let obj_offset = ext_offset + 4;
+            if let Some((len, classnum, _classtype, data_offset)) =
+                icmp::parse_extension_object(&data, obj_offset)
+            {
+                assert_eq!(len, 16);
+                assert_eq!(
+                    classnum,
+                    icmp::extensions::class_nums::INTERFACE_INFORMATION
+                );
+
+                // Parse Interface Information
+                let data_len = (len as usize) - 4; // Object length minus header
+                if let Some(info) = icmp::parse_interface_information(&data, data_offset, data_len)
+                {
+                    assert!(info.flags.has_ifindex);
+                    assert!(info.flags.has_ipaddr);
+                    assert_eq!(info.ifindex, Some(2));
+                    if let Some(icmp::IpAddr::V4(ip)) = info.ip_addr {
+                        assert_eq!(ip.to_string(), "192.168.1.1");
+                    } else {
+                        panic!("Expected IPv4 address");
+                    }
+                }
+            }
+        }
     }
 }

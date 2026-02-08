@@ -7,7 +7,7 @@
 //!
 //! ```rust
 //! use stackforge_core::layer::{
-//!     EthernetBuilder, LayerStack, LayerKind,
+//!     EthernetBuilder, LayerStack, LayerStackEntry, LayerKind,
 //!     ipv4::Ipv4Builder,
 //!     tcp::TcpBuilder,
 //! };
@@ -38,13 +38,17 @@
 
 use super::bindings::apply_binding;
 use super::ethernet::{ETHERNET_HEADER_LEN, EthernetBuilder};
+use super::icmp::builder::IcmpBuilder;
 use super::ipv4::builder::Ipv4Builder;
 use super::tcp::builder::TcpBuilder;
+use super::udp::builder::UdpBuilder;
 use super::{ArpBuilder, LayerKind};
 use crate::Packet;
 use crate::layer::arp::ARP_HEADER_LEN;
+use crate::layer::icmp::ICMP_MIN_HEADER_LEN;
 use crate::layer::ipv4::IPV4_MIN_HEADER_LEN;
 use crate::layer::tcp::TCP_MIN_HEADER_LEN;
+use crate::layer::udp::UDP_HEADER_LEN;
 
 /// An entry in a layer stack, representing a protocol layer builder.
 #[derive(Debug, Clone)]
@@ -57,6 +61,10 @@ pub enum LayerStackEntry {
     Ipv4(Ipv4Builder),
     /// TCP layer
     Tcp(TcpBuilder),
+    /// UDP layer
+    Udp(UdpBuilder),
+    /// ICMP layer
+    Icmp(IcmpBuilder),
     /// Raw bytes payload
     Raw(Vec<u8>),
 }
@@ -69,6 +77,8 @@ impl LayerStackEntry {
             Self::Arp(_) => LayerKind::Arp,
             Self::Ipv4(_) => LayerKind::Ipv4,
             Self::Tcp(_) => LayerKind::Tcp,
+            Self::Udp(_) => LayerKind::Udp,
+            Self::Icmp(_) => LayerKind::Icmp,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -80,6 +90,8 @@ impl LayerStackEntry {
             Self::Arp(b) => b.build(),
             Self::Ipv4(b) => b.build(),
             Self::Tcp(b) => b.build(),
+            Self::Udp(b) => b.build(),
+            Self::Icmp(b) => b.build(),
             Self::Raw(data) => data.clone(),
         }
     }
@@ -91,6 +103,8 @@ impl LayerStackEntry {
             Self::Arp(_) => ARP_HEADER_LEN,
             Self::Ipv4(b) => b.header_size(),
             Self::Tcp(b) => b.header_size(),
+            Self::Udp(b) => b.header_size(),
+            Self::Icmp(b) => b.header_size(),
             Self::Raw(data) => data.len(),
         }
     }
@@ -102,6 +116,8 @@ impl LayerStackEntry {
             Self::Arp(_) => ARP_HEADER_LEN,
             Self::Ipv4(_) => IPV4_MIN_HEADER_LEN,
             Self::Tcp(_) => TCP_MIN_HEADER_LEN,
+            Self::Udp(_) => UDP_HEADER_LEN,
+            Self::Icmp(_) => ICMP_MIN_HEADER_LEN,
             Self::Raw(data) => data.len(),
         }
     }
@@ -190,6 +206,8 @@ impl LayerStack {
         // Fix IP and TCP checksum/length if present
         self.fix_ip_fields(&mut layer_bytes, total_len);
         self.fix_tcp_fields(&mut layer_bytes);
+        self.fix_udp_fields(&mut layer_bytes);
+        self.fix_icmp_fields(&mut layer_bytes);
 
         // Concatenate all layers
         layer_bytes.into_iter().flatten().collect()
@@ -283,6 +301,110 @@ impl LayerStack {
                     layer_bytes[tcp_idx][16] = ((checksum >> 8) & 0xFF) as u8;
                     layer_bytes[tcp_idx][17] = (checksum & 0xFF) as u8;
                 }
+            }
+        }
+    }
+
+    /// Fix UDP checksum and length if present.
+    fn fix_udp_fields(&self, layer_bytes: &mut [Vec<u8>]) {
+        // Find IP layer for pseudo-header
+        let mut ip_layer_idx = None;
+        let mut udp_layer_idx = None;
+
+        for (i, layer) in self.layers.iter().enumerate() {
+            if let LayerStackEntry::Ipv4(_) = layer {
+                ip_layer_idx = Some(i);
+            }
+            if let LayerStackEntry::Udp(_) = layer {
+                udp_layer_idx = Some(i);
+            }
+        }
+
+        // If UDP is present without IP, just fix the length field
+        if let Some(udp_idx) = udp_layer_idx {
+            if ip_layer_idx.is_none() {
+                // Standalone UDP - only fix length field, leave checksum as 0
+                let udp_len: usize = layer_bytes[udp_idx..].iter().map(|b| b.len()).sum();
+                if layer_bytes[udp_idx].len() >= 6 {
+                    layer_bytes[udp_idx][4] = ((udp_len >> 8) & 0xFF) as u8;
+                    layer_bytes[udp_idx][5] = (udp_len & 0xFF) as u8;
+                }
+                return;
+            }
+        }
+
+        if let (Some(ip_idx), Some(udp_idx)) = (ip_layer_idx, udp_layer_idx) {
+            let ip_bytes = &layer_bytes[ip_idx];
+            if ip_bytes.len() >= 20 {
+                // Extract source and destination IPs
+                let mut src_bytes = [0u8; 4];
+                let mut dst_bytes = [0u8; 4];
+                src_bytes.copy_from_slice(&ip_bytes[12..16]);
+                dst_bytes.copy_from_slice(&ip_bytes[16..20]);
+                let src_ip = std::net::Ipv4Addr::from(src_bytes);
+                let dst_ip = std::net::Ipv4Addr::from(dst_bytes);
+
+                // Calculate UDP length (header + payload)
+                let udp_len: usize = layer_bytes[udp_idx..].iter().map(|b| b.len()).sum();
+
+                // Update length field (bytes 4-5)
+                if layer_bytes[udp_idx].len() >= 6 {
+                    layer_bytes[udp_idx][4] = ((udp_len >> 8) & 0xFF) as u8;
+                    layer_bytes[udp_idx][5] = (udp_len & 0xFF) as u8;
+                }
+
+                // Zero out checksum field (bytes 6-7)
+                if layer_bytes[udp_idx].len() >= 8 {
+                    layer_bytes[udp_idx][6] = 0;
+                    layer_bytes[udp_idx][7] = 0;
+                }
+
+                // Collect UDP segment (header + payload)
+                let udp_segment: Vec<u8> =
+                    layer_bytes[udp_idx..].iter().flatten().copied().collect();
+
+                // Calculate checksum
+                let checksum =
+                    crate::layer::udp::checksum::udp_checksum_ipv4(src_ip, dst_ip, &udp_segment);
+
+                // Write checksum back
+                if layer_bytes[udp_idx].len() >= 8 {
+                    layer_bytes[udp_idx][6] = ((checksum >> 8) & 0xFF) as u8;
+                    layer_bytes[udp_idx][7] = (checksum & 0xFF) as u8;
+                }
+            }
+        }
+    }
+
+    /// Fix ICMP checksum if present.
+    fn fix_icmp_fields(&self, layer_bytes: &mut [Vec<u8>]) {
+        // Find ICMP layer
+        let mut icmp_layer_idx = None;
+
+        for (i, layer) in self.layers.iter().enumerate() {
+            if let LayerStackEntry::Icmp(_) = layer {
+                icmp_layer_idx = Some(i);
+                break;
+            }
+        }
+
+        if let Some(icmp_idx) = icmp_layer_idx {
+            // Zero out checksum field (bytes 2-3)
+            if layer_bytes[icmp_idx].len() >= 4 {
+                layer_bytes[icmp_idx][2] = 0;
+                layer_bytes[icmp_idx][3] = 0;
+            }
+
+            // Collect ICMP message (header + payload)
+            let icmp_message: Vec<u8> = layer_bytes[icmp_idx..].iter().flatten().copied().collect();
+
+            // Calculate checksum
+            let checksum = crate::layer::icmp::checksum::icmp_checksum(&icmp_message);
+
+            // Write checksum back
+            if layer_bytes[icmp_idx].len() >= 4 {
+                layer_bytes[icmp_idx][2] = ((checksum >> 8) & 0xFF) as u8;
+                layer_bytes[icmp_idx][3] = (checksum & 0xFF) as u8;
             }
         }
     }

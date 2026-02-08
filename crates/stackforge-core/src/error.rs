@@ -67,6 +67,12 @@ pub enum PacketError {
     Io(String),
 }
 
+impl From<std::io::Error> for PacketError {
+    fn from(err: std::io::Error) -> Self {
+        PacketError::Io(err.to_string())
+    }
+}
+
 impl PacketError {
     /// Create a buffer too short error.
     pub fn buffer_too_short(expected: usize, actual: usize) -> Self {

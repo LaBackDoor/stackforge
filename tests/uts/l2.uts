@@ -1,0 +1,279 @@
+% Layer 2 regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Layer 2 Unit Tests
+
+= Arping
+~ netaccess needs_root tcpdump
+* This test assumes the local network is a /24. This is bad.
+def _test():
+    ip_address = conf.route.route("0.0.0.0")[2]
+    ip_address
+    arping(ip_address+"/24")
+
+retry_test(_test)
+
+= Arping - interface that has no ip
+~ mock
+
+from unittest import mock
+
+_old_routes = conf.route.routes
+_old_ifaces = conf.ifaces.data.copy()
+
+try:
+    conf.route.routes = [
+        (180996905, 4294967295, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (180997119, 4294967295, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (0, 0, '10.201.203.254', 'eth0', '0.0.0.0', 0),
+        (180996864, 4294967040, '0.0.0.0', 'eth0', '10.201.203.41', 0),
+        (3758096384, 4026531840, '0.0.0.0', 'eth0', '10.201.203.41', 250)
+    ]
+    conf.ifaces._add_fake_iface("toto", mac="11:22:33:aa:bb:cc", ips=[])
+
+    def dummy_srp(pkts, **kwargs):
+        assert pkts.dst == "ff:ff:ff:ff:ff:ff"
+        assert pkts.src == "11:22:33:aa:bb:cc"
+        assert pkts[ARP].psrc == "0.0.0.0"
+        assert pkts[ARP].pdst == Net("192.168.0.1/24")
+        assert pkts[ARP].hwsrc == "11:22:33:aa:bb:cc"
+        # No results, we don't care.
+        return SndRcvList([]), PacketList(pkts)
+
+    with mock.patch("scapy.layers.l2.srp", side_effect=dummy_srp):
+        arping("192.168.0.1/24", iface="toto")
+
+finally:
+    conf.route.routes = _old_routes
+    conf.ifaces.data = _old_ifaces
+
+= Test ARPingResult output
+~ manufdb
+
+ar = ARPingResult([(None, Ether(src='70:ee:50:50:ee:70')/ARP(psrc='192.168.0.1'))])
+with ContextManagerCaptureOutput() as cmco:
+    ar.show()
+    result_ar = cmco.get_output()
+
+assert "70:ee:50:50:ee:70  Netatmo  192.168.0.1" in result_ar
+
+= arp_mitm - IP to IP
+~ arp_mitm
+
+from scapy.plist import QueryAnswer
+
+srp_step = 0
+
+def srp_spoof(x, *args, **kwargs):
+    global srp_step
+    assert x.dst == "ff:ff:ff:ff:ff:ff"
+    if srp_step == 0:
+        assert x.pdst == "192.168.0.1"
+        ans = Ether(src="cc:cc:cc:cc:cc:cc", dst=x.src)/ARP(hwsrc="cc:cc:cc:cc:cc:cc", hwdst=x.hwsrc, psrc=x.pdst, pdst=x.psrc)
+    elif srp_step == 1:
+        assert x.pdst == "192.168.0.2"
+        ans = Ether(src="bb:bb:bb:bb:bb:bb", dst=x.src)/ARP(hwsrc="bb:bb:bb:bb:bb:bb", hwdst=x.hwsrc, psrc=x.pdst, pdst=x.psrc)
+    else:
+        assert False
+    srp_step += 1
+    return SndRcvList([QueryAnswer(x, ans)]), PacketList()
+
+srploop_step = 0
+
+def srploop_spoof(x, *args, **kwargs):
+    assert len(x) == 2
+    assert x[0].dst == "cc:cc:cc:cc:cc:cc"
+    assert x[0].src == x[0].hwsrc == "aa:aa:aa:aa:aa:aa"
+    assert x[0].hwdst == "00:00:00:00:00:00"
+    assert x[0].psrc == "192.168.0.2"
+    assert x[0].pdst == "192.168.0.1"
+    assert x[1].dst == "bb:bb:bb:bb:bb:bb"
+    assert x[1].src == x[1].hwsrc == "aa:aa:aa:aa:aa:aa"
+    assert x[1].hwdst == "00:00:00:00:00:00"
+    assert x[1].psrc == "192.168.0.1"
+    assert x[1].pdst == "192.168.0.2"
+
+def sendp_spoof(x, *args, **kwargs):
+    assert len(x) == 2
+    assert x[0].dst == "ff:ff:ff:ff:ff:ff"
+    assert x[0].src == x[0].hwsrc == "bb:bb:bb:bb:bb:bb"
+    assert x[0].hwdst == "00:00:00:00:00:00"
+    assert x[0].psrc == "192.168.0.2"
+    assert x[0].pdst == "192.168.0.1"
+    assert x[1].dst == "ff:ff:ff:ff:ff:ff"
+    assert x[1].src == x[1].hwsrc == "cc:cc:cc:cc:cc:cc"
+    assert x[1].hwdst == "00:00:00:00:00:00"
+    assert x[1].psrc == "192.168.0.1"
+    assert x[1].pdst == "192.168.0.2"
+
+from unittest import mock
+with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
+     mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
+     mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
+    arp_mitm(
+        "192.168.0.1",
+        "192.168.0.2",
+        target_mac='aa:aa:aa:aa:aa:aa',
+    )
+
+= arp_mitm - IP to range
+~ arp_mitm
+
+from scapy.plist import QueryAnswer
+
+def srp_spoof(x, *args, **kwargs):
+    assert x.dst == "ff:ff:ff:ff:ff:ff"
+    assert x.pdst == Net("192.168.0.2/24")
+    ans = Ether(src="cc:cc:cc:cc:cc:cc", dst=x.src)/ARP(hwsrc="cc:cc:cc:cc:cc:cc", hwdst=x.hwsrc, psrc=x.pdst, pdst=x.psrc)
+    return SndRcvList([
+        QueryAnswer(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.0.2"), Ether(src="cc:cc:cc:cc:cc:cc", dst=x.src)/ARP(hwsrc="cc:cc:cc:cc:cc:cc", psrc="192.168.0.2", pdst="192.168.0.1")),
+        QueryAnswer(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.0.9"), Ether(src="11:11:11:11:11:11", dst=x.src)/ARP(hwsrc="11:11:11:11:11:11", psrc="192.168.0.9", pdst="192.168.0.1")),
+        QueryAnswer(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.0.17"), Ether(src="22:22:22:22:22:22", dst=x.src)/ARP(hwsrc="22:22:22:22:22:22", psrc="192.168.0.17", pdst="192.168.0.1")),
+    ]), PacketList()
+
+srploop_step = 0
+
+def srploop_spoof(x, *args, **kwargs):
+    assert len(x) == 12
+    assert [bytes(y) for y in x] == [
+        b'\xdd\xdd\xdd\xdd\xdd\xdd\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x02\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xdd\xdd\xdd\xdd\xdd\xdd\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\t\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xdd\xdd\xdd\xdd\xdd\xdd\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x11\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xee\xee\xee\xee\xee\xee\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x02\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xee\xee\xee\xee\xee\xee\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\t\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xee\xee\xee\xee\xee\xee\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x11\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xcc\xcc\xcc\xcc\xcc\xcc\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x02',
+        b'\xcc\xcc\xcc\xcc\xcc\xcc\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x02',
+        b'\x11\x11\x11\x11\x11\x11\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\t',
+        b'\x11\x11\x11\x11\x11\x11\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\t',
+        b'""""""\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x11',
+        b'""""""\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x11'
+    ]
+
+def sendp_spoof(x, *args, **kwargs):
+    pass
+
+from unittest import mock
+with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
+     mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
+     mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
+    arp_mitm(
+        "192.168.0.1",
+        "192.168.0.2/24",
+        mac1=["dd:dd:dd:dd:dd:dd", "ee:ee:ee:ee:ee:ee"],
+        target_mac='aa:aa:aa:aa:aa:aa',
+    )
+
+############
+############
++ STP tests
+
+= STP - Basic Instantiation
+assert raw(STP()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00\x02\x00\x0f\x00'
+
+= STP - Basic Dissection
+
+s = STP(b'\x00\x00\x00\x00\x00\x00\x00\x12\x13\x14\x15\x16\x17\x00\x00\x00\x00\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x01\x00\x14\x00\x05\x00\x0f\x00')
+assert s.rootmac == "12:13:14:15:16:17"
+assert s.bridgemac == "aa:aa:aa:aa:aa:aa"
+assert s.hellotime == 5
+
+
+############
+############
++ ARP
+
+= Simple Ether() / ARP() show
+(Ether() / ARP()).show()
+
+= ARP for IPv4
+
+p = raw(ARP())
+assert p == raw(ARP(ptype=0x0800))
+p = ARP(p)
+assert p.ptype == 0x0800
+assert valid_ip(p.pdst)
+assert valid_ip(p.psrc)
+assert isinstance(p.payload, NoPayload)
+
+= ARP for IPv6
+
+p = ARP(raw(ARP(ptype=0x86dd)))
+assert p.ptype == 0x86dd
+assert valid_ip6(p.pdst)
+assert valid_ip6(p.psrc)
+assert isinstance(p.payload, NoPayload)
+
+= Dummy ARP
+
+p = ARP(raw(ARP(plen=2, hwlen=1, hwdst="x", hwsrc="y", pdst="aa", psrc="bb")))
+assert p.hwdst == b"x"
+assert p.hwsrc == b"y"
+assert p.pdst == b"aa"
+assert p.psrc == b"bb"
+assert isinstance(p.payload, NoPayload)
+
+p = ARP(raw(ARP(plen=1, hwlen=1)))
+assert p.hwdst == p.hwsrc == p.pdst == p.psrc == b"\x00"
+assert isinstance(p.payload, NoPayload)
+
+p = ARP(pdst='192.168.178.0/24')
+assert "Net" in repr(p)
+
+
+############
+############
++ 802.1Q bridging tests
+
+= 802.1Q VLAN
+p = Ether(raw(Ether() / Dot1Q(vlan=99) / b"Payload"))
+assert p[Dot1Q].vlan == 99
+
+= 802.1ad Q-in-Q
+p = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1Q(vlan=99) / b"Payload"))
+assert p[Dot1AD].vlan == 88
+assert p[Dot1Q].vlan == 99
+
+= 802.1ah PBB mac-in-mac
+p = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=99) / b"Payload"))
+assert p[Dot1AD].vlan == 88
+assert p[Dot1AH].isid == 123456
+assert p[Dot1Q].vlan == 99
+
+= 802.1ah PBB mac-in-mac - answer
+p = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=99) / b"Payload"))
+q = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=99) / b"Response"))
+r = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=123456) / Ether() / Dot1Q(vlan=90) / b"Payload"))
+s = Ether(raw(Ether() / Dot1AD(vlan=88) / Dot1AH(isid=987654) / Ether() / Dot1Q(vlan=99) / b"Payload"))
+
+assert q.answers(p)
+assert not r.answers(p)
+assert not s.answers(p)
+
+
+############
+############
++ CookedLinux
+
+= CookedLinux - Basic Dissection
+
+cl = CookedLinux(b'\x00\x00\x03\x04\x00\x06\x00\x00\x00\x00\x00\x00\x6f\x50\x08\x00')
+assert cl.pkttype == 0 # unicast
+assert cl.lladdrtype == 772 # loopback
+assert cl.lladdrlen == 6
+assert cl.src == b'\x00\x00\x00\x00\x00\x00\x6f\x50'
+assert cl.proto == 2048
+
+= CookedLinuxV2 - Basic Dissection
+
+clv2 = CookedLinuxV2(b'\x08\x00\x00\x00\x00\x00\x00\x03\x00\x01\x00\x06\xaa\x1f\x9c\xc0\x5a\x7e\x00\x00')
+assert clv2.proto == 2048
+assert clv2.ifindex == 3
+assert clv2.lladdrtype == 1 # ether
+assert clv2.pkttype == 0 # unicast
+assert clv2.lladdrlen == 6
+assert clv2.src == b'\xaa\x1f\x9c\xc0\x5a\x7e\x00\000'

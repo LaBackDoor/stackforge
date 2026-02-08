@@ -36,10 +36,10 @@ jobs:
           uv sync --frozen --no-install-project
 
       - name: Build and Install
-        run: uvx maturin develop
+        run: uv run maturin develop
 
       - name: Test Rust
-        run: cargo test
+        run: uv run cargo test
 
       - name: Test Python
         run: uv run pytest tests/python

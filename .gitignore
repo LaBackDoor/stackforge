@@ -14,6 +14,6 @@ stackforge.egg-info/
 # IDE
 .vscode/
 .idea/
-
+helper_files/
 # Tools
 .bin/

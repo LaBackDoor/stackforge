@@ -4,6 +4,7 @@
 //! as a folder with multiple submodules.
 
 mod arp;
+mod compat_tests;
 mod ethernet;
 mod field;
 mod layer;
