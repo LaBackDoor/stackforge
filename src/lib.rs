@@ -24,7 +24,8 @@ use stackforge_core::{
     ArpBuilder as RustArpBuilder, EthernetBuilder as RustEthernetBuilder, FieldValue,
     IcmpBuilder as RustIcmpBuilder, Ipv4Builder as RustIpv4Builder, LayerKind as RustLayerKind,
     LayerStack as RustLayerStack, LayerStackEntry as RustLayerStackEntry, MacAddress,
-    Packet as RustPacket, PacketError, TcpBuilder as RustTcpBuilder, UdpBuilder as RustUdpBuilder,
+    Packet as RustPacket, PacketError, SshBuilder as RustSshBuilder, TcpBuilder as RustTcpBuilder,
+    UdpBuilder as RustUdpBuilder,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -56,6 +57,8 @@ pub enum PyLayerKind {
     Dot1AH,
     LLC,
     SNAP,
+    /// Secure Shell Protocol
+    Ssh,
     /// Raw payload data
     Raw,
 }
@@ -99,6 +102,7 @@ impl PyLayerKind {
             PyLayerKind::Dot1AH => RustLayerKind::Dot1AH,
             PyLayerKind::LLC => RustLayerKind::LLC,
             PyLayerKind::SNAP => RustLayerKind::SNAP,
+            PyLayerKind::Ssh => RustLayerKind::Ssh,
             PyLayerKind::Raw => RustLayerKind::Raw,
         }
     }
@@ -120,6 +124,7 @@ impl PyLayerKind {
             RustLayerKind::Dot1AH => PyLayerKind::Dot1AH,
             RustLayerKind::LLC => PyLayerKind::LLC,
             RustLayerKind::SNAP => PyLayerKind::SNAP,
+            RustLayerKind::Ssh => PyLayerKind::Ssh,
             RustLayerKind::Raw => PyLayerKind::Raw,
         }
     }
@@ -744,6 +749,8 @@ impl PyLayerStack {
             new_stack.add(RustLayerStackEntry::Icmp(icmp.inner));
         } else if let Ok(arp) = other.extract::<PyARP>() {
             new_stack.add(RustLayerStackEntry::Arp(arp.inner));
+        } else if let Ok(ssh) = other.extract::<PySSH>() {
+            new_stack.add(RustLayerStackEntry::Ssh(ssh.inner));
         } else if let Ok(raw) = other.extract::<PyRaw>() {
             new_stack.add(RustLayerStackEntry::Raw(raw.data));
         } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
@@ -1836,6 +1843,83 @@ impl PyRaw {
 }
 
 // ============================================================================
+// SSH Layer Builder
+// ============================================================================
+
+/// SSH version exchange builder.
+///
+/// Example:
+///     >>> ssh = SSH.version_exchange("OpenSSH_9.2p1")
+///     >>> ssh = SSH()  # default version string
+#[pyclass(name = "SSH")]
+#[derive(Clone)]
+pub struct PySSH {
+    inner: RustSshBuilder,
+}
+
+#[pymethods]
+impl PySSH {
+    /// Create a new SSH version exchange message.
+    ///
+    /// Args:
+    ///     version: SSH version string (default: "stackforge")
+    #[new]
+    #[pyo3(signature = (version=None))]
+    fn new(version: Option<&str>) -> PyResult<Self> {
+        let builder = if let Some(v) = version {
+            RustSshBuilder::version_exchange(v)
+        } else {
+            RustSshBuilder::new()
+        };
+        Ok(Self { inner: builder })
+    }
+
+    /// Create an SSH version exchange message.
+    ///
+    /// Args:
+    ///     version: Version string (e.g., "OpenSSH_9.2p1")
+    ///
+    /// Example:
+    ///     >>> ssh = SSH.version_exchange("OpenSSH_9.2p1")
+    #[classmethod]
+    #[pyo3(signature = (version))]
+    fn version_exchange(_cls: &Bound<'_, pyo3::types::PyType>, version: &str) -> Self {
+        Self {
+            inner: RustSshBuilder::version_exchange(version),
+        }
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Ssh(self.inner.clone()));
+
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<SSH>".to_string()
+    }
+}
+
+// ============================================================================
 // PCAP I/O
 // ============================================================================
 
@@ -2034,6 +2118,7 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyUDP>()?;
     m.add_class::<PyICMP>()?;
     m.add_class::<PyARP>()?;
+    m.add_class::<PySSH>()?;
     m.add_class::<PyRaw>()?;
     m.add_class::<PyLayerStack>()?;
 

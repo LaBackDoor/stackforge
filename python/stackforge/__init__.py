@@ -5,6 +5,7 @@ from stackforge.stackforge import (
     ARP,
     ICMP,
     IP,
+    SSH,
     TCP,
     UDP,
     Ether,
@@ -30,6 +31,7 @@ __all__ = [
     "UDP",
     "ARP",
     "ICMP",
+    "SSH",
     "Raw",
     "LayerStack",
     # PCAP I/O

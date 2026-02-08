@@ -15,11 +15,12 @@ use smallvec::SmallVec;
 use crate::error::{PacketError, Result};
 use crate::layer::{
     DnsLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind, RawLayer,
-    TcpLayer, UdpLayer,
+    SshLayer, TcpLayer, UdpLayer,
     arp::ArpLayer,
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
     ethertype, icmp, ip_protocol,
     ipv4::Ipv4Layer,
+    ssh::{SSH_PORT, is_ssh_payload},
 };
 
 /// Maximum number of layers to store inline before heap allocation.
@@ -211,6 +212,7 @@ impl Packet {
             LayerKind::Tcp => LayerEnum::Tcp(TcpLayer::new(idx.start, idx.end)),
             LayerKind::Udp => LayerEnum::Udp(UdpLayer { index: *idx }),
             LayerKind::Dns => LayerEnum::Dns(DnsLayer { index: *idx }),
+            LayerKind::Ssh => LayerEnum::Ssh(SshLayer { index: *idx }),
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
@@ -383,8 +385,18 @@ impl Packet {
             .push(LayerIndex::new(LayerKind::Tcp, offset, tcp_end));
 
         if tcp_end < self.data.len() {
-            self.layers
-                .push(LayerIndex::new(LayerKind::Raw, tcp_end, self.data.len()));
+            // Check for SSH on port 22
+            let src_port = u16::from_be_bytes([self.data[offset], self.data[offset + 1]]);
+            let dst_port = u16::from_be_bytes([self.data[offset + 2], self.data[offset + 3]]);
+
+            if (src_port == SSH_PORT || dst_port == SSH_PORT)
+                && is_ssh_payload(&self.data[tcp_end..])
+            {
+                self.parse_ssh(tcp_end)?;
+            } else {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Raw, tcp_end, self.data.len()));
+            }
         }
 
         Ok(())
@@ -457,6 +469,42 @@ impl Packet {
         }
         self.layers
             .push(LayerIndex::new(LayerKind::Icmpv6, offset, self.data.len()));
+        Ok(())
+    }
+
+    fn parse_ssh(&mut self, offset: usize) -> Result<()> {
+        let remaining = &self.data[offset..];
+
+        if remaining.len() >= 4 && &remaining[..4] == b"SSH-" {
+            // SSH version exchange - spans until \r\n
+            let end = remaining
+                .windows(2)
+                .position(|w| w == b"\r\n")
+                .map(|p| offset + p + 2)
+                .unwrap_or(self.data.len());
+            self.layers
+                .push(LayerIndex::new(LayerKind::Ssh, offset, end));
+            if end < self.data.len() {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Raw, end, self.data.len()));
+            }
+        } else if remaining.len() >= 5 {
+            // SSH binary packet
+            let pkt_len =
+                u32::from_be_bytes([remaining[0], remaining[1], remaining[2], remaining[3]])
+                    as usize;
+            let end = (offset + 4 + pkt_len).min(self.data.len());
+            self.layers
+                .push(LayerIndex::new(LayerKind::Ssh, offset, end));
+            if end < self.data.len() {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Raw, end, self.data.len()));
+            }
+        } else {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Raw, offset, self.data.len()));
+        }
+
         Ok(())
     }
 
