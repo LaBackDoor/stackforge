@@ -40,6 +40,7 @@ use super::bindings::apply_binding;
 use super::ethernet::{ETHERNET_HEADER_LEN, EthernetBuilder};
 use super::icmp::builder::IcmpBuilder;
 use super::ipv4::builder::Ipv4Builder;
+use super::ssh::builder::SshBuilder;
 use super::tcp::builder::TcpBuilder;
 use super::udp::builder::UdpBuilder;
 use super::{ArpBuilder, LayerKind};
@@ -65,6 +66,8 @@ pub enum LayerStackEntry {
     Udp(UdpBuilder),
     /// ICMP layer
     Icmp(IcmpBuilder),
+    /// SSH layer
+    Ssh(SshBuilder),
     /// Raw bytes payload
     Raw(Vec<u8>),
 }
@@ -79,6 +82,7 @@ impl LayerStackEntry {
             Self::Tcp(_) => LayerKind::Tcp,
             Self::Udp(_) => LayerKind::Udp,
             Self::Icmp(_) => LayerKind::Icmp,
+            Self::Ssh(_) => LayerKind::Ssh,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -92,6 +96,7 @@ impl LayerStackEntry {
             Self::Tcp(b) => b.build(),
             Self::Udp(b) => b.build(),
             Self::Icmp(b) => b.build(),
+            Self::Ssh(b) => b.build(),
             Self::Raw(data) => data.clone(),
         }
     }
@@ -105,6 +110,7 @@ impl LayerStackEntry {
             Self::Tcp(b) => b.header_size(),
             Self::Udp(b) => b.header_size(),
             Self::Icmp(b) => b.header_size(),
+            Self::Ssh(b) => b.header_size(),
             Self::Raw(data) => data.len(),
         }
     }
@@ -118,6 +124,7 @@ impl LayerStackEntry {
             Self::Tcp(_) => TCP_MIN_HEADER_LEN,
             Self::Udp(_) => UDP_HEADER_LEN,
             Self::Icmp(_) => ICMP_MIN_HEADER_LEN,
+            Self::Ssh(b) => b.header_size(),
             Self::Raw(data) => data.len(),
         }
     }
