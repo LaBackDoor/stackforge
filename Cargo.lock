@@ -446,7 +446,7 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "stackforge"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "pyo3",
  "stackforge-automata",
@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge-automata"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "stackforge-core",
@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "default-net",
