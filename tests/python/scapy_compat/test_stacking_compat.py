@@ -378,8 +378,8 @@ class TestStackingCompat:
             stackforge_pkt = (IP() / UDP() / Raw(payload)).bytes()
             matches, report = compare_with_scapy(
                 stackforge_pkt,
-                "IP()/UDP()/Raw(b\""
+                'IP()/UDP()/Raw(b"'
                 f"{payload.decode() if len(payload) < 20 else 'X' * len(payload)}"
-                "\")",
+                '")',
             )
             assert matches, f"Payload length {len(payload)} mismatch: {report}"
