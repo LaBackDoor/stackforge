@@ -7,11 +7,13 @@ pub mod arp;
 pub mod bindings;
 pub mod ethernet;
 pub mod field;
+pub mod icmp;
 pub mod ipv4;
 pub mod neighbor;
 pub mod raw;
 pub mod stack;
 pub mod tcp;
+pub mod udp;
 
 use std::ops::Range;
 
@@ -20,6 +22,7 @@ pub use arp::{ArpBuilder, ArpLayer};
 pub use bindings::{LAYER_BINDINGS, LayerBinding};
 pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
+pub use icmp::{ICMP_MIN_HEADER_LEN, IcmpBuilder, IcmpLayer, icmp_checksum, verify_icmp_checksum};
 pub use ipv4::{Ipv4Builder, Ipv4Flags, Ipv4Layer, Ipv4Options, Ipv4Route};
 pub use neighbor::{NeighborCache, NeighborResolver};
 pub use raw::{RAW_FIELDS, RawBuilder, RawLayer};
@@ -28,6 +31,10 @@ pub use tcp::{
     TCP_FIELDS, TCP_MAX_HEADER_LEN, TCP_MIN_HEADER_LEN, TCP_SERVICES, TcpAoValue, TcpBuilder,
     TcpFlags, TcpLayer, TcpOption, TcpOptionKind, TcpOptions, TcpOptionsBuilder, TcpSackBlock,
     TcpTimestamp, service_name, service_port, tcp_checksum, tcp_checksum_ipv4, verify_tcp_checksum,
+};
+pub use udp::{
+    UDP_HEADER_LEN, UdpBuilder, UdpLayer, udp_checksum_ipv4, udp_checksum_ipv6,
+    verify_udp_checksum_ipv4, verify_udp_checksum_ipv6,
 };
 
 /// Identifies the type of network protocol layer.
@@ -281,7 +288,9 @@ impl LayerEnum {
             Self::Ethernet(l) => l.hashret(buf),
             Self::Arp(l) => l.hashret(buf),
             Self::Ipv4(l) => l.hashret(buf),
+            Self::Icmp(l) => l.hashret(buf),
             Self::Tcp(l) => l.hashret(buf),
+            Self::Udp(l) => l.hashret(buf),
             _ => vec![],
         }
     }
@@ -328,10 +337,12 @@ impl LayerEnum {
             Self::Dot3(l) => l.get_field(buf, name),
             Self::Arp(l) => l.get_field(buf, name),
             Self::Ipv4(l) => l.get_field(buf, name),
+            Self::Icmp(l) => l.get_field(buf, name),
             Self::Tcp(l) => l.get_field(buf, name),
+            Self::Udp(l) => l.get_field(buf, name),
             Self::Raw(l) => l.get_field(buf, name),
             // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_) | Self::Icmp(_) | Self::Icmpv6(_) | Self::Udp(_) | Self::Dns(_) => None,
+            Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => None,
         }
     }
 
@@ -348,24 +359,28 @@ impl LayerEnum {
             Self::Dot3(l) => l.set_field(buf, name, value),
             Self::Arp(l) => l.set_field(buf, name, value),
             Self::Ipv4(l) => l.set_field(buf, name, value),
+            Self::Icmp(l) => l.set_field(buf, name, value),
             Self::Tcp(l) => l.set_field(buf, name, value),
+            Self::Udp(l) => l.set_field(buf, name, value),
             Self::Raw(l) => l.set_field(buf, name, value),
             // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_) | Self::Icmp(_) | Self::Icmpv6(_) | Self::Udp(_) | Self::Dns(_) => None,
+            Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => None,
         }
     }
 
     /// Get the list of field names for this layer type.
     pub fn field_names(&self) -> &'static [&'static str] {
         match self {
-            Self::Ethernet(_) => EthernetLayer::field_names(),
+            Self::Ethernet(l) => l.field_names(),
             Self::Dot3(_) => Dot3Layer::field_names(),
-            Self::Arp(_) => ArpLayer::field_names(),
-            Self::Ipv4(_) => Ipv4Layer::field_names(),
-            Self::Tcp(_) => TcpLayer::field_names(),
+            Self::Arp(l) => l.field_names(),
+            Self::Ipv4(l) => l.field_names(),
+            Self::Icmp(l) => l.field_names(),
+            Self::Tcp(l) => l.field_names(),
+            Self::Udp(l) => l.field_names(),
             Self::Raw(_) => RawLayer::field_names(),
             // Placeholder layers
-            Self::Ipv6(_) | Self::Icmp(_) | Self::Icmpv6(_) | Self::Udp(_) | Self::Dns(_) => &[],
+            Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => &[],
         }
     }
 }
@@ -580,37 +595,73 @@ fn ipv6_show_fields(l: &Ipv6Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
 }
 
 fn icmp_show_fields(l: &IcmpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
-    let slice = l.index.slice(buf);
     let mut fields = Vec::new();
-    if !slice.is_empty() {
-        let icmp_type = slice[0];
-        let type_name = match icmp_type {
-            0 => "echo-reply",
-            3 => "dest-unreach",
-            4 => "source-quench",
-            5 => "redirect",
-            8 => "echo-request",
-            11 => "time-exceeded",
-            12 => "parameter-problem",
-            13 => "timestamp",
-            14 => "timestamp-reply",
-            _ => "unknown",
-        };
-        fields.push(("type", format!("{} ({})", icmp_type, type_name)));
-    }
-    if slice.len() > 1 {
-        fields.push(("code", slice[1].to_string()));
-    }
-    if slice.len() >= 4 {
-        let chksum = u16::from_be_bytes([slice[2], slice[3]]);
-        fields.push(("chksum", format!("{:#06x}", chksum)));
-    }
-    if slice.len() >= 8 {
-        let id = u16::from_be_bytes([slice[4], slice[5]]);
-        let seq = u16::from_be_bytes([slice[6], slice[7]]);
+
+    // Type field
+    fields.push((
+        "type",
+        l.icmp_type(buf)
+            .map(|t: u8| format!("{} ({})", t, icmp::type_name(t)))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+
+    // Code field
+    fields.push((
+        "code",
+        l.code(buf)
+            .map(|c: u8| c.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+
+    // Checksum field
+    fields.push((
+        "chksum",
+        l.checksum(buf)
+            .map(|v: u16| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+
+    // ID field (conditional)
+    if let Ok(Some(id)) = l.id(buf) {
         fields.push(("id", format!("{:#06x}", id)));
+    }
+
+    // Sequence field (conditional)
+    if let Ok(Some(seq)) = l.seq(buf) {
         fields.push(("seq", seq.to_string()));
     }
+
+    // Gateway field (for redirect)
+    if let Ok(Some(gateway)) = l.gateway(buf) {
+        fields.push(("gw", gateway.to_string()));
+    }
+
+    // Pointer field (for parameter problem)
+    if let Ok(Some(ptr)) = l.ptr(buf) {
+        fields.push(("ptr", ptr.to_string()));
+    }
+
+    // Next-hop MTU (for dest unreachable, fragmentation needed)
+    if let Ok(Some(mtu)) = l.next_hop_mtu(buf) {
+        fields.push(("mtu", mtu.to_string()));
+    }
+
+    // Timestamp fields (for timestamp request/reply)
+    if let Ok(Some(ts_ori)) = l.ts_ori(buf) {
+        fields.push(("ts_ori", ts_ori.to_string()));
+    }
+    if let Ok(Some(ts_rx)) = l.ts_rx(buf) {
+        fields.push(("ts_rx", ts_rx.to_string()));
+    }
+    if let Ok(Some(ts_tx)) = l.ts_tx(buf) {
+        fields.push(("ts_tx", ts_tx.to_string()));
+    }
+
+    // Address mask (for address mask request/reply)
+    if let Ok(Some(addr_mask)) = l.addr_mask(buf) {
+        fields.push(("addr_mask", addr_mask.to_string()));
+    }
+
     fields
 }
 
@@ -715,24 +766,31 @@ fn tcp_show_fields(l: &TcpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
 }
 
 fn udp_show_fields(l: &UdpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
-    let slice = l.index.slice(buf);
     let mut fields = Vec::new();
-    if slice.len() >= 2 {
-        let sport = u16::from_be_bytes([slice[0], slice[1]]);
-        fields.push(("sport", sport.to_string()));
-    }
-    if slice.len() >= 4 {
-        let dport = u16::from_be_bytes([slice[2], slice[3]]);
-        fields.push(("dport", dport.to_string()));
-    }
-    if slice.len() >= 6 {
-        let len = u16::from_be_bytes([slice[4], slice[5]]);
-        fields.push(("len", len.to_string()));
-    }
-    if slice.len() >= 8 {
-        let chksum = u16::from_be_bytes([slice[6], slice[7]]);
-        fields.push(("chksum", format!("{:#06x}", chksum)));
-    }
+    fields.push((
+        "sport",
+        l.src_port(buf)
+            .map(|v: u16| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dport",
+        l.dst_port(buf)
+            .map(|v: u16| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "len",
+        l.length(buf)
+            .map(|v: u16| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "chksum",
+        l.checksum(buf)
+            .map(|v: u16| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
     fields
 }
 
@@ -779,26 +837,6 @@ impl Ipv6Layer {
 }
 
 #[derive(Debug, Clone)]
-pub struct IcmpLayer {
-    pub index: LayerIndex,
-}
-
-impl IcmpLayer {
-    pub fn summary(&self, buf: &[u8]) -> String {
-        let slice = self.index.slice(buf);
-        if !slice.is_empty() {
-            let icmp_type = slice[0];
-            format!("ICMP type {}", icmp_type)
-        } else {
-            "ICMP".to_string()
-        }
-    }
-    pub fn header_len(&self, _buf: &[u8]) -> usize {
-        8
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct Icmpv6Layer {
     pub index: LayerIndex,
 }
@@ -812,28 +850,7 @@ impl Icmpv6Layer {
     }
 }
 
-// TcpLayer is now imported from the tcp module
-
-#[derive(Debug, Clone)]
-pub struct UdpLayer {
-    pub index: LayerIndex,
-}
-
-impl UdpLayer {
-    pub fn summary(&self, buf: &[u8]) -> String {
-        let slice = self.index.slice(buf);
-        if slice.len() >= 4 {
-            let src_port = u16::from_be_bytes([slice[0], slice[1]]);
-            let dst_port = u16::from_be_bytes([slice[2], slice[3]]);
-            format!("UDP {} > {}", src_port, dst_port)
-        } else {
-            "UDP".to_string()
-        }
-    }
-    pub fn header_len(&self, _buf: &[u8]) -> usize {
-        8
-    }
-}
+// TcpLayer and UdpLayer are now imported from their respective modules
 
 #[derive(Debug, Clone)]
 pub struct DnsLayer {

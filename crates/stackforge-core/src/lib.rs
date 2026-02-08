@@ -53,6 +53,7 @@
 pub mod error;
 pub mod layer;
 pub mod packet;
+pub mod pcap;
 pub mod utils;
 
 // Re-export commonly used types at the crate root
@@ -86,6 +87,7 @@ pub use layer::{
     FieldError,
     FieldType,
     FieldValue,
+    IcmpBuilder,
     IcmpLayer,
     Icmpv6Layer,
     // Stacking
@@ -114,9 +116,13 @@ pub use layer::{
     TcpBuilder,
     TcpFlags,
     TcpLayer,
+    UdpBuilder,
     UdpLayer,
 };
 pub use packet::Packet;
+pub use pcap::{
+    CapturedPacket, LinkType, PcapIterator, PcapMetadata, rdpcap, wrpcap, wrpcap_packets,
+};
 
 // Utils re-exports
 pub use utils::{
@@ -272,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_neighbor_resolution() {
-        let cache = NeighborCache::new();
+        let _cache = NeighborCache::new();
 
         // Test multicast resolution
         let mcast_ip = Ipv4Addr::new(224, 0, 0, 1);

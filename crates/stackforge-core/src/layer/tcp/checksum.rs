@@ -43,9 +43,8 @@
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use crate::layer::ipv4::checksum::{
-    finalize_checksum, partial_checksum, pseudo_header_checksum, transport_checksum,
-};
+use crate::layer::ipv4::checksum::{pseudo_header_checksum, transport_checksum};
+use crate::utils::{finalize_checksum, partial_checksum};
 
 /// TCP protocol number for pseudo-header.
 pub const TCP_PROTOCOL: u8 = 6;

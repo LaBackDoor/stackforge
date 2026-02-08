@@ -22,9 +22,9 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use stackforge_core::{
     ArpBuilder as RustArpBuilder, EthernetBuilder as RustEthernetBuilder, FieldValue,
-    Ipv4Builder as RustIpv4Builder, LayerKind as RustLayerKind, LayerStack as RustLayerStack,
-    LayerStackEntry as RustLayerStackEntry, MacAddress, Packet as RustPacket, PacketError,
-    TcpBuilder as RustTcpBuilder,
+    IcmpBuilder as RustIcmpBuilder, Ipv4Builder as RustIpv4Builder, LayerKind as RustLayerKind,
+    LayerStack as RustLayerStack, LayerStackEntry as RustLayerStackEntry, MacAddress,
+    Packet as RustPacket, PacketError, TcpBuilder as RustTcpBuilder, UdpBuilder as RustUdpBuilder,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -738,6 +738,10 @@ impl PyLayerStack {
             new_stack.add(RustLayerStackEntry::Ipv4(ip.inner));
         } else if let Ok(tcp) = other.extract::<PyTCP>() {
             new_stack.add(RustLayerStackEntry::Tcp(tcp.inner));
+        } else if let Ok(udp) = other.extract::<PyUDP>() {
+            new_stack.add(RustLayerStackEntry::Udp(udp.inner));
+        } else if let Ok(icmp) = other.extract::<PyICMP>() {
+            new_stack.add(RustLayerStackEntry::Icmp(icmp.inner));
         } else if let Ok(arp) = other.extract::<PyARP>() {
             new_stack.add(RustLayerStackEntry::Arp(arp.inner));
         } else if let Ok(raw) = other.extract::<PyRaw>() {
@@ -971,17 +975,19 @@ impl PyIP {
     ///     ttl: Time to live (default: 64)
     ///     proto: Protocol number (auto-set based on payload)
     ///     id: Identification field
-    ///     flags: IP flags (DF, MF)
+    ///     flags: IP flags (DF, MF) - string or int
+    ///     frag: Fragment offset
     ///     tos: Type of service
     #[new]
-    #[pyo3(signature = (src=None, dst=None, ttl=None, proto=None, id=None, flags=None, tos=None, len=None))]
+    #[pyo3(signature = (src=None, dst=None, ttl=None, proto=None, id=None, flags=None, frag=None, tos=None, len=None))]
     fn new(
         src: Option<&str>,
         dst: Option<&str>,
         ttl: Option<u8>,
         proto: Option<u8>,
         id: Option<u16>,
-        flags: Option<&str>,
+        flags: Option<&Bound<'_, PyAny>>,
+        frag: Option<u16>,
         tos: Option<u8>,
         len: Option<u16>,
     ) -> PyResult<Self> {
@@ -1013,14 +1019,29 @@ impl PyIP {
             builder = builder.id(i);
         }
 
-        if let Some(flag_str) = flags {
-            for c in flag_str.chars() {
-                match c {
-                    'D' | 'd' => builder = builder.dont_fragment(),
-                    'M' | 'm' => builder = builder.more_fragments(),
-                    _ => {}
+        if let Some(flags_val) = flags {
+            // Accept both string ("DF", "MF") and int (0, 1, 2, 3)
+            if let Ok(flag_str) = flags_val.extract::<String>() {
+                for c in flag_str.chars() {
+                    match c {
+                        'D' | 'd' => builder = builder.dont_fragment(),
+                        'M' | 'm' => builder = builder.more_fragments(),
+                        _ => {}
+                    }
+                }
+            } else if let Ok(flag_int) = flags_val.extract::<u8>() {
+                // Bit 0 = reserved, Bit 1 = DF, Bit 2 = MF
+                if flag_int & 0x02 != 0 {
+                    builder = builder.dont_fragment();
+                }
+                if flag_int & 0x01 != 0 {
+                    builder = builder.more_fragments();
                 }
             }
+        }
+
+        if let Some(f) = frag {
+            builder = builder.frag_offset(f);
         }
 
         if let Some(t) = tos {
@@ -1042,6 +1063,10 @@ impl PyIP {
         // Add the other layer
         if let Ok(tcp) = other.extract::<PyTCP>() {
             stack.add(RustLayerStackEntry::Tcp(tcp.inner));
+        } else if let Ok(udp) = other.extract::<PyUDP>() {
+            stack.add(RustLayerStackEntry::Udp(udp.inner));
+        } else if let Ok(icmp) = other.extract::<PyICMP>() {
+            stack.add(RustLayerStackEntry::Icmp(icmp.inner));
         } else if let Ok(raw) = other.extract::<PyRaw>() {
             stack.add(RustLayerStackEntry::Raw(raw.data));
         } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
@@ -1091,18 +1116,20 @@ impl PyTCP {
     ///     dport: Destination port (default: 80)
     ///     seq: Sequence number
     ///     ack: Acknowledgment number
-    ///     flags: TCP flags as string (S=SYN, A=ACK, F=FIN, R=RST, P=PSH)
+    ///     flags: TCP flags as string (S=SYN, A=ACK, F=FIN, R=RST, P=PSH) or int
     ///     window: Window size
+    ///     urgptr: Urgent pointer
     #[new]
-    #[pyo3(signature = (sport=None, dport=None, seq=None, ack=None, flags=None, window=None, dataofs=None))]
+    #[pyo3(signature = (sport=None, dport=None, seq=None, ack=None, flags=None, window=None, dataofs=None, urgptr=None))]
     fn new(
         sport: Option<u16>,
         dport: Option<u16>,
         seq: Option<u32>,
         ack: Option<u32>,
-        flags: Option<&str>,
+        flags: Option<&Bound<'_, PyAny>>,
         window: Option<u16>,
         dataofs: Option<u8>,
+        urgptr: Option<u16>,
     ) -> PyResult<Self> {
         let mut builder = RustTcpBuilder::new();
 
@@ -1122,8 +1149,15 @@ impl PyTCP {
             builder = builder.ack_num(a);
         }
 
-        if let Some(flag_str) = flags {
-            builder = builder.flags_str(flag_str);
+        if let Some(flags_val) = flags {
+            // Accept both string ("S", "SA", etc.) and int (0-255)
+            if let Ok(flag_str) = flags_val.extract::<String>() {
+                builder = builder.flags_str(&flag_str);
+            } else if let Ok(flag_int) = flags_val.extract::<u8>() {
+                // If flags = 0, no flags are set (which is valid)
+                use stackforge_core::layer::tcp::TcpFlags;
+                builder = builder.flags(TcpFlags::from_byte(flag_int));
+            }
         }
 
         if let Some(w) = window {
@@ -1132,6 +1166,10 @@ impl PyTCP {
 
         if let Some(d) = dataofs {
             builder = builder.data_offset(d);
+        }
+
+        if let Some(u) = urgptr {
+            builder = builder.urgptr(u);
         }
 
         Ok(Self { inner: builder })
@@ -1169,6 +1207,311 @@ impl PyTCP {
 }
 
 // ============================================================================
+// UDP Layer Builder
+// ============================================================================
+
+/// UDP datagram builder.
+///
+/// Example:
+///     >>> udp = UDP(sport=1234, dport=53)
+///     >>> print(udp.show())
+#[pyclass(name = "UDP")]
+#[derive(Clone)]
+pub struct PyUDP {
+    inner: RustUdpBuilder,
+}
+
+#[pymethods]
+impl PyUDP {
+    /// Create a new UDP datagram.
+    ///
+    /// Args:
+    ///     sport: Source port (default: 53)
+    ///     dport: Destination port (default: 53)
+    ///     len: UDP length (auto-calculated if not specified)
+    ///     chksum: UDP checksum (auto-calculated if not specified)
+    #[new]
+    #[pyo3(signature = (sport=None, dport=None, len=None, chksum=None))]
+    fn new(
+        sport: Option<u16>,
+        dport: Option<u16>,
+        len: Option<u16>,
+        chksum: Option<u16>,
+    ) -> PyResult<Self> {
+        let mut builder = RustUdpBuilder::new();
+
+        if let Some(p) = sport {
+            builder = builder.src_port(p);
+        }
+
+        if let Some(p) = dport {
+            builder = builder.dst_port(p);
+        }
+
+        if let Some(l) = len {
+            builder = builder.length(l);
+        }
+
+        if let Some(c) = chksum {
+            builder = builder.checksum(c);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Udp(self.inner.clone()));
+
+        // Add the other layer (UDP can only have raw payload)
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<UDP>".to_string()
+    }
+}
+
+// ============================================================================
+// ICMP Layer Builder
+// ============================================================================
+
+/// ICMP message builder.
+///
+/// Example:
+///     >>> icmp = ICMP.echo_request(id=0x1234, seq=1)
+///     >>> icmp = ICMP.dest_unreach(code=3)  # Port unreachable
+#[pyclass(name = "ICMP")]
+#[derive(Clone)]
+pub struct PyICMP {
+    inner: RustIcmpBuilder,
+}
+
+#[pymethods]
+impl PyICMP {
+    /// Create a generic ICMP message (use factory methods for specific types).
+    ///
+    /// Args:
+    ///     type: ICMP type (0-255)
+    ///     code: ICMP code (0-255)
+    ///     chksum: Checksum (auto-calculated if not specified)
+    #[new]
+    #[pyo3(signature = (r#type=8, code=0, chksum=None))]
+    fn new(r#type: Option<u8>, code: Option<u8>, chksum: Option<u16>) -> PyResult<Self> {
+        let mut builder = RustIcmpBuilder::new();
+
+        if let Some(t) = r#type {
+            builder = builder.icmp_type(t);
+        }
+
+        if let Some(c) = code {
+            builder = builder.code(c);
+        }
+
+        if let Some(ck) = chksum {
+            builder = builder.checksum(ck);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    // ========== Factory Methods (Class Methods) ==========
+
+    /// Create an ICMP echo request (ping).
+    ///
+    /// Args:
+    ///     id: Identifier
+    ///     seq: Sequence number
+    ///
+    /// Example:
+    ///     >>> ping = ICMP.echo_request(id=0x1234, seq=1)
+    #[classmethod]
+    #[pyo3(signature = (id, seq))]
+    fn echo_request(_cls: &Bound<'_, pyo3::types::PyType>, id: u16, seq: u16) -> Self {
+        Self {
+            inner: RustIcmpBuilder::echo_request(id, seq),
+        }
+    }
+
+    /// Create an ICMP echo reply (pong).
+    ///
+    /// Args:
+    ///     id: Identifier (should match request)
+    ///     seq: Sequence number (should match request)
+    #[classmethod]
+    #[pyo3(signature = (id, seq))]
+    fn echo_reply(_cls: &Bound<'_, pyo3::types::PyType>, id: u16, seq: u16) -> Self {
+        Self {
+            inner: RustIcmpBuilder::echo_reply(id, seq),
+        }
+    }
+
+    /// Create an ICMP destination unreachable message.
+    ///
+    /// Args:
+    ///     code: Unreachable code (0=net, 1=host, 2=protocol, 3=port, 4=frag-needed)
+    ///
+    /// Example:
+    ///     >>> icmp = ICMP.dest_unreach(code=3)  # Port unreachable
+    #[classmethod]
+    #[pyo3(signature = (code))]
+    fn dest_unreach(_cls: &Bound<'_, pyo3::types::PyType>, code: u8) -> Self {
+        Self {
+            inner: RustIcmpBuilder::dest_unreach(code),
+        }
+    }
+
+    /// Create an ICMP destination unreachable - fragmentation needed.
+    ///
+    /// Args:
+    ///     mtu: Next-hop MTU value
+    #[classmethod]
+    #[pyo3(signature = (mtu))]
+    fn dest_unreach_need_frag(_cls: &Bound<'_, pyo3::types::PyType>, mtu: u16) -> Self {
+        Self {
+            inner: RustIcmpBuilder::dest_unreach_need_frag(mtu),
+        }
+    }
+
+    /// Create an ICMP redirect message.
+    ///
+    /// Args:
+    ///     code: Redirect code (0=network, 1=host, 2=TOS+network, 3=TOS+host)
+    ///     gateway: Gateway IP address (as string, e.g., "192.168.1.1")
+    #[classmethod]
+    #[pyo3(signature = (code, gateway))]
+    fn redirect(_cls: &Bound<'_, pyo3::types::PyType>, code: u8, gateway: &str) -> PyResult<Self> {
+        let gw: Ipv4Addr = gateway.parse().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err("Invalid IPv4 address for gateway")
+        })?;
+
+        Ok(Self {
+            inner: RustIcmpBuilder::redirect(code, gw),
+        })
+    }
+
+    /// Create an ICMP time exceeded message.
+    ///
+    /// Args:
+    ///     code: Time exceeded code (0=TTL exceeded, 1=fragment reassembly)
+    #[classmethod]
+    #[pyo3(signature = (code=0))]
+    fn time_exceeded(_cls: &Bound<'_, pyo3::types::PyType>, code: u8) -> Self {
+        Self {
+            inner: RustIcmpBuilder::time_exceeded(code),
+        }
+    }
+
+    /// Create an ICMP parameter problem message.
+    ///
+    /// Args:
+    ///     ptr: Pointer to the problematic byte
+    #[classmethod]
+    #[pyo3(signature = (ptr))]
+    fn param_problem(_cls: &Bound<'_, pyo3::types::PyType>, ptr: u8) -> Self {
+        Self {
+            inner: RustIcmpBuilder::param_problem(ptr),
+        }
+    }
+
+    /// Create an ICMP timestamp request.
+    ///
+    /// Args:
+    ///     id: Identifier
+    ///     seq: Sequence number
+    ///     ts_ori: Originate timestamp (milliseconds since midnight UT)
+    ///     ts_rx: Receive timestamp (0 for request)
+    ///     ts_tx: Transmit timestamp (0 for request)
+    #[classmethod]
+    #[pyo3(signature = (id, seq, ts_ori=0, ts_rx=0, ts_tx=0))]
+    fn timestamp_request(
+        _cls: &Bound<'_, pyo3::types::PyType>,
+        id: u16,
+        seq: u16,
+        ts_ori: u32,
+        ts_rx: u32,
+        ts_tx: u32,
+    ) -> Self {
+        Self {
+            inner: RustIcmpBuilder::timestamp_request(id, seq, ts_ori, ts_rx, ts_tx),
+        }
+    }
+
+    /// Create an ICMP timestamp reply.
+    ///
+    /// Args:
+    ///     id: Identifier
+    ///     seq: Sequence number
+    ///     ts_ori: Originate timestamp from request
+    ///     ts_rx: Receive timestamp
+    ///     ts_tx: Transmit timestamp
+    #[classmethod]
+    #[pyo3(signature = (id, seq, ts_ori, ts_rx, ts_tx))]
+    fn timestamp_reply(
+        _cls: &Bound<'_, pyo3::types::PyType>,
+        id: u16,
+        seq: u16,
+        ts_ori: u32,
+        ts_rx: u32,
+        ts_tx: u32,
+    ) -> Self {
+        Self {
+            inner: RustIcmpBuilder::timestamp_reply(id, seq, ts_ori, ts_rx, ts_tx),
+        }
+    }
+
+    // ========== Instance Methods ==========
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Icmp(self.inner.clone()));
+
+        // Add the other layer (ICMP can only have raw payload)
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<ICMP>".to_string()
+    }
+}
+
+// ============================================================================
 // ARP Layer Builder
 // ============================================================================
 
@@ -1189,14 +1532,18 @@ impl PyARP {
     ///
     /// Args:
     ///     op: Operation ("who-has" or "is-at", or numeric 1/2)
+    ///     hwtype: Hardware type (default: 1 for Ethernet)
+    ///     ptype: Protocol type (default: 0x0800 for IPv4)
     ///     hwsrc: Hardware source address
     ///     psrc: Protocol source address
     ///     hwdst: Hardware destination address
     ///     pdst: Protocol destination address
     #[new]
-    #[pyo3(signature = (op=None, hwsrc=None, psrc=None, hwdst=None, pdst=None))]
+    #[pyo3(signature = (op=None, hwtype=None, ptype=None, hwsrc=None, psrc=None, hwdst=None, pdst=None))]
     fn new(
         op: Option<&Bound<'_, PyAny>>,
+        hwtype: Option<u16>,
+        ptype: Option<u16>,
         hwsrc: Option<&str>,
         psrc: Option<&str>,
         hwdst: Option<&str>,
@@ -1218,6 +1565,14 @@ impl PyARP {
             } else if let Ok(op_num) = op_val.extract::<u16>() {
                 builder = builder.op(op_num);
             }
+        }
+
+        if let Some(hwt) = hwtype {
+            builder = builder.hwtype(hwt);
+        }
+
+        if let Some(pt) = ptype {
+            builder = builder.ptype(pt);
         }
 
         if let Some(mac_str) = hwsrc {
@@ -1480,6 +1835,188 @@ impl PyRaw {
     }
 }
 
+// ============================================================================
+// PCAP I/O
+// ============================================================================
+
+/// A captured packet with PCAP metadata (timestamp, wire length).
+///
+/// Returned by `rdpcap()` and `PcapReader`. Wraps a `Packet` with capture info.
+///
+/// Example:
+///     >>> pkts = rdpcap("capture.pcap")
+///     >>> pkts[0].time       # capture timestamp (float seconds)
+///     >>> pkts[0].wirelen    # original wire length
+///     >>> pkts[0].show()     # show packet contents
+#[pyclass(name = "PcapPacket")]
+#[derive(Clone)]
+pub struct PyPcapPacket {
+    inner: stackforge_core::CapturedPacket,
+}
+
+#[pymethods]
+impl PyPcapPacket {
+    /// Get the underlying Packet object.
+    #[getter]
+    fn packet(&self) -> PyPacket {
+        PyPacket {
+            inner: self.inner.packet.clone(),
+        }
+    }
+
+    /// Get the capture timestamp as a float (seconds since epoch).
+    #[getter]
+    fn time(&self) -> f64 {
+        self.inner.metadata.timestamp.as_secs_f64()
+    }
+
+    /// Get the original packet length on the wire.
+    #[getter]
+    fn wirelen(&self) -> u32 {
+        self.inner.metadata.orig_len
+    }
+
+    fn show(&self) -> String {
+        show_packet(&self.inner.packet)
+    }
+
+    fn summary(&self) -> String {
+        summary_packet(&self.inner.packet)
+    }
+
+    fn hexdump(&self) -> String {
+        hexdump_bytes(self.inner.packet.as_bytes())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<PcapPacket time={:.6} len={}>",
+            self.time(),
+            self.inner.packet.len()
+        )
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.packet.len()
+    }
+}
+
+/// Streaming PCAP reader for large files.
+///
+/// Reads packets one at a time without loading the entire file into memory.
+/// Suitable for gigabyte-sized capture files.
+///
+/// Example:
+///     >>> for pkt in PcapReader("large.pcap"):
+///     ...     print(pkt.summary())
+#[pyclass(name = "PcapReader")]
+pub struct PyPcapReader {
+    inner: Option<stackforge_core::PcapIterator<std::io::BufReader<std::fs::File>>>,
+}
+
+#[pymethods]
+impl PyPcapReader {
+    #[new]
+    fn new(filename: &str) -> PyResult<Self> {
+        let iter = stackforge_core::PcapIterator::open(filename)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+        Ok(Self { inner: Some(iter) })
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PyPcapPacket>> {
+        if let Some(ref mut iter) = slf.inner {
+            match iter.next() {
+                Some(Ok(cap)) => Ok(Some(PyPcapPacket { inner: cap })),
+                Some(Err(e)) => Err(pyo3::exceptions::PyIOError::new_err(format!("{}", e))),
+                None => Ok(None),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+/// Read packets from a PCAP file.
+///
+/// Args:
+///     filename: Path to the PCAP file
+///     count: Maximum number of packets to read (0 = all)
+///
+/// Returns:
+///     List of PcapPacket objects
+///
+/// Example:
+///     >>> pkts = rdpcap("capture.pcap")
+///     >>> pkts[0].show()
+#[pyfunction]
+#[pyo3(signature = (filename, count=0))]
+fn rdpcap(filename: &str, count: usize) -> PyResult<Vec<PyPcapPacket>> {
+    let iter = stackforge_core::PcapIterator::open(filename)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+
+    let results: Vec<PyPcapPacket> = if count > 0 {
+        iter.take(count)
+            .filter_map(|r| r.ok())
+            .map(|cap| PyPcapPacket { inner: cap })
+            .collect()
+    } else {
+        iter.filter_map(|r| r.ok())
+            .map(|cap| PyPcapPacket { inner: cap })
+            .collect()
+    };
+
+    Ok(results)
+}
+
+/// Write packets to a PCAP file.
+///
+/// Args:
+///     filename: Path to the output PCAP file
+///     packets: List of Packet, PcapPacket, or LayerStack objects
+///
+/// Example:
+///     >>> wrpcap("output.pcap", packets)
+#[pyfunction]
+fn wrpcap(filename: &str, packets: Vec<Bound<'_, pyo3::PyAny>>) -> PyResult<()> {
+    let mut captured: Vec<stackforge_core::CapturedPacket> = Vec::with_capacity(packets.len());
+
+    for pkt_any in &packets {
+        if let Ok(pcap_pkt) = pkt_any.extract::<PyPcapPacket>() {
+            captured.push(pcap_pkt.inner);
+        } else if let Ok(pkt) = pkt_any.extract::<PyRef<'_, PyPacket>>() {
+            let len = pkt.inner.len() as u32;
+            captured.push(stackforge_core::CapturedPacket {
+                packet: pkt.inner.clone(),
+                metadata: stackforge_core::PcapMetadata {
+                    orig_len: len,
+                    ..Default::default()
+                },
+            });
+        } else if let Ok(stack) = pkt_any.extract::<PyLayerStack>() {
+            let built = stack.inner.build_packet();
+            let len = built.len() as u32;
+            captured.push(stackforge_core::CapturedPacket {
+                packet: built,
+                metadata: stackforge_core::PcapMetadata {
+                    orig_len: len,
+                    ..Default::default()
+                },
+            });
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "packets must be Packet, PcapPacket, or LayerStack objects",
+            ));
+        }
+    }
+
+    stackforge_core::wrpcap(filename, &captured)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))
+}
+
 /// Stackforge: High-performance network packet manipulation.
 ///
 /// This module provides Python bindings to the Rust networking engine,
@@ -1494,8 +2031,16 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyEther>()?;
     m.add_class::<PyIP>()?;
     m.add_class::<PyTCP>()?;
+    m.add_class::<PyUDP>()?;
+    m.add_class::<PyICMP>()?;
     m.add_class::<PyARP>()?;
     m.add_class::<PyRaw>()?;
     m.add_class::<PyLayerStack>()?;
+
+    // PCAP I/O
+    m.add_class::<PyPcapPacket>()?;
+    m.add_class::<PyPcapReader>()?;
+    m.add_function(wrap_pyfunction!(rdpcap, m)?)?;
+    m.add_function(wrap_pyfunction!(wrpcap, m)?)?;
     Ok(())
 }

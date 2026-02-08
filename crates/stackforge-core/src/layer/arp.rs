@@ -902,16 +902,53 @@ pub struct ArpBuilder {
     pdst: ProtocolAddr,
 }
 
+/// Get the default interface's MAC address and IPv4 address.
+fn get_local_mac_and_ip() -> (MacAddress, Ipv4Addr) {
+    let default_mac = MacAddress::ZERO;
+    let default_ip = Ipv4Addr::new(0, 0, 0, 0);
+
+    let default_iface = match default_net::get_default_interface() {
+        Ok(iface) => iface,
+        Err(_) => return (default_mac, default_ip),
+    };
+
+    let interfaces = pnet_datalink::interfaces();
+    let iface = match interfaces.iter().find(|i| i.name == default_iface.name) {
+        Some(i) => i,
+        None => return (default_mac, default_ip),
+    };
+
+    let mac = iface
+        .mac
+        .map(|m| MacAddress::new(m.octets()))
+        .unwrap_or(default_mac);
+
+    let ip = iface
+        .ips
+        .iter()
+        .find_map(|ip_net| {
+            if let IpAddr::V4(v4) = ip_net.ip() {
+                Some(v4)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(default_ip);
+
+    (mac, ip)
+}
+
 impl Default for ArpBuilder {
     fn default() -> Self {
+        let (local_mac, local_ip) = get_local_mac_and_ip();
         Self {
             hwtype: hardware_type::ETHERNET,
             ptype: protocol_type::IPV4,
             hwlen: None,
             plen: None,
             op: opcode::REQUEST,
-            hwsrc: HardwareAddr::Mac(MacAddress::ZERO),
-            psrc: ProtocolAddr::Ipv4(Ipv4Addr::new(0, 0, 0, 0)),
+            hwsrc: HardwareAddr::Mac(local_mac),
+            psrc: ProtocolAddr::Ipv4(local_ip),
             hwdst: HardwareAddr::Mac(MacAddress::ZERO),
             pdst: ProtocolAddr::Ipv4(Ipv4Addr::new(0, 0, 0, 0)),
         }
