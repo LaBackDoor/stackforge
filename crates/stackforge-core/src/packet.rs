@@ -15,12 +15,13 @@ use smallvec::SmallVec;
 use crate::error::{PacketError, Result};
 use crate::layer::{
     DnsLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind, RawLayer,
-    SshLayer, TcpLayer, UdpLayer,
+    SshLayer, TcpLayer, TlsLayer, UdpLayer,
     arp::ArpLayer,
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
     ethertype, icmp, ip_protocol,
     ipv4::Ipv4Layer,
     ssh::{SSH_PORT, is_ssh_payload},
+    tls::is_tls_payload,
 };
 
 /// Maximum number of layers to store inline before heap allocation.
@@ -199,6 +200,12 @@ impl Packet {
             .map(|idx| UdpLayer { index: *idx })
     }
 
+    /// Get the TLS layer view if present.
+    pub fn tls(&self) -> Option<TlsLayer> {
+        self.get_layer(LayerKind::Tls)
+            .map(|idx| TlsLayer { index: *idx })
+    }
+
     /// Get a LayerEnum for a given LayerIndex.
     pub fn layer_enum(&self, idx: &LayerIndex) -> LayerEnum {
         match idx.kind {
@@ -213,6 +220,7 @@ impl Packet {
             LayerKind::Udp => LayerEnum::Udp(UdpLayer { index: *idx }),
             LayerKind::Dns => LayerEnum::Dns(DnsLayer { index: *idx }),
             LayerKind::Ssh => LayerEnum::Ssh(SshLayer { index: *idx }),
+            LayerKind::Tls => LayerEnum::Tls(TlsLayer { index: *idx }),
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
@@ -393,6 +401,8 @@ impl Packet {
                 && is_ssh_payload(&self.data[tcp_end..])
             {
                 self.parse_ssh(tcp_end)?;
+            } else if is_tls_payload(&self.data[tcp_end..]) {
+                self.parse_tls(tcp_end)?;
             } else {
                 self.layers
                     .push(LayerIndex::new(LayerKind::Raw, tcp_end, self.data.len()));
@@ -503,6 +513,33 @@ impl Packet {
         } else {
             self.layers
                 .push(LayerIndex::new(LayerKind::Raw, offset, self.data.len()));
+        }
+
+        Ok(())
+    }
+
+    fn parse_tls(&mut self, offset: usize) -> Result<()> {
+        use crate::layer::tls::TLS_RECORD_HEADER_LEN;
+
+        let remaining = self.data.len() - offset;
+        if remaining < TLS_RECORD_HEADER_LEN {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Raw, offset, self.data.len()));
+            return Ok(());
+        }
+
+        // Read the TLS record header
+        let frag_len = u16::from_be_bytes([self.data[offset + 3], self.data[offset + 4]]) as usize;
+        let record_end = (offset + TLS_RECORD_HEADER_LEN + frag_len).min(self.data.len());
+
+        self.layers
+            .push(LayerIndex::new(LayerKind::Tls, offset, record_end));
+
+        // If there's more data after this record, treat as Raw
+        // (could be additional TLS records, but we parse one for now)
+        if record_end < self.data.len() {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Raw, record_end, self.data.len()));
         }
 
         Ok(())

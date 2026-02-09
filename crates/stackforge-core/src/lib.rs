@@ -120,6 +120,7 @@ pub use layer::{
     TcpBuilder,
     TcpFlags,
     TcpLayer,
+    TlsRecordBuilder,
     UdpBuilder,
     UdpLayer,
 };

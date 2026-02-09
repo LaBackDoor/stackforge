@@ -249,4 +249,5 @@ pub mod icmp_compat;
 pub mod ipv4_compat;
 pub mod ssh_compat;
 pub mod tcp_compat;
+pub mod tls_compat;
 pub mod udp_compat;

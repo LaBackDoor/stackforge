@@ -126,6 +126,8 @@ pub static LAYER_BINDINGS: &[LayerBinding] = &[
         "proto",
         ip_protocol::ICMP as u16,
     ),
+    // TCP -> * (port-based, dport field)
+    LayerBinding::new(LayerKind::Tcp, LayerKind::Tls, "dport", 443),
     // IPv6 -> *
     LayerBinding::new(
         LayerKind::Ipv6,

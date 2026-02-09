@@ -42,6 +42,7 @@ use super::icmp::builder::IcmpBuilder;
 use super::ipv4::builder::Ipv4Builder;
 use super::ssh::builder::SshBuilder;
 use super::tcp::builder::TcpBuilder;
+use super::tls::builder::TlsRecordBuilder;
 use super::udp::builder::UdpBuilder;
 use super::{ArpBuilder, LayerKind};
 use crate::Packet;
@@ -68,6 +69,8 @@ pub enum LayerStackEntry {
     Icmp(IcmpBuilder),
     /// SSH layer
     Ssh(SshBuilder),
+    /// TLS record layer
+    Tls(TlsRecordBuilder),
     /// Raw bytes payload
     Raw(Vec<u8>),
 }
@@ -83,6 +86,7 @@ impl LayerStackEntry {
             Self::Udp(_) => LayerKind::Udp,
             Self::Icmp(_) => LayerKind::Icmp,
             Self::Ssh(_) => LayerKind::Ssh,
+            Self::Tls(_) => LayerKind::Tls,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -97,6 +101,7 @@ impl LayerStackEntry {
             Self::Udp(b) => b.build(),
             Self::Icmp(b) => b.build(),
             Self::Ssh(b) => b.build(),
+            Self::Tls(b) => b.build(),
             Self::Raw(data) => data.clone(),
         }
     }
@@ -111,6 +116,7 @@ impl LayerStackEntry {
             Self::Udp(b) => b.header_size(),
             Self::Icmp(b) => b.header_size(),
             Self::Ssh(b) => b.header_size(),
+            Self::Tls(b) => b.record_size(),
             Self::Raw(data) => data.len(),
         }
     }
@@ -125,6 +131,7 @@ impl LayerStackEntry {
             Self::Udp(_) => UDP_HEADER_LEN,
             Self::Icmp(_) => ICMP_MIN_HEADER_LEN,
             Self::Ssh(b) => b.header_size(),
+            Self::Tls(_) => 5, // TLS record header is 5 bytes
             Self::Raw(data) => data.len(),
         }
     }
