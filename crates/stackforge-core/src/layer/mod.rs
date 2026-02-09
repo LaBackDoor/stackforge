@@ -14,6 +14,7 @@ pub mod raw;
 pub mod ssh;
 pub mod stack;
 pub mod tcp;
+pub mod tls;
 pub mod udp;
 
 use std::ops::Range;
@@ -33,6 +34,10 @@ pub use tcp::{
     TCP_FIELDS, TCP_MAX_HEADER_LEN, TCP_MIN_HEADER_LEN, TCP_SERVICES, TcpAoValue, TcpBuilder,
     TcpFlags, TcpLayer, TcpOption, TcpOptionKind, TcpOptions, TcpOptionsBuilder, TcpSackBlock,
     TcpTimestamp, service_name, service_port, tcp_checksum, tcp_checksum_ipv4, verify_tcp_checksum,
+};
+pub use tls::{
+    TLS_FIELDS, TLS_PORT, TLS_RECORD_HEADER_LEN, TlsAlertBuilder, TlsCcsBuilder, TlsContentType,
+    TlsLayer, TlsRecordBuilder, TlsVersion,
 };
 pub use udp::{
     UDP_HEADER_LEN, UdpBuilder, UdpLayer, udp_checksum_ipv4, udp_checksum_ipv6,
@@ -59,6 +64,7 @@ pub enum LayerKind {
     LLC = 13,
     SNAP = 14,
     Ssh = 15,
+    Tls = 16,
     Raw = 255,
 }
 
@@ -82,6 +88,7 @@ impl LayerKind {
             Self::LLC => "LLC",
             Self::SNAP => "SNAP",
             Self::Ssh => "SSH",
+            Self::Tls => "TLS",
             Self::Raw => "Raw",
         }
     }
@@ -103,6 +110,7 @@ impl LayerKind {
             Self::LLC => 3,
             Self::SNAP => 5,
             Self::Ssh => ssh::SSH_BINARY_HEADER_LEN,
+            Self::Tls => tls::TLS_RECORD_HEADER_LEN,
             Self::Raw => 0,
         }
     }
@@ -235,6 +243,7 @@ pub enum LayerEnum {
     Udp(UdpLayer),
     Dns(DnsLayer),
     Ssh(SshLayer),
+    Tls(TlsLayer),
     Raw(RawLayer),
 }
 
@@ -253,6 +262,7 @@ impl LayerEnum {
             Self::Udp(_) => LayerKind::Udp,
             Self::Dns(_) => LayerKind::Dns,
             Self::Ssh(_) => LayerKind::Ssh,
+            Self::Tls(_) => LayerKind::Tls,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -271,6 +281,7 @@ impl LayerEnum {
             Self::Udp(l) => &l.index,
             Self::Dns(l) => &l.index,
             Self::Ssh(l) => &l.index,
+            Self::Tls(l) => &l.index,
             Self::Raw(l) => &l.index,
         }
     }
@@ -288,6 +299,7 @@ impl LayerEnum {
             Self::Udp(l) => l.summary(buf),
             Self::Dns(l) => l.summary(buf),
             Self::Ssh(l) => l.summary(buf),
+            Self::Tls(l) => l.summary(buf),
             Self::Raw(l) => l.summary(buf),
         }
     }
@@ -317,6 +329,7 @@ impl LayerEnum {
             Self::Udp(l) => l.header_len(buf),
             Self::Dns(l) => l.header_len(buf),
             Self::Ssh(l) => l.header_len(buf),
+            Self::Tls(l) => l.header_len(buf),
             Self::Raw(l) => l.header_len(buf),
         }
     }
@@ -336,6 +349,7 @@ impl LayerEnum {
             Self::Udp(l) => udp_show_fields(l, buf),
             Self::Dns(l) => dns_show_fields(l, buf),
             Self::Ssh(l) => ssh_show_fields(l, buf),
+            Self::Tls(l) => tls_show_fields(l, buf),
             Self::Raw(l) => raw::raw_show_fields(l, buf),
         }
     }
@@ -353,6 +367,7 @@ impl LayerEnum {
             Self::Udp(l) => l.get_field(buf, name),
             Self::Raw(l) => l.get_field(buf, name),
             Self::Ssh(l) => l.get_field(buf, name),
+            Self::Tls(l) => l.get_field(buf, name),
             // Placeholder layers don't have dynamic field access yet
             Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => None,
         }
@@ -376,6 +391,7 @@ impl LayerEnum {
             Self::Udp(l) => l.set_field(buf, name, value),
             Self::Raw(l) => l.set_field(buf, name, value),
             Self::Ssh(l) => l.set_field(buf, name, value),
+            Self::Tls(l) => l.set_field(buf, name, value),
             // Placeholder layers don't have dynamic field access yet
             Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => None,
         }
@@ -393,6 +409,7 @@ impl LayerEnum {
             Self::Udp(l) => l.field_names(),
             Self::Raw(_) => RawLayer::field_names(),
             Self::Ssh(l) => l.field_names(),
+            Self::Tls(l) => l.field_names(),
             // Placeholder layers
             Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => &[],
         }
@@ -865,6 +882,40 @@ fn ssh_show_fields(l: &SshLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
             Err(_) => {
                 fields.push(("message_type", "?".into()));
             }
+        }
+    }
+    fields
+}
+
+fn tls_show_fields(l: &TlsLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "type",
+        l.content_type(buf)
+            .map(|ct| format!("{} ({})", ct.as_u8(), ct.name()))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "version",
+        l.version(buf)
+            .map(|v| {
+                let ver = TlsVersion(v);
+                format!("{:#06x} ({})", v, ver.name())
+            })
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "len",
+        l.length(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let frag = l.fragment(buf);
+    if !frag.is_empty() {
+        if frag.len() <= 16 {
+            fields.push(("fragment", format!("[{} bytes] {:02x?}", frag.len(), frag)));
+        } else {
+            fields.push(("fragment", format!("[{} bytes]", frag.len())));
         }
     }
     fields

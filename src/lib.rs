@@ -25,7 +25,7 @@ use stackforge_core::{
     IcmpBuilder as RustIcmpBuilder, Ipv4Builder as RustIpv4Builder, LayerKind as RustLayerKind,
     LayerStack as RustLayerStack, LayerStackEntry as RustLayerStackEntry, MacAddress,
     Packet as RustPacket, PacketError, SshBuilder as RustSshBuilder, TcpBuilder as RustTcpBuilder,
-    UdpBuilder as RustUdpBuilder,
+    TlsRecordBuilder as RustTlsRecordBuilder, UdpBuilder as RustUdpBuilder,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -59,6 +59,8 @@ pub enum PyLayerKind {
     SNAP,
     /// Secure Shell Protocol
     Ssh,
+    /// Transport Layer Security
+    Tls,
     /// Raw payload data
     Raw,
 }
@@ -103,6 +105,7 @@ impl PyLayerKind {
             PyLayerKind::LLC => RustLayerKind::LLC,
             PyLayerKind::SNAP => RustLayerKind::SNAP,
             PyLayerKind::Ssh => RustLayerKind::Ssh,
+            PyLayerKind::Tls => RustLayerKind::Tls,
             PyLayerKind::Raw => RustLayerKind::Raw,
         }
     }
@@ -125,6 +128,7 @@ impl PyLayerKind {
             RustLayerKind::LLC => PyLayerKind::LLC,
             RustLayerKind::SNAP => PyLayerKind::SNAP,
             RustLayerKind::Ssh => PyLayerKind::Ssh,
+            RustLayerKind::Tls => PyLayerKind::Tls,
             RustLayerKind::Raw => PyLayerKind::Raw,
         }
     }
@@ -751,6 +755,8 @@ impl PyLayerStack {
             new_stack.add(RustLayerStackEntry::Arp(arp.inner));
         } else if let Ok(ssh) = other.extract::<PySSH>() {
             new_stack.add(RustLayerStackEntry::Ssh(ssh.inner));
+        } else if let Ok(tls) = other.extract::<PyTLS>() {
+            new_stack.add(RustLayerStackEntry::Tls(tls.inner));
         } else if let Ok(raw) = other.extract::<PyRaw>() {
             new_stack.add(RustLayerStackEntry::Raw(raw.data));
         } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
@@ -1187,8 +1193,12 @@ impl PyTCP {
         let mut stack = RustLayerStack::new();
         stack.add(RustLayerStackEntry::Tcp(self.inner.clone()));
 
-        // Add the other layer (TCP can only have raw payload)
-        if let Ok(raw) = other.extract::<PyRaw>() {
+        // Add the other layer (TCP can have TLS or raw payload)
+        if let Ok(tls) = other.extract::<PyTLS>() {
+            stack.add(RustLayerStackEntry::Tls(tls.inner));
+        } else if let Ok(ssh) = other.extract::<PySSH>() {
+            stack.add(RustLayerStackEntry::Ssh(ssh.inner));
+        } else if let Ok(raw) = other.extract::<PyRaw>() {
             stack.add(RustLayerStackEntry::Raw(raw.data));
         } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
             stack.add(RustLayerStackEntry::Raw(bytes));
@@ -1920,6 +1930,88 @@ impl PySSH {
 }
 
 // ============================================================================
+// TLS Layer Builder
+// ============================================================================
+
+/// TLS record builder.
+///
+/// Constructs TLS record layer packets with configurable content type,
+/// version, and fragment data. Supports the "Permissive Parser, Explicit
+/// Builder" pattern for security research and fuzzing.
+///
+/// Example:
+///     >>> tls = TLS(type=22, version=0x0303)
+///     >>> tls = TLS()  # default: Handshake, TLS 1.2
+#[pyclass(name = "TLS")]
+#[derive(Clone)]
+pub struct PyTLS {
+    inner: RustTlsRecordBuilder,
+}
+
+#[pymethods]
+impl PyTLS {
+    /// Create a new TLS record.
+    ///
+    /// Args:
+    ///     type: Content type (20=CCS, 21=Alert, 22=Handshake, 23=AppData)
+    ///     version: Protocol version (e.g., 0x0303 for TLS 1.2)
+    ///     len: Explicit length (None = auto-calculate)
+    ///     fragment: Fragment data bytes
+    #[new]
+    #[pyo3(signature = (r#type=None, version=None, len=None, fragment=None))]
+    fn new(
+        r#type: Option<u8>,
+        version: Option<u16>,
+        len: Option<u16>,
+        fragment: Option<Vec<u8>>,
+    ) -> Self {
+        let mut builder = RustTlsRecordBuilder::new();
+        if let Some(ct) = r#type {
+            builder = builder.content_type_raw(ct);
+        }
+        if let Some(v) = version {
+            builder = builder.version(v);
+        }
+        if let Some(l) = len {
+            builder = builder.length(Some(l));
+        }
+        if let Some(f) = fragment {
+            builder = builder.fragment(f);
+        }
+        Self { inner: builder }
+    }
+
+    /// Stack another layer on top using the / operator.
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Tls(self.inner.clone()));
+
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    /// Build the layer into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<TLS>".to_string()
+    }
+}
+
+// ============================================================================
 // PCAP I/O
 // ============================================================================
 
@@ -2119,6 +2211,7 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyICMP>()?;
     m.add_class::<PyARP>()?;
     m.add_class::<PySSH>()?;
+    m.add_class::<PyTLS>()?;
     m.add_class::<PyRaw>()?;
     m.add_class::<PyLayerStack>()?;
 
