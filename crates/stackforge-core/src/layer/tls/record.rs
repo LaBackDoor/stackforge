@@ -122,7 +122,7 @@ impl TlsLayer {
                 } else {
                     format!("TLS {} {}", ver_name, ct.name())
                 }
-            }
+            },
             TlsContentType::Alert => {
                 let frag = self.fragment(buf);
                 if frag.len() >= 2 {
@@ -132,7 +132,7 @@ impl TlsLayer {
                 } else {
                     format!("TLS {} Alert", ver_name)
                 }
-            }
+            },
             _ => format!("TLS {} {}", ver_name, ct.name()),
         }
     }
@@ -160,7 +160,7 @@ impl TlsLayer {
                 }
                 buf[start] = v;
                 Some(Ok(()))
-            }
+            },
             "version" => {
                 let v = match value.as_u16() {
                     Some(v) => v,
@@ -177,7 +177,7 @@ impl TlsLayer {
                 buf[start + 1] = bytes[0];
                 buf[start + 2] = bytes[1];
                 Some(Ok(()))
-            }
+            },
             "len" => {
                 let v = match value.as_u16() {
                     Some(v) => v,
@@ -194,7 +194,7 @@ impl TlsLayer {
                 buf[start + 3] = bytes[0];
                 buf[start + 4] = bytes[1];
                 Some(Ok(()))
-            }
+            },
             _ => None,
         }
     }

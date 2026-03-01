@@ -219,16 +219,16 @@ impl DnsRData {
             rr_type::AAAA => Self::parse_aaaa(rdata),
             rr_type::NS => {
                 Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::NS(n))
-            }
+            },
             rr_type::CNAME => {
                 Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::CNAME(n))
-            }
+            },
             rr_type::PTR => {
                 Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::PTR(n))
-            }
+            },
             rr_type::DNAME => {
                 Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::DNAME(n))
-            }
+            },
             rr_type::MX => Self::parse_mx(packet, rdata_offset, rdata),
             rr_type::TXT => Self::parse_txt(rdata),
             rr_type::SOA => Self::parse_soa(packet, rdata_offset, rdata_end),
@@ -906,7 +906,7 @@ impl DnsRData {
                 out.extend_from_slice(&preference.to_be_bytes());
                 out.extend_from_slice(&exchange.encode());
                 out
-            }
+            },
 
             DnsRData::TXT(strings) => {
                 let mut out = Vec::new();
@@ -915,7 +915,7 @@ impl DnsRData {
                     out.extend_from_slice(s);
                 }
                 out
-            }
+            },
 
             DnsRData::SOA {
                 mname,
@@ -935,7 +935,7 @@ impl DnsRData {
                 out.extend_from_slice(&expire.to_be_bytes());
                 out.extend_from_slice(&minimum.to_be_bytes());
                 out
-            }
+            },
 
             DnsRData::SRV {
                 priority,
@@ -949,7 +949,7 @@ impl DnsRData {
                 out.extend_from_slice(&port.to_be_bytes());
                 out.extend_from_slice(&target.encode());
                 out
-            }
+            },
 
             DnsRData::HINFO { cpu, os } => {
                 let mut out = Vec::new();
@@ -958,7 +958,7 @@ impl DnsRData {
                 out.push(os.len() as u8);
                 out.extend_from_slice(os);
                 out
-            }
+            },
 
             DnsRData::NAPTR {
                 order,
@@ -979,7 +979,7 @@ impl DnsRData {
                 out.extend_from_slice(regexp);
                 out.extend_from_slice(&replacement.encode());
                 out
-            }
+            },
 
             DnsRData::SVCB {
                 priority,
@@ -998,7 +998,7 @@ impl DnsRData {
                     out.extend_from_slice(&p.build());
                 }
                 out
-            }
+            },
 
             DnsRData::CAA { flags, tag, value } => {
                 let mut out = Vec::new();
@@ -1007,7 +1007,7 @@ impl DnsRData {
                 out.extend_from_slice(tag.as_bytes());
                 out.extend_from_slice(value);
                 out
-            }
+            },
 
             DnsRData::RRSIG {
                 type_covered,
@@ -1031,7 +1031,7 @@ impl DnsRData {
                 out.extend_from_slice(&signer_name.encode());
                 out.extend_from_slice(signature);
                 out
-            }
+            },
 
             DnsRData::NSEC {
                 next_domain,
@@ -1041,7 +1041,7 @@ impl DnsRData {
                 out.extend_from_slice(&next_domain.encode());
                 out.extend_from_slice(&bitmap::rr_list_to_bitmap(type_bitmaps));
                 out
-            }
+            },
 
             DnsRData::NSEC3 {
                 hash_algorithm,
@@ -1061,7 +1061,7 @@ impl DnsRData {
                 out.extend_from_slice(next_hashed);
                 out.extend_from_slice(&bitmap::rr_list_to_bitmap(type_bitmaps));
                 out
-            }
+            },
 
             DnsRData::NSEC3PARAM {
                 hash_algorithm,
@@ -1076,7 +1076,7 @@ impl DnsRData {
                 out.push(salt.len() as u8);
                 out.extend_from_slice(salt);
                 out
-            }
+            },
 
             DnsRData::DNSKEY {
                 flags,
@@ -1090,7 +1090,7 @@ impl DnsRData {
                 out.push(*algorithm);
                 out.extend_from_slice(public_key);
                 out
-            }
+            },
 
             DnsRData::DS {
                 key_tag,
@@ -1110,7 +1110,7 @@ impl DnsRData {
                 out.push(*digest_type);
                 out.extend_from_slice(digest);
                 out
-            }
+            },
 
             DnsRData::TSIG {
                 algorithm_name,
@@ -1138,7 +1138,7 @@ impl DnsRData {
                 out.extend_from_slice(&(other_data.len() as u16).to_be_bytes());
                 out.extend_from_slice(other_data);
                 out
-            }
+            },
 
             DnsRData::TLSA {
                 usage,
@@ -1152,7 +1152,7 @@ impl DnsRData {
                 out.push(*matching_type);
                 out.extend_from_slice(cert_data);
                 out
-            }
+            },
 
             DnsRData::OPT(options) => {
                 let mut out = Vec::new();
@@ -1160,7 +1160,7 @@ impl DnsRData {
                     out.extend_from_slice(&opt.build());
                 }
                 out
-            }
+            },
 
             DnsRData::Unknown { data, .. } => data.clone(),
         }
@@ -1193,7 +1193,7 @@ impl DnsRData {
                 let name_bytes = exchange.encode_compressed(offset + 2, map);
                 out.extend_from_slice(&name_bytes);
                 out
-            }
+            },
 
             DnsRData::SOA {
                 mname,
@@ -1215,7 +1215,7 @@ impl DnsRData {
                 out.extend_from_slice(&expire.to_be_bytes());
                 out.extend_from_slice(&minimum.to_be_bytes());
                 out
-            }
+            },
 
             DnsRData::SRV {
                 priority,
@@ -1230,7 +1230,7 @@ impl DnsRData {
                 // RFC 2782: SRV target MUST NOT use compression
                 out.extend_from_slice(&target.encode());
                 out
-            }
+            },
 
             DnsRData::NAPTR {
                 order,
@@ -1252,7 +1252,7 @@ impl DnsRData {
                 let name_bytes = replacement.encode_compressed(offset + out.len(), map);
                 out.extend_from_slice(&name_bytes);
                 out
-            }
+            },
 
             DnsRData::RRSIG {
                 type_covered,
@@ -1279,7 +1279,7 @@ impl DnsRData {
                 out.extend_from_slice(&name_bytes);
                 out.extend_from_slice(signature);
                 out
-            }
+            },
 
             DnsRData::NSEC {
                 next_domain,
@@ -1290,7 +1290,7 @@ impl DnsRData {
                 out.extend_from_slice(&next_domain.encode());
                 out.extend_from_slice(&bitmap::rr_list_to_bitmap(type_bitmaps));
                 out
-            }
+            },
 
             // For SVCB/HTTPS, the target name MUST NOT be compressed per RFC 9460
             DnsRData::SVCB { .. } | DnsRData::HTTPS { .. } => self.build(),
@@ -1324,7 +1324,7 @@ impl DnsRData {
                 exchange,
             } => {
                 format!("MX {} {}", preference, exchange)
-            }
+            },
 
             DnsRData::TXT(strings) => {
                 let parts: Vec<String> = strings
@@ -1332,7 +1332,7 @@ impl DnsRData {
                     .map(|s| format!("\"{}\"", String::from_utf8_lossy(s)))
                     .collect();
                 format!("TXT {}", parts.join(" "))
-            }
+            },
 
             DnsRData::SOA {
                 mname,
@@ -1347,7 +1347,7 @@ impl DnsRData {
                     "SOA {} {} {} {} {} {} {}",
                     mname, rname, serial, refresh, retry, expire, minimum
                 )
-            }
+            },
 
             DnsRData::SRV {
                 priority,
@@ -1356,7 +1356,7 @@ impl DnsRData {
                 target,
             } => {
                 format!("SRV {} {} {} {}", priority, weight, port, target)
-            }
+            },
 
             DnsRData::HINFO { cpu, os } => {
                 format!(
@@ -1364,7 +1364,7 @@ impl DnsRData {
                     String::from_utf8_lossy(cpu),
                     String::from_utf8_lossy(os)
                 )
-            }
+            },
 
             DnsRData::NAPTR {
                 order,
@@ -1383,7 +1383,7 @@ impl DnsRData {
                     String::from_utf8_lossy(regexp),
                     replacement
                 )
-            }
+            },
 
             DnsRData::SVCB {
                 priority,
@@ -1398,7 +1398,7 @@ impl DnsRData {
                     })
                     .collect();
                 format!("SVCB {} {} {}", priority, target, param_strs.join(" "))
-            }
+            },
 
             DnsRData::HTTPS {
                 priority,
@@ -1413,7 +1413,7 @@ impl DnsRData {
                     })
                     .collect();
                 format!("HTTPS {} {} {}", priority, target, param_strs.join(" "))
-            }
+            },
 
             DnsRData::CAA { flags, tag, value } => {
                 format!(
@@ -1422,7 +1422,7 @@ impl DnsRData {
                     tag,
                     String::from_utf8_lossy(value)
                 )
-            }
+            },
 
             DnsRData::RRSIG {
                 type_covered,
@@ -1442,7 +1442,7 @@ impl DnsRData {
                     key_tag,
                     signer_name
                 )
-            }
+            },
 
             DnsRData::NSEC {
                 next_domain,
@@ -1453,7 +1453,7 @@ impl DnsRData {
                     .map(|t| types::dns_type_name(*t))
                     .collect();
                 format!("NSEC {} [{}]", next_domain, type_names.join(" "))
-            }
+            },
 
             DnsRData::NSEC3 {
                 hash_algorithm,
@@ -1473,7 +1473,7 @@ impl DnsRData {
                     hex(next_hashed),
                     type_names.join(" ")
                 )
-            }
+            },
 
             DnsRData::NSEC3PARAM {
                 hash_algorithm,
@@ -1492,7 +1492,7 @@ impl DnsRData {
                         hex(salt)
                     }
                 )
-            }
+            },
 
             DnsRData::DNSKEY {
                 flags,
@@ -1507,7 +1507,7 @@ impl DnsRData {
                     algorithm,
                     public_key.len()
                 )
-            }
+            },
 
             DnsRData::DS {
                 key_tag,
@@ -1522,7 +1522,7 @@ impl DnsRData {
                     digest_type,
                     hex(digest)
                 )
-            }
+            },
 
             DnsRData::DLV {
                 key_tag,
@@ -1537,7 +1537,7 @@ impl DnsRData {
                     digest_type,
                     hex(digest)
                 )
-            }
+            },
 
             DnsRData::TSIG {
                 algorithm_name,
@@ -1553,7 +1553,7 @@ impl DnsRData {
                     error,
                     mac.len()
                 )
-            }
+            },
 
             DnsRData::TLSA {
                 usage,
@@ -1568,7 +1568,7 @@ impl DnsRData {
                     matching_type,
                     cert_data.len()
                 )
-            }
+            },
 
             DnsRData::OPT(options) => {
                 if options.is_empty() {
@@ -1577,11 +1577,11 @@ impl DnsRData {
                     let summaries: Vec<String> = options.iter().map(|o| o.summary()).collect();
                     format!("OPT [{}]", summaries.join(", "))
                 }
-            }
+            },
 
             DnsRData::Unknown { rtype, data } => {
                 format!("TYPE{} ({} bytes)", rtype, data.len())
-            }
+            },
         }
     }
 }
@@ -1678,7 +1678,7 @@ mod tests {
             } => {
                 assert_eq!(*preference, 10);
                 assert_eq!(exchange.to_fqdn(), "mail.example.com.");
-            }
+            },
             _ => panic!("expected MX, got {:?}", rdata),
         }
     }
@@ -1710,7 +1710,7 @@ mod tests {
             DnsRData::TXT(strings) => {
                 assert_eq!(strings.len(), 1);
                 assert_eq!(strings[0], text.to_vec());
-            }
+            },
             _ => panic!("expected TXT"),
         }
     }
@@ -1732,7 +1732,7 @@ mod tests {
                 assert_eq!(strings.len(), 2);
                 assert_eq!(strings[0], s1.to_vec());
                 assert_eq!(strings[1], s2.to_vec());
-            }
+            },
             _ => panic!("expected TXT"),
         }
     }
@@ -1751,7 +1751,7 @@ mod tests {
                 assert_eq!(strings.len(), 2);
                 assert!(strings[0].is_empty());
                 assert_eq!(strings[1], b"hello".to_vec());
-            }
+            },
             _ => panic!("expected TXT"),
         }
     }
@@ -1827,7 +1827,7 @@ mod tests {
                 assert_eq!(mname.to_fqdn(), "ns1.example.com.");
                 assert_eq!(rname.to_fqdn(), "admin.example.com.");
                 assert_eq!(*serial, 2024010101);
-            }
+            },
             _ => panic!("expected SOA"),
         }
     }

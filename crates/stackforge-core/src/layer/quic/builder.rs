@@ -171,7 +171,7 @@ impl QuicBuilder {
             3 => {
                 let b = pn.to_be_bytes();
                 vec![b[1], b[2], b[3]]
-            }
+            },
             _ => pn.to_be_bytes().to_vec(),
         }
     }

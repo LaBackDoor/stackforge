@@ -409,7 +409,7 @@ impl L2tpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "session_id" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_session_id(buf, v))
@@ -419,7 +419,7 @@ impl L2tpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "ns" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_ns(buf, v))
@@ -429,7 +429,7 @@ impl L2tpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "nr" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_nr(buf, v))
@@ -439,7 +439,7 @@ impl L2tpLayer {
                         value
                     ))))
                 }
-            }
+            },
             _ => None,
         }
     }

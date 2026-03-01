@@ -332,23 +332,23 @@ impl HttpLayer {
             "method" => {
                 let v = self.method(buf)?;
                 Some(Ok(FieldValue::Bytes(v.as_bytes().to_vec())))
-            }
+            },
             "uri" => {
                 let v = self.uri(buf)?;
                 Some(Ok(FieldValue::Bytes(v.as_bytes().to_vec())))
-            }
+            },
             "version" => {
                 let v = self.http_version(buf)?;
                 Some(Ok(FieldValue::Bytes(v.as_bytes().to_vec())))
-            }
+            },
             "status_code" => {
                 let v = self.status_code(buf)?;
                 Some(Ok(FieldValue::U16(v)))
-            }
+            },
             "reason" => {
                 let v = self.reason(buf)?;
                 Some(Ok(FieldValue::Bytes(v.as_bytes().to_vec())))
-            }
+            },
             _ => None,
         }
     }

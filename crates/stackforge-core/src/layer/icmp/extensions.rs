@@ -262,7 +262,7 @@ pub fn parse_interface_information(
                 );
                 result.ip_addr = Some(IpAddr::V4(ip));
                 offset += 4;
-            }
+            },
             2 => {
                 // IPv6
                 if offset + 16 > buf.len() {
@@ -272,7 +272,7 @@ pub fn parse_interface_information(
                 octets.copy_from_slice(&buf[offset..offset + 16]);
                 result.ip_addr = Some(IpAddr::V6(Ipv6Addr::from(octets)));
                 offset += 16;
-            }
+            },
             _ => return None, // Unknown AFI
         }
     }

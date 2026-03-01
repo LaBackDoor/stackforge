@@ -176,7 +176,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: 1,
                 });
-            }
+            },
 
             FrameType::Ping => {
                 frames.push(QuicFrame {
@@ -184,7 +184,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: 1,
                 });
-            }
+            },
 
             FrameType::Ack | FrameType::AckEcn => {
                 // ACK: type(1) + largest_ack(varint) + ack_delay(varint) +
@@ -257,7 +257,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::Crypto => {
                 // CRYPTO: type(1) + offset(varint) + length(varint) + data
@@ -284,7 +284,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::NewToken => {
                 // NEW_TOKEN: type(1) + token_length(varint) + token
@@ -305,7 +305,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::Stream => {
                 // Stream type byte low 3 bits:
@@ -354,7 +354,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::MaxData
             | FrameType::MaxStreams
@@ -375,7 +375,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::MaxStreamData | FrameType::StreamDataBlocked => {
                 // Two varint arguments: stream_id + limit/offset.
@@ -396,7 +396,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::ResetStream => {
                 // RESET_STREAM: stream_id(varint) + app_error_code(varint) + final_size(varint)
@@ -410,7 +410,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                                 length: pos - frame_start,
                             });
                             return frames;
-                        }
+                        },
                     };
                     pos += n;
                 }
@@ -419,7 +419,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::StopSending => {
                 // STOP_SENDING: stream_id(varint) + app_error_code(varint)
@@ -433,7 +433,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                                 length: pos - frame_start,
                             });
                             return frames;
-                        }
+                        },
                     };
                     pos += n;
                 }
@@ -442,7 +442,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::NewConnectionId => {
                 // NEW_CONNECTION_ID: seq_no(varint) + retire_prior_to(varint) +
@@ -475,7 +475,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::PathChallenge | FrameType::PathResponse => {
                 // Fixed 8-byte data field.
@@ -489,7 +489,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::ConnectionClose => {
                 // CONNECTION_CLOSE: error_code(varint) + frame_type(varint) +
@@ -523,7 +523,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::ConnectionCloseApp => {
                 // CONNECTION_CLOSE (app): error_code(varint) +
@@ -551,7 +551,7 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: pos - frame_start,
                 });
-            }
+            },
 
             FrameType::HandshakeDone => {
                 // HANDSHAKE_DONE: no fields.
@@ -560,12 +560,12 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
                     offset: frame_start,
                     length: 1,
                 });
-            }
+            },
 
             FrameType::Unknown(_) => {
                 // Stop on unknown frame type to avoid mis-parsing.
                 break;
-            }
+            },
         }
     }
 

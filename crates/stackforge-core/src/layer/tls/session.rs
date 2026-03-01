@@ -170,7 +170,7 @@ impl TlsSession {
                 self.read_state.key = server_key;
                 self.read_state.mac_key = server_mac;
                 self.read_state.iv = server_iv;
-            }
+            },
             ConnectionEnd::Server => {
                 self.read_state.key = client_key;
                 self.read_state.mac_key = client_mac;
@@ -178,7 +178,7 @@ impl TlsSession {
                 self.write_state.key = server_key;
                 self.write_state.mac_key = server_mac;
                 self.write_state.iv = server_iv;
-            }
+            },
         }
     }
 }

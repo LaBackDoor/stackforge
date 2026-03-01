@@ -295,7 +295,7 @@ impl Ipv4Option {
                     buf.extend_from_slice(&ip.octets());
                 }
                 buf
-            }
+            },
 
             Self::Lsrr { pointer, route } => {
                 let mut buf = vec![131, (3 + route.len() * 4) as u8, *pointer];
@@ -303,7 +303,7 @@ impl Ipv4Option {
                     buf.extend_from_slice(&ip.octets());
                 }
                 buf
-            }
+            },
 
             Self::Ssrr { pointer, route } => {
                 let mut buf = vec![137, (3 + route.len() * 4) as u8, *pointer];
@@ -311,7 +311,7 @@ impl Ipv4Option {
                     buf.extend_from_slice(&ip.octets());
                 }
                 buf
-            }
+            },
 
             Self::Timestamp {
                 pointer,
@@ -333,7 +333,7 @@ impl Ipv4Option {
                     buf.extend_from_slice(&ts.to_be_bytes());
                 }
                 buf
-            }
+            },
 
             Self::Security {
                 security,
@@ -347,25 +347,25 @@ impl Ipv4Option {
                 buf.extend_from_slice(&handling_restrictions.to_be_bytes());
                 buf.extend_from_slice(transmission_control_code);
                 buf
-            }
+            },
 
             Self::StreamId { id } => {
                 let mut buf = vec![136, 4];
                 buf.extend_from_slice(&id.to_be_bytes());
                 buf
-            }
+            },
 
             Self::MtuProbe { mtu } => {
                 let mut buf = vec![11, 4];
                 buf.extend_from_slice(&mtu.to_be_bytes());
                 buf
-            }
+            },
 
             Self::MtuReply { mtu } => {
                 let mut buf = vec![12, 4];
                 buf.extend_from_slice(&mtu.to_be_bytes());
                 buf
-            }
+            },
 
             Self::Traceroute {
                 id,
@@ -379,26 +379,26 @@ impl Ipv4Option {
                 buf.extend_from_slice(&return_hops.to_be_bytes());
                 buf.extend_from_slice(&originator.octets());
                 buf
-            }
+            },
 
             Self::RouterAlert { value } => {
                 let mut buf = vec![148, 4];
                 buf.extend_from_slice(&value.to_be_bytes());
                 buf
-            }
+            },
 
             Self::AddressExtension { src_ext, dst_ext } => {
                 let mut buf = vec![147, 10];
                 buf.extend_from_slice(&src_ext.octets());
                 buf.extend_from_slice(&dst_ext.octets());
                 buf
-            }
+            },
 
             Self::Unknown { option_type, data } => {
                 let mut buf = vec![*option_type, (2 + data.len()) as u8];
                 buf.extend_from_slice(data);
                 buf
-            }
+            },
         }
     }
 }
@@ -458,7 +458,7 @@ impl Ipv4Options {
         self.source_route().and_then(|opt| match opt {
             Ipv4Option::Lsrr { route, .. } | Ipv4Option::Ssrr { route, .. } => {
                 route.last().copied()
-            }
+            },
             _ => None,
         })
     }
@@ -521,13 +521,13 @@ pub fn parse_options(data: &[u8]) -> Result<Ipv4Options, FieldError> {
             0 => {
                 options.push(Ipv4Option::EndOfList);
                 break;
-            }
+            },
 
             // NOP
             1 => {
                 options.push(Ipv4Option::Nop);
                 offset += 1;
-            }
+            },
 
             // Multi-byte options
             _ => {
@@ -558,7 +558,7 @@ pub fn parse_options(data: &[u8]) -> Result<Ipv4Options, FieldError> {
                 options.push(opt);
 
                 offset += length;
-            }
+            },
         }
     }
 
@@ -580,7 +580,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             let pointer = data[2];
             let route = parse_ip_list(&data[3..length]);
             Ok(Ipv4Option::RecordRoute { pointer, route })
-        }
+        },
 
         // LSRR
         131 => {
@@ -592,7 +592,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             let pointer = data[2];
             let route = parse_ip_list(&data[3..length]);
             Ok(Ipv4Option::Lsrr { pointer, route })
-        }
+        },
 
         // SSRR
         137 => {
@@ -604,7 +604,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             let pointer = data[2];
             let route = parse_ip_list(&data[3..length]);
             Ok(Ipv4Option::Ssrr { pointer, route })
-        }
+        },
 
         // Timestamp
         68 => {
@@ -625,7 +625,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
                 flag,
                 data: timestamps,
             })
-        }
+        },
 
         // Security
         130 => {
@@ -647,7 +647,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
                 handling_restrictions,
                 transmission_control_code: tcc,
             })
-        }
+        },
 
         // Stream ID
         136 => {
@@ -659,7 +659,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             }
             let id = u16::from_be_bytes([data[2], data[3]]);
             Ok(Ipv4Option::StreamId { id })
-        }
+        },
 
         // MTU Probe
         11 => {
@@ -671,7 +671,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             }
             let mtu = u16::from_be_bytes([data[2], data[3]]);
             Ok(Ipv4Option::MtuProbe { mtu })
-        }
+        },
 
         // MTU Reply
         12 => {
@@ -683,7 +683,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             }
             let mtu = u16::from_be_bytes([data[2], data[3]]);
             Ok(Ipv4Option::MtuReply { mtu })
-        }
+        },
 
         // Traceroute
         82 => {
@@ -704,7 +704,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
                 return_hops,
                 originator,
             })
-        }
+        },
 
         // Router Alert
         148 => {
@@ -716,7 +716,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             }
             let value = u16::from_be_bytes([data[2], data[3]]);
             Ok(Ipv4Option::RouterAlert { value })
-        }
+        },
 
         // Address Extension
         147 => {
@@ -729,7 +729,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
             let src_ext = Ipv4Addr::new(data[2], data[3], data[4], data[5]);
             let dst_ext = Ipv4Addr::new(data[6], data[7], data[8], data[9]);
             Ok(Ipv4Option::AddressExtension { src_ext, dst_ext })
-        }
+        },
 
         // Unknown option
         _ => Ok(Ipv4Option::Unknown {
@@ -759,7 +759,7 @@ fn parse_timestamps(data: &[u8], flag: u8) -> Result<Vec<(Option<Ipv4Addr>, u32)
                 })
                 .collect();
             Ok(timestamps)
-        }
+        },
 
         // IP + Timestamp pairs
         1 | 3 => {
@@ -777,7 +777,7 @@ fn parse_timestamps(data: &[u8], flag: u8) -> Result<Vec<(Option<Ipv4Addr>, u32)
                 })
                 .collect();
             Ok(timestamps)
-        }
+        },
 
         _ => Err(FieldError::InvalidValue(format!(
             "Unknown timestamp flag: {}",

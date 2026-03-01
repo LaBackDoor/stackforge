@@ -323,7 +323,7 @@ impl TcpOption {
                 let mut buf = vec![2, 4];
                 buf.extend_from_slice(&mss.to_be_bytes());
                 buf
-            }
+            },
 
             Self::WScale(scale) => vec![3, 3, *scale],
 
@@ -336,14 +336,14 @@ impl TcpOption {
                     buf.extend_from_slice(&block.right.to_be_bytes());
                 }
                 buf
-            }
+            },
 
             Self::Timestamp(ts) => {
                 let mut buf = vec![8, 10];
                 buf.extend_from_slice(&ts.ts_val.to_be_bytes());
                 buf.extend_from_slice(&ts.ts_ecr.to_be_bytes());
                 buf
-            }
+            },
 
             Self::AltChkSum {
                 algorithm,
@@ -352,7 +352,7 @@ impl TcpOption {
                 let mut buf = vec![14, 4, *algorithm];
                 buf.extend_from_slice(&checksum.to_be_bytes());
                 buf
-            }
+            },
 
             Self::AltChkSumOpt => vec![15, 2],
 
@@ -360,26 +360,26 @@ impl TcpOption {
                 let mut buf = vec![19, 18];
                 buf.extend_from_slice(sig);
                 buf
-            }
+            },
 
             Self::Mood(mood) => {
                 let mut buf = vec![25, (2 + mood.len()) as u8];
                 buf.extend_from_slice(mood.as_bytes());
                 buf
-            }
+            },
 
             Self::Uto(timeout) => {
                 let mut buf = vec![28, 4];
                 buf.extend_from_slice(&timeout.to_be_bytes());
                 buf
-            }
+            },
 
             Self::Ao(ao) => {
                 let len = 4 + ao.mac.len();
                 let mut buf = vec![29, len as u8, ao.key_id, ao.rnext_key_id];
                 buf.extend_from_slice(&ao.mac);
                 buf
-            }
+            },
 
             Self::Tfo { cookie: None } => vec![34, 2],
 
@@ -387,13 +387,13 @@ impl TcpOption {
                 let mut buf = vec![34, (2 + c.len()) as u8];
                 buf.extend_from_slice(c);
                 buf
-            }
+            },
 
             Self::Unknown { kind, data } => {
                 let mut buf = vec![*kind, (2 + data.len()) as u8];
                 buf.extend_from_slice(data);
                 buf
-            }
+            },
         }
     }
 
@@ -574,13 +574,13 @@ pub fn parse_options(data: &[u8]) -> Result<TcpOptions, FieldError> {
             0 => {
                 options.push(TcpOption::Eol);
                 break;
-            }
+            },
 
             // NOP
             1 => {
                 options.push(TcpOption::Nop);
                 offset += 1;
-            }
+            },
 
             // Multi-byte options
             _ => {
@@ -611,7 +611,7 @@ pub fn parse_options(data: &[u8]) -> Result<TcpOptions, FieldError> {
                 options.push(opt);
 
                 offset += length;
-            }
+            },
         }
     }
 
@@ -634,7 +634,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
             }
             let mss = u16::from_be_bytes([value[0], value[1]]);
             Ok(TcpOption::Mss(mss))
-        }
+        },
 
         // Window Scale
         3 => {
@@ -645,7 +645,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
                 )));
             }
             Ok(TcpOption::WScale(value[0]))
-        }
+        },
 
         // SACK Permitted
         4 => {
@@ -656,7 +656,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
                 )));
             }
             Ok(TcpOption::SackOk)
-        }
+        },
 
         // SACK
         5 => {
@@ -670,7 +670,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
             }
 
             Ok(TcpOption::Sack(blocks))
-        }
+        },
 
         // Timestamps
         8 => {
@@ -683,7 +683,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
             let ts_val = u32::from_be_bytes([value[0], value[1], value[2], value[3]]);
             let ts_ecr = u32::from_be_bytes([value[4], value[5], value[6], value[7]]);
             Ok(TcpOption::Timestamp(TcpTimestamp::new(ts_val, ts_ecr)))
-        }
+        },
 
         // Alternate Checksum Request
         14 => {
@@ -703,7 +703,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
                 algorithm,
                 checksum,
             })
-        }
+        },
 
         // Alternate Checksum Data
         15 => Ok(TcpOption::AltChkSumOpt),
@@ -719,13 +719,13 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
             let mut sig = [0u8; 16];
             sig.copy_from_slice(value);
             Ok(TcpOption::Md5(sig))
-        }
+        },
 
         // Mood
         25 => {
             let mood = String::from_utf8_lossy(value).to_string();
             Ok(TcpOption::Mood(mood))
-        }
+        },
 
         // User Timeout Option
         28 => {
@@ -737,7 +737,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
             }
             let timeout = u16::from_be_bytes([value[0], value[1]]);
             Ok(TcpOption::Uto(timeout))
-        }
+        },
 
         // Authentication Option
         29 => {
@@ -751,7 +751,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
             let rnext_key_id = value[1];
             let mac = value[2..].to_vec();
             Ok(TcpOption::Ao(TcpAoValue::new(key_id, rnext_key_id, mac)))
-        }
+        },
 
         // TCP Fast Open
         34 => {
@@ -761,7 +761,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
                 Some(value.to_vec())
             };
             Ok(TcpOption::Tfo { cookie })
-        }
+        },
 
         // Unknown option
         _ => Ok(TcpOption::Unknown {

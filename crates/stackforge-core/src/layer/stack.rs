@@ -542,41 +542,41 @@ fn apply_field_to_bytes(bytes: &mut Vec<u8>, layer_kind: LayerKind, field_name: 
                 bytes[12] = ((value >> 8) & 0xFF) as u8;
                 bytes[13] = (value & 0xFF) as u8;
             }
-        }
+        },
         LayerKind::Ipv4 => {
             // proto field is at offset 9, 1 byte
             if field_name == "proto" && bytes.len() >= 10 {
                 bytes[9] = (value & 0xFF) as u8;
             }
-        }
+        },
         LayerKind::Ipv6 => {
             // nh (next header) field is at offset 6, 1 byte
             if field_name == "nh" && bytes.len() >= 7 {
                 bytes[6] = (value & 0xFF) as u8;
             }
-        }
+        },
         LayerKind::Dot1Q | LayerKind::Dot1AD => {
             // type field is at offset 2, 2 bytes (after TCI)
             if field_name == "type" && bytes.len() >= 4 {
                 bytes[2] = ((value >> 8) & 0xFF) as u8;
                 bytes[3] = (value & 0xFF) as u8;
             }
-        }
+        },
         LayerKind::Tcp => {
             // dport field is at offset 2, 2 bytes
             if field_name == "dport" && bytes.len() >= 4 {
                 bytes[2] = ((value >> 8) & 0xFF) as u8;
                 bytes[3] = (value & 0xFF) as u8;
             }
-        }
+        },
         LayerKind::Udp => {
             // dport field is at offset 2, 2 bytes
             if field_name == "dport" && bytes.len() >= 4 {
                 bytes[2] = ((value >> 8) & 0xFF) as u8;
                 bytes[3] = (value & 0xFF) as u8;
             }
-        }
-        _ => {}
+        },
+        _ => {},
     }
 }
 

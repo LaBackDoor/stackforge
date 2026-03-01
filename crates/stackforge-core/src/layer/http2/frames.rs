@@ -374,7 +374,7 @@ pub fn parse_all_frames(buf: &[u8]) -> Vec<Http2Frame> {
                 let total = frame.total_size;
                 frames.push(frame);
                 offset += total;
-            }
+            },
             None => break,
         }
     }

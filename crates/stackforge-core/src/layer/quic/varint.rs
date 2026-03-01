@@ -22,7 +22,7 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
         0 => {
             // 1-byte encoding: 6-bit value
             Some(((buf[0] & 0x3F) as u64, 1))
-        }
+        },
         1 => {
             // 2-byte encoding: 14-bit value
             if buf.len() < 2 {
@@ -30,7 +30,7 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
             }
             let value = u16::from_be_bytes([buf[0] & 0x3F, buf[1]]) as u64;
             Some((value, 2))
-        }
+        },
         2 => {
             // 4-byte encoding: 30-bit value
             if buf.len() < 4 {
@@ -38,7 +38,7 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
             }
             let value = u32::from_be_bytes([buf[0] & 0x3F, buf[1], buf[2], buf[3]]) as u64;
             Some((value, 4))
-        }
+        },
         3 => {
             // 8-byte encoding: 62-bit value
             if buf.len() < 8 {
@@ -55,7 +55,7 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
                 buf[7],
             ]);
             Some((value, 8))
-        }
+        },
         _ => unreachable!("prefix is always 0..=3"),
     }
 }

@@ -127,7 +127,7 @@ pub fn tcp_checksum(src_ip: &[u8], dst_ip: &[u8], tcp_data: &[u8]) -> Option<u16
             let src: [u8; 4] = src_ip.try_into().ok()?;
             let dst: [u8; 4] = dst_ip.try_into().ok()?;
             Some(transport_checksum(&src, &dst, TCP_PROTOCOL, tcp_data))
-        }
+        },
         (16, 16) => {
             let src: [u8; 16] = src_ip.try_into().ok()?;
             let dst: [u8; 16] = dst_ip.try_into().ok()?;
@@ -136,7 +136,7 @@ pub fn tcp_checksum(src_ip: &[u8], dst_ip: &[u8], tcp_data: &[u8]) -> Option<u16
                 Ipv6Addr::from(dst),
                 tcp_data,
             ))
-        }
+        },
         _ => None,
     }
 }

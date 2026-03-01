@@ -182,7 +182,7 @@ impl ClientHello {
                     i += 2;
                 }
                 versions
-            }
+            },
             None => Vec::new(),
         }
     }

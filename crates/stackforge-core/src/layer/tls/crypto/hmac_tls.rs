@@ -36,37 +36,37 @@ impl TlsHmac {
                 let mut mac = Hmac::<md5::Md5>::new_from_slice(&self.key).expect("HMAC key length");
                 mac.update(data);
                 mac.finalize().into_bytes().to_vec()
-            }
+            },
             TlsHash::Sha1 => {
                 let mut mac =
                     Hmac::<sha1::Sha1>::new_from_slice(&self.key).expect("HMAC key length");
                 mac.update(data);
                 mac.finalize().into_bytes().to_vec()
-            }
+            },
             TlsHash::Sha224 => {
                 let mut mac =
                     Hmac::<sha2::Sha224>::new_from_slice(&self.key).expect("HMAC key length");
                 mac.update(data);
                 mac.finalize().into_bytes().to_vec()
-            }
+            },
             TlsHash::Sha256 => {
                 let mut mac =
                     Hmac::<sha2::Sha256>::new_from_slice(&self.key).expect("HMAC key length");
                 mac.update(data);
                 mac.finalize().into_bytes().to_vec()
-            }
+            },
             TlsHash::Sha384 => {
                 let mut mac =
                     Hmac::<sha2::Sha384>::new_from_slice(&self.key).expect("HMAC key length");
                 mac.update(data);
                 mac.finalize().into_bytes().to_vec()
-            }
+            },
             TlsHash::Sha512 => {
                 let mut mac =
                     Hmac::<sha2::Sha512>::new_from_slice(&self.key).expect("HMAC key length");
                 mac.update(data);
                 mac.finalize().into_bytes().to_vec()
-            }
+            },
         }
     }
 

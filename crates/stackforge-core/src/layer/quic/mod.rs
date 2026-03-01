@@ -172,7 +172,7 @@ impl QuicLayer {
                 }
                 let v = (slice[0] >> 7) & 0x01;
                 Some(Ok(FieldValue::U8(v)))
-            }
+            },
             "fixed_bit" => {
                 if slice.is_empty() {
                     return Some(Err(FieldError::BufferTooShort {
@@ -183,7 +183,7 @@ impl QuicLayer {
                 }
                 let v = (slice[0] >> 6) & 0x01;
                 Some(Ok(FieldValue::U8(v)))
-            }
+            },
             "packet_type" => {
                 if slice.is_empty() {
                     return Some(Err(FieldError::BufferTooShort {
@@ -199,7 +199,7 @@ impl QuicLayer {
                     0
                 };
                 Some(Ok(FieldValue::U8(v)))
-            }
+            },
             "version" => {
                 if slice.len() < 5 {
                     return Some(Err(FieldError::BufferTooShort {
@@ -210,7 +210,7 @@ impl QuicLayer {
                 }
                 let v = u32::from_be_bytes([slice[1], slice[2], slice[3], slice[4]]);
                 Some(Ok(FieldValue::U32(v)))
-            }
+            },
             "long_packet_type" => {
                 if slice.is_empty() {
                     return Some(Err(FieldError::BufferTooShort {
@@ -222,7 +222,7 @@ impl QuicLayer {
                 // bits 5-4 of byte 0 (only meaningful for long-header packets)
                 let v = (slice[0] & 0x30) >> 4;
                 Some(Ok(FieldValue::U8(v)))
-            }
+            },
             "packet_number_len" => {
                 if slice.is_empty() {
                     return Some(Err(FieldError::BufferTooShort {
@@ -234,7 +234,7 @@ impl QuicLayer {
                 // bits 1-0 of byte 0: encoded packet number length minus 1
                 let v = slice[0] & 0x03;
                 Some(Ok(FieldValue::U8(v)))
-            }
+            },
             "dst_conn_id_len" => {
                 if slice.len() < 6 {
                     return Some(Err(FieldError::BufferTooShort {
@@ -248,7 +248,7 @@ impl QuicLayer {
                     return Some(Ok(FieldValue::U8(0)));
                 }
                 Some(Ok(FieldValue::U8(slice[5])))
-            }
+            },
             "src_conn_id_len" => {
                 if slice[0] & 0x80 == 0 {
                     // Short header — no SCID
@@ -262,7 +262,7 @@ impl QuicLayer {
                         have: slice.len(),
                     })),
                 }
-            }
+            },
             "dst_conn_id" => {
                 if slice[0] & 0x80 == 0 {
                     // Short header — DCID not explicitly encoded
@@ -276,7 +276,7 @@ impl QuicLayer {
                         have: slice.len(),
                     })),
                 }
-            }
+            },
             "src_conn_id" => {
                 if slice[0] & 0x80 == 0 {
                     // Short header — no SCID
@@ -290,7 +290,7 @@ impl QuicLayer {
                         have: slice.len(),
                     })),
                 }
-            }
+            },
             "length" | "packet_number" => {
                 if slice[0] & 0x80 == 0 {
                     // Short header — no length/packet_number fields in long-header sense
@@ -304,7 +304,7 @@ impl QuicLayer {
                             need: 7,
                             have: slice.len(),
                         }));
-                    }
+                    },
                 };
                 let mut pos = hdr.header_len; // after SCID
 
@@ -313,14 +313,14 @@ impl QuicLayer {
                     match varint::decode(&slice[pos..]) {
                         Some((token_len, token_varint_bytes)) => {
                             pos += token_varint_bytes + token_len as usize;
-                        }
+                        },
                         None => {
                             return Some(Err(FieldError::BufferTooShort {
                                 offset: self.index.start + pos,
                                 need: 1,
                                 have: slice.len().saturating_sub(pos),
                             }));
-                        }
+                        },
                     }
                 }
 
@@ -333,7 +333,7 @@ impl QuicLayer {
                             need: 1,
                             have: slice.len().saturating_sub(pos),
                         }));
-                    }
+                    },
                 };
 
                 if name == "length" {
@@ -358,12 +358,12 @@ impl QuicLayer {
                         ((pn_bytes[0] as u32) << 16)
                             | ((pn_bytes[1] as u32) << 8)
                             | (pn_bytes[2] as u32)
-                    }
+                    },
                     4 => u32::from_be_bytes([pn_bytes[0], pn_bytes[1], pn_bytes[2], pn_bytes[3]]),
                     _ => unreachable!(),
                 };
                 Some(Ok(FieldValue::U32(pn)))
-            }
+            },
             _ => None,
         }
     }
@@ -385,7 +385,7 @@ impl QuicLayer {
                             "header_form: expected U8, got {:?}",
                             other
                         ))));
-                    }
+                    },
                 };
                 if buf.len() <= start {
                     return Some(Err(FieldError::BufferTooShort {
@@ -400,7 +400,7 @@ impl QuicLayer {
                     buf[start] &= !0x80;
                 }
                 Some(Ok(()))
-            }
+            },
             "fixed_bit" => {
                 let v = match value {
                     FieldValue::U8(v) => v,
@@ -409,7 +409,7 @@ impl QuicLayer {
                             "fixed_bit: expected U8, got {:?}",
                             other
                         ))));
-                    }
+                    },
                 };
                 if buf.len() <= start {
                     return Some(Err(FieldError::BufferTooShort {
@@ -424,7 +424,7 @@ impl QuicLayer {
                     buf[start] &= !0x40;
                 }
                 Some(Ok(()))
-            }
+            },
             "packet_type" => {
                 let v = match value {
                     FieldValue::U8(v) => v,
@@ -433,7 +433,7 @@ impl QuicLayer {
                             "packet_type: expected U8, got {:?}",
                             other
                         ))));
-                    }
+                    },
                 };
                 if buf.len() <= start {
                     return Some(Err(FieldError::BufferTooShort {
@@ -445,7 +445,7 @@ impl QuicLayer {
                 // Only meaningful for long headers (bits 5-4).
                 buf[start] = (buf[start] & !0x30) | ((v & 0x03) << 4);
                 Some(Ok(()))
-            }
+            },
             "version" => {
                 let v = match value {
                     FieldValue::U32(v) => v,
@@ -454,7 +454,7 @@ impl QuicLayer {
                             "version: expected U32, got {:?}",
                             other
                         ))));
-                    }
+                    },
                 };
                 if buf.len() < start + 5 {
                     return Some(Err(FieldError::BufferTooShort {
@@ -465,7 +465,7 @@ impl QuicLayer {
                 }
                 buf[start + 1..start + 5].copy_from_slice(&v.to_be_bytes());
                 Some(Ok(()))
-            }
+            },
             _ => None,
         }
     }

@@ -179,7 +179,7 @@ impl RawLayer {
                 }
                 slice.copy_from_slice(&new_data);
                 Some(Ok(()))
-            }
+            },
             _ => None,
         }
     }

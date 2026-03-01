@@ -342,10 +342,10 @@ impl UdpBuilder {
         match (self.src_ip, self.dst_ip) {
             (Some(IpAddr::V4(src)), Some(IpAddr::V4(dst))) => {
                 Some(udp_checksum_ipv4(src, dst, udp_packet))
-            }
+            },
             (Some(IpAddr::V6(src)), Some(IpAddr::V6(dst))) => {
                 Some(udp_checksum_ipv6(src, dst, udp_packet))
-            }
+            },
             _ => None, // Can't calculate without IP addresses or with mismatched versions
         }
     }

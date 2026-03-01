@@ -209,7 +209,7 @@ fn test_dns_answer_aaaa_record() {
                     0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946
                 )
             );
-        }
+        },
         _ => panic!("Expected AAAA record"),
     }
 }
@@ -281,7 +281,7 @@ fn test_dns_answer_mx_record() {
         } => {
             assert_eq!(*preference, 10);
             assert_eq!(exchange.to_string(), "mail.example.com.");
-        }
+        },
         _ => panic!("Expected MX record"),
     }
 }
@@ -365,7 +365,7 @@ fn test_dns_answer_soa_record() {
             assert_eq!(*retry, 900);
             assert_eq!(*expire, 604800);
             assert_eq!(*minimum, 86400);
-        }
+        },
         _ => panic!("Expected SOA record"),
     }
 }
@@ -398,7 +398,7 @@ fn test_dns_answer_txt_record() {
                 String::from_utf8_lossy(&strings[0]),
                 "v=spf1 include:_spf.google.com ~all"
             );
-        }
+        },
         _ => panic!("Expected TXT record"),
     }
 }
@@ -439,7 +439,7 @@ fn test_dns_answer_srv_record() {
             assert_eq!(*weight, 60);
             assert_eq!(*port, 5060);
             assert_eq!(target.to_string(), "sip.example.com.");
-        }
+        },
         _ => panic!("Expected SRV record"),
     }
 }

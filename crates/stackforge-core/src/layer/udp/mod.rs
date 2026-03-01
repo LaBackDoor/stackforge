@@ -233,7 +233,7 @@ impl UdpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "dport" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_dst_port(buf, v))
@@ -243,7 +243,7 @@ impl UdpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "len" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_length(buf, v))
@@ -253,7 +253,7 @@ impl UdpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "chksum" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_checksum(buf, v))
@@ -263,7 +263,7 @@ impl UdpLayer {
                         value
                     ))))
                 }
-            }
+            },
             _ => None,
         }
     }

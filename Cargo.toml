@@ -30,6 +30,7 @@ repository = "https://github.com/LaBackDoor/stackforge"
 bytes = "1.11.0"
 smallvec = "1.15.1"
 thiserror = "2.0.17"
+dashmap = "6.1"
 stackforge-core = { path = "crates/stackforge-core" }
 stackforge-automata = { path = "crates/stackforge-automata" }
 

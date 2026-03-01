@@ -251,7 +251,7 @@ impl TcpFlags {
                 'E' | 'e' => flags.ece = true,
                 'C' | 'c' => flags.cwr = true,
                 'N' | 'n' => flags.ns = true,
-                _ => {} // Ignore unknown characters
+                _ => {}, // Ignore unknown characters
             }
         }
         flags

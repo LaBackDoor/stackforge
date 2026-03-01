@@ -273,11 +273,11 @@ impl Dot15d4Builder {
             match &self.dest_addr {
                 Dot15d4Addr::Short(addr) => {
                     out.extend_from_slice(&addr.to_le_bytes());
-                }
+                },
                 Dot15d4Addr::Long(addr) => {
                     out.extend_from_slice(&addr.to_le_bytes());
-                }
-                Dot15d4Addr::None => {} // Should not happen if dest_mode != NONE
+                },
+                Dot15d4Addr::None => {}, // Should not happen if dest_mode != NONE
             }
         }
 
@@ -291,11 +291,11 @@ impl Dot15d4Builder {
             match &self.src_addr {
                 Dot15d4Addr::Short(addr) => {
                     out.extend_from_slice(&addr.to_le_bytes());
-                }
+                },
                 Dot15d4Addr::Long(addr) => {
                     out.extend_from_slice(&addr.to_le_bytes());
-                }
-                Dot15d4Addr::None => {} // Should not happen if src_mode != NONE
+                },
+                Dot15d4Addr::None => {}, // Should not happen if src_mode != NONE
             }
         }
 

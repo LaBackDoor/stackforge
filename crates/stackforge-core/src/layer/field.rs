@@ -645,17 +645,17 @@ impl FieldValue {
             FieldType::Bytes => {
                 let field = BytesField::read_with_len(buf, desc.offset, desc.size)?;
                 Ok(Self::Bytes(field.0))
-            }
+            },
             FieldType::Str => {
                 let field = BytesField::read_with_len(buf, desc.offset, desc.size)?;
                 Ok(Self::Str(String::from_utf8_lossy(&field.0).into_owned()))
-            }
+            },
             FieldType::DnsName => {
                 // DnsName requires special handling with the full packet buffer
                 // Return raw bytes; callers should use dns::name module directly
                 let field = BytesField::read_with_len(buf, desc.offset, desc.size)?;
                 Ok(Self::Bytes(field.0))
-            }
+            },
         }
     }
 
@@ -683,14 +683,14 @@ impl FieldValue {
             (Self::U32(v), FieldType::LEU24) => write_u24_le(*v, buf, desc.offset),
             (Self::Bool(v), FieldType::Bool) => {
                 (if *v { 1u8 } else { 0u8 }).write(buf, desc.offset)
-            }
+            },
             (Self::Mac(v), FieldType::Mac) => v.write(buf, desc.offset),
             (Self::Ipv4(v), FieldType::Ipv4) => v.write(buf, desc.offset),
             (Self::Ipv6(v), FieldType::Ipv6) => v.write(buf, desc.offset),
             (Self::Bytes(v), FieldType::Bytes) => BytesField(v.clone()).write_to(buf, desc.offset),
             (Self::Str(v), FieldType::Str) => {
                 BytesField(v.as_bytes().to_vec()).write_to(buf, desc.offset)
-            }
+            },
             _ => Err(FieldError::TypeMismatch {
                 expected: desc.field_type.name(),
                 got: self.type_name(),
@@ -871,7 +871,7 @@ impl fmt::Display for FieldValue {
                     write!(f, "{:02x}", b)?;
                 }
                 Ok(())
-            }
+            },
             Self::Str(v) => write!(f, "{}", v),
             Self::List(v) => {
                 write!(f, "[")?;
@@ -882,7 +882,7 @@ impl fmt::Display for FieldValue {
                     write!(f, "{}", item)?;
                 }
                 write!(f, "]")
-            }
+            },
         }
     }
 }

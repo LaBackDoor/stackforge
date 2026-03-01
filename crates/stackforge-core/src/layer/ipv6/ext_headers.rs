@@ -126,7 +126,7 @@ pub fn parse_ext_headers(buf: &[u8], start: usize, first_nh: u8) -> Vec<ExtHeade
             None => {
                 // Unknown next header — stop parsing
                 break;
-            }
+            },
         };
 
         if kind.is_terminal() {
@@ -145,18 +145,18 @@ pub fn parse_ext_headers(buf: &[u8], start: usize, first_nh: u8) -> Vec<ExtHeade
             ExtHeaderKind::Fragment => {
                 // Fragment header is always exactly 8 bytes
                 8usize
-            }
+            },
             ExtHeaderKind::HopByHop
             | ExtHeaderKind::Routing
             | ExtHeaderKind::DestinationOptions => {
                 // Length field at offset 1: (len + 1) * 8
                 let len_field = buf[offset + 1] as usize;
                 (len_field + 1) * 8
-            }
+            },
             _ => {
                 // Should not reach here since we checked is_terminal above
                 break;
-            }
+            },
         };
 
         let hdr_end = offset + hdr_len_bytes;

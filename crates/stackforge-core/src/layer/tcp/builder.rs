@@ -580,10 +580,10 @@ impl TcpBuilder {
             match (self.src_ip, self.dst_ip) {
                 (Some(IpAddr::V4(src)), Some(IpAddr::V4(dst))) => {
                     tcp_checksum_ipv4(src, dst, &buf[..total_size])
-                }
+                },
                 (Some(IpAddr::V6(src)), Some(IpAddr::V6(dst))) => {
                     tcp_checksum_ipv6(src, dst, &buf[..total_size])
-                }
+                },
                 _ => 0, // Can't compute checksum without IP addresses
             }
         } else {

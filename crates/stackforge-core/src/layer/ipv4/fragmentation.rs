@@ -325,14 +325,14 @@ impl std::fmt::Display for FragmentError {
                     "packet size {} exceeds MTU {} but DF flag is set",
                     packet_size, mtu
                 )
-            }
+            },
             Self::MtuTooSmall { mtu, min_required } => {
                 write!(
                     f,
                     "MTU {} is too small, minimum required is {}",
                     mtu, min_required
                 )
-            }
+            },
             Self::ParseError(msg) => write!(f, "parse error: {}", msg),
         }
     }

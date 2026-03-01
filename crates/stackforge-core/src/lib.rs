@@ -51,6 +51,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod error;
+pub mod flow;
 pub mod layer;
 pub mod packet;
 pub mod pcap;
@@ -143,6 +144,13 @@ pub use layer::{
 pub use packet::Packet;
 pub use pcap::{
     CapturedPacket, LinkType, PcapIterator, PcapMetadata, rdpcap, wrpcap, wrpcap_packets,
+};
+
+// Flow extraction re-exports
+pub use flow::{
+    CanonicalKey, ConversationState, ConversationStatus, ConversationTable, DirectionStats,
+    FlowConfig, FlowDirection, FlowError, ProtocolState, TransportProtocol, extract_flows,
+    extract_flows_with_config,
 };
 
 // Utils re-exports

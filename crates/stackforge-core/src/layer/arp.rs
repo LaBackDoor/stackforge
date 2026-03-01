@@ -216,7 +216,7 @@ impl std::fmt::Display for HardwareAddr {
                     write!(f, "{:02x}", b)?;
                 }
                 Ok(())
-            }
+            },
         }
     }
 }
@@ -246,12 +246,12 @@ impl ProtocolAddr {
         match (bytes.len(), ptype) {
             (4, protocol_type::IPV4) | (4, _) => {
                 Self::Ipv4(Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]))
-            }
+            },
             (16, protocol_type::IPV6) => {
                 let mut arr = [0u8; 16];
                 arr.copy_from_slice(bytes);
                 Self::Ipv6(Ipv6Addr::from(arr))
-            }
+            },
             _ => Self::Raw(bytes.to_vec()),
         }
     }
@@ -261,7 +261,7 @@ impl ProtocolAddr {
             Self::Ipv4(ip) => Some(*ip),
             Self::Raw(bytes) if bytes.len() == 4 => {
                 Some(Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]))
-            }
+            },
             _ => None,
         }
     }
@@ -273,7 +273,7 @@ impl ProtocolAddr {
                 let mut arr = [0u8; 16];
                 arr.copy_from_slice(bytes);
                 Some(Ipv6Addr::from(arr))
-            }
+            },
             _ => None,
         }
     }
@@ -310,7 +310,7 @@ impl std::fmt::Display for ProtocolAddr {
                     write!(f, "{:02x}", b)?;
                 }
                 Ok(())
-            }
+            },
         }
     }
 }
@@ -863,7 +863,7 @@ impl Layer for ArpLayer {
                     .map(|a| a.to_string())
                     .unwrap_or_else(|_| "?".into());
                 format!("ARP {} is at {}", psrc, hwsrc)
-            }
+            },
             _ => format!("ARP {} {} > {}", opcode::name(op), psrc, pdst),
         }
     }
