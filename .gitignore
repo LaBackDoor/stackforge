@@ -23,3 +23,4 @@ helper_files/
 .pytest*
 .ruff*
 refs/
+memory/
