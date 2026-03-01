@@ -141,16 +141,6 @@ impl L2tpLayer {
     // Field accessors (conditional on flag bits)
     // ========================================================================
 
-    /// Calculate the byte offset of a field, given flag bits.
-    fn field_offset(&self, buf: &[u8], after_flags: bool) -> Option<usize> {
-        // Start from 2 (after flags word)
-        // If L bit set, length field is at offset 2 (2 bytes), then tunnel_id at 4
-        // If L bit not set, tunnel_id is at offset 2
-        let _ = after_flags;
-        let _ = buf;
-        None
-    }
-
     /// Get the optional Length field (present when L bit is set).
     pub fn length(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         if !self.has_length(buf)? {

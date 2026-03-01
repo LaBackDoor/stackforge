@@ -357,10 +357,7 @@ def test_quic_long_packet_type_initial():
 
 
 def test_quic_long_packet_type_handshake():
-    quic = QUIC.handshake(
-        dst_conn_id=[0x01, 0x02],
-        src_conn_id=[0x03],
-    )
+    quic = QUIC.handshake(dst_conn_id=[0x01, 0x02])
     quic_bytes = bytes(quic.build())
     pkt = _packet_with_quic_bytes(quic_bytes)
     assert pkt.has_layer(LayerKind.Quic)
