@@ -1,0 +1,8 @@
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+repository = "stackforge"
+owner = "LaBackDoor"
+
+tag_prefix = "v"
