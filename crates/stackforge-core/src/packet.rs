@@ -200,6 +200,12 @@ impl Packet {
             .map(|idx| UdpLayer { index: *idx })
     }
 
+    /// Get the DNS layer view if present.
+    pub fn dns(&self) -> Option<DnsLayer> {
+        self.get_layer(LayerKind::Dns)
+            .map(|idx| DnsLayer { index: *idx })
+    }
+
     /// Get the TLS layer view if present.
     pub fn tls(&self) -> Option<TlsLayer> {
         self.get_layer(LayerKind::Tls)
@@ -221,6 +227,15 @@ impl Packet {
             LayerKind::Dns => LayerEnum::Dns(DnsLayer { index: *idx }),
             LayerKind::Ssh => LayerEnum::Ssh(SshLayer { index: *idx }),
             LayerKind::Tls => LayerEnum::Tls(TlsLayer { index: *idx }),
+            LayerKind::Dot15d4 => {
+                LayerEnum::Dot15d4(crate::layer::dot15d4::Dot15d4Layer::new(idx.start, idx.end))
+            }
+            LayerKind::Dot15d4Fcs => LayerEnum::Dot15d4Fcs(
+                crate::layer::dot15d4::Dot15d4FcsLayer::new(idx.start, idx.end),
+            ),
+            LayerKind::Dot11 => {
+                LayerEnum::Dot11(crate::layer::dot11::Dot11Layer::new(idx.start, idx.end))
+            }
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
@@ -429,7 +444,9 @@ impl Packet {
         let dst_port = u16::from_be_bytes([self.data[offset + 2], self.data[offset + 3]]);
         let src_port = u16::from_be_bytes([self.data[offset], self.data[offset + 1]]);
 
-        if (dst_port == 53 || src_port == 53) && udp_end + 12 <= self.data.len() {
+        if (dst_port == 53 || src_port == 53 || dst_port == 5353 || src_port == 5353)
+            && udp_end + 12 <= self.data.len()
+        {
             self.layers
                 .push(LayerIndex::new(LayerKind::Dns, udp_end, self.data.len()));
         } else if udp_end < self.data.len() {

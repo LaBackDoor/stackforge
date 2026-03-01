@@ -1,0 +1,214 @@
+# DNS OPT Resource Record unit tests
+#
+# Type the following command to launch start the tests:
+# $ sudo bash test/run_tests -t test/edns0.uts -F
+
++ Test EDNS0 rdata
+
+= EDNS0TLV(), basic instantiation
+tlv = EDNS0TLV()
+raw(tlv) == b'\x00\x00\x00\x00'
+
+= EDNS0TLV(), check parameters
+tlv = EDNS0TLV(optcode=42, optlen=12, optdata="edns0tlv")
+raw(tlv) == b'\x00*\x00\x0cedns0tlv'
+
+= EDNS0TLV(), check computed optlen
+tlv = EDNS0TLV(optdata="edns0tlv")
+raw(tlv) == b'\x00\x00\x00\x08edns0tlv'
+
+= EDNS0TLV(), dissection
+tlv = EDNS0TLV(b'\x00*\x00\x08edns0tlv')
+tlv.optcode == 42 and tlv.optlen == 8 and tlv.optdata == b"edns0tlv"
+
++ Test OPT RR
+
+= DNSRROPT(), basic instantiation
+opt = DNSRROPT()
+raw(opt) == b'\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
+
+= DNSRROPT(), check parameters
+opt = DNSRROPT(rrname="rropt", type=42, rclass=123, extrcode=1, version=2, z=3, rdlen=4, rdata=[EDNS0TLV()])
+raw(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00\x00\x00\x00'
+
+= DNSRROPT() & EDN0TLV(), check parameters
+opt = DNSRROPT(rrname="rropt", type=42, rclass=123, extrcode=1, version=2, z=3, rdlen=4, rdata=[EDNS0TLV(optcode=42, optlen=12, optdata="edns0tlv")])
+raw(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00*\x00\x0cedns0tlv'
+
+= DNSRROP(), dissection
+opt = DNSRROPT(b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x0c\x00*\x00\x0cedns0tlv')
+opt.rrname == b"rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and opt.rdata[0].optdata == b"edns0tlv"
+
++ Test EDNS-PING
+
+= EDNS-PING - basic instantiation
+tlv = EDNS0TLV(optcode=5, optdata=b"\x00\x11\x22\x33")
+raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
+
+#= EDNS-PING - Live test
+#~ netaccess
+#* NB: 85.17.219.217 and www.edns-ping.org seem down
+#old_debug_dissector = conf.debug_dissector
+#conf.debug_dissector = False
+#r = sr1(IP(dst="85.17.219.217")/UDP()/DNS(qd=[DNSQR(qtype="A", qname="www.edns-ping.org.")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="PING", optdata=b"\x00\x11\x22\x33")])]), timeout=1)
+#conf.debug_dissector = old_debug_dissector
+#len(r.ar) and r.ar.rdata[0].optcode == 4  # XXX: should be 5
+
++ Test EDNS-COOKIE
+
+= EDNS-COOKIE - basic instantiation
+tlv = EDNS0TLV(optcode="COOKIE", optdata=b"\x01" * 8)
+assert tlv.optcode == 10
+assert raw(tlv) == b"\x00\x0A\x00\x08\x01\x01\x01\x01\x01\x01\x01\x01"
+
++ Test DNS Name Server Identifier (NSID) Option
+
+= NSID- basic instantiation
+tlv = EDNS0TLV(optcode=2, optdata="")
+raw(tlv) == b'\x00\x02\x00\x00'
+
+= NSID - Live test
+~ netaccess needs_root
+
+def _test():
+    with no_debug_dissector():
+        r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
+    len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
+
+retry_test(_test)
+
+
++ EDNS0 - DAU
+
+= Basic instantiation & dissection
+
+b = b'\x00\x05\x00\x00'
+
+p = EDNS0DAU()
+assert raw(p) == b
+
+p = EDNS0DAU(b)
+assert p.optcode == 5 and p.optlen == 0 and p.alg_code == []
+
+b = raw(EDNS0DAU(alg_code=['RSA/SHA-256', 'RSA/SHA-512']))
+
+p = EDNS0DAU(b)
+repr(p)
+assert p.optcode == 5 and p.optlen == 2 and p.alg_code == [8, 10]
+
+
++ EDNS0 - DHU
+
+= Basic instantiation & dissection
+
+b = b'\x00\x06\x00\x00'
+
+p = EDNS0DHU()
+assert raw(p) == b
+
+p = EDNS0DHU(b)
+assert p.optcode == 6 and p.optlen == 0 and p.alg_code == []
+
+b = raw(EDNS0DHU(alg_code=['SHA-1', 'SHA-256', 'SHA-384']))
+
+p = EDNS0DHU(b)
+repr(p)
+assert p.optcode == 6 and p.optlen == 3 and p.alg_code == [1, 2, 4]
+
+
++ EDNS0 - N3U
+
+= Basic instantiation & dissection
+
+b = b'\x00\x07\x00\x00'
+
+p = EDNS0N3U()
+assert raw(p) == b
+
+p = EDNS0N3U(b)
+assert p.optcode == 7 and p.optlen == 0 and p.alg_code == []
+
+b = raw(EDNS0N3U(alg_code=['SHA-1']))
+
+p = EDNS0N3U(b)
+repr(p)
+assert p.optcode == 7 and p.optlen == 1 and p.alg_code == [1]
+
+
++ EDNS0 - Client Subnet
+
+= Basic instantiation & dissection
+
+raw_d = b'\x00\x00)\x10\x00\x00\x00\x00\x00\x00\n\x00\x08\x00\x06\x00\x01\x10\x00\xc0\xa8'
+
+d = DNSRROPT(z=0, rdata=[EDNS0ClientSubnet()])
+assert raw(d) == raw_d
+
+d = DNSRROPT(raw_d)
+assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 1 and d.rdata[0].address == "192.168.0.0"
+
+raw_d  = b'\x00\x00)\x10\x00\x00\x00\x00\x00\x00\x0c\x00\x08\x00\x08\x00\x02 \x00 \x01\r\xb8'
+d = DNSRROPT(z=0, rdata=[EDNS0ClientSubnet(address="2001:db8::")])
+assert raw(d) == raw_d
+
+d = DNSRROPT(raw_d)
+assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 2 and d.rdata[0].address == "2001:db8::"
+
+
++ EDNS0 - Cookie
+
+= Basic instantiation & dissection
+
+b = b'\x00\n\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00'
+
+p = EDNS0COOKIE()
+assert raw(p) == b
+
+p = EDNS0COOKIE(b)
+assert p.optcode == 10
+assert p.optlen == 8
+assert p.client_cookie == b'\x00' * 8
+assert p.server_cookie == b''
+
+b = b'\x00\n\x00\x18\x01\x01\x01\x01\x01\x01\x01\x01\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02'
+
+p = EDNS0COOKIE(client_cookie=b'\x01' * 8, server_cookie=b'\x02' * 16)
+assert raw(p) == b
+
+p = EDNS0COOKIE(b)
+assert p.optcode == 10
+assert p.optlen == 24
+assert p.client_cookie == b'\x01' * 8
+assert p.server_cookie == b'\x02' * 16
+
+
++ EDNS0 - Extended DNS Error
+
+= Basic instantiation & dissection
+
+b = b'\x00\x0f\x00\x02\x00\x00'
+
+p = EDNS0ExtendedDNSError()
+assert raw(p) == b
+
+p = EDNS0ExtendedDNSError(b)
+assert p.optcode == 15 and p.optlen == 2 and p.info_code == 0 and p.extra_text == b''
+
+b = raw(EDNS0ExtendedDNSError(info_code="DNSSEC Bogus", extra_text="proof of non-existence of example.com. NSEC"))
+
+p = EDNS0ExtendedDNSError(b)
+assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
+
+rropt = DNSRROPT(b'\x00\x00)\x04\xd0\x00\x00\x00\x00\x001\x00\x0f\x00-\x00\x06proof of non-existence of example.com. NSEC')
+assert len(rropt.rdata) == 1
+p = rropt.rdata[0]
+assert p.info_code == 6 and p.optlen == 45 and p.extra_text == b'proof of non-existence of example.com. NSEC'
+
+p = DNSRROPT(raw(DNSRROPT(rdata=[EDNS0ExtendedDNSError(), EDNS0ClientSubnet(), EDNS0TLV()])))
+assert len(p.rdata) == 3
+assert all(Raw not in opt for opt in p.rdata)
+
+for opt_class in EDNS0OPT_DISPATCHER.values():
+    p = DNSRROPT(raw(DNSRROPT(rdata=[EDNS0TLV(), opt_class(), opt_class()])))
+    assert len(p.rdata) == 3
+    assert all(Raw not in opt for opt in p.rdata)

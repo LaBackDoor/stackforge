@@ -128,6 +128,9 @@ pub static LAYER_BINDINGS: &[LayerBinding] = &[
     ),
     // TCP -> * (port-based, dport field)
     LayerBinding::new(LayerKind::Tcp, LayerKind::Tls, "dport", 443),
+    LayerBinding::new(LayerKind::Tcp, LayerKind::Dns, "dport", 53),
+    // UDP -> * (port-based, dport field)
+    LayerBinding::new(LayerKind::Udp, LayerKind::Dns, "dport", 53),
     // IPv6 -> *
     LayerBinding::new(
         LayerKind::Ipv6,
