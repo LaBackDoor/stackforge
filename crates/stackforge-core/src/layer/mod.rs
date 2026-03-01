@@ -11,9 +11,16 @@ pub mod dot15d4;
 pub mod ethernet;
 pub mod field;
 pub mod field_ext;
+pub mod generic;
+pub mod http;
+pub mod http2;
 pub mod icmp;
+pub mod icmpv6;
 pub mod ipv4;
+pub mod ipv6;
+pub mod l2tp;
 pub mod neighbor;
+pub mod quic;
 pub mod raw;
 pub mod ssh;
 pub mod stack;
@@ -28,8 +35,15 @@ pub use arp::{ArpBuilder, ArpLayer};
 pub use bindings::{LAYER_BINDINGS, LayerBinding};
 pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
+pub use http::{HTTP_FIELD_NAMES, HttpLayer, HttpRequestBuilder, HttpResponseBuilder};
+pub use http2::{HTTP2_FIELD_NAMES, Http2Builder, Http2FrameBuilder, Http2Layer};
 pub use icmp::{ICMP_MIN_HEADER_LEN, IcmpBuilder, IcmpLayer, icmp_checksum, verify_icmp_checksum};
+pub use icmpv6::{
+    ICMPV6_MIN_HEADER_LEN, Icmpv6Builder, Icmpv6Layer, icmpv6_checksum, verify_icmpv6_checksum,
+};
 pub use ipv4::{Ipv4Builder, Ipv4Flags, Ipv4Layer, Ipv4Options, Ipv4Route};
+pub use ipv6::{IPV6_HEADER_LEN, Ipv6Builder, Ipv6Layer};
+pub use l2tp::{L2TP_FIELD_NAMES, L2TP_MIN_HEADER_LEN, L2TP_PORT, L2tpBuilder, L2tpLayer};
 pub use neighbor::{NeighborCache, NeighborResolver};
 pub use raw::{RAW_FIELDS, RawBuilder, RawLayer};
 pub use ssh::{SSH_BINARY_HEADER_LEN, SSH_PORT, SshBuilder, SshLayer};
@@ -72,6 +86,11 @@ pub enum LayerKind {
     Dot15d4 = 17,
     Dot15d4Fcs = 18,
     Dot11 = 19,
+    Http = 20,
+    Quic = 21,
+    Generic = 22,
+    Http2 = 23,
+    L2tp = 24,
     Raw = 255,
 }
 
@@ -99,6 +118,11 @@ impl LayerKind {
             Self::Dot15d4 => "802.15.4",
             Self::Dot15d4Fcs => "802.15.4 FCS",
             Self::Dot11 => "802.11",
+            Self::Http => "HTTP",
+            Self::Quic => "QUIC",
+            Self::Generic => "Generic",
+            Self::Http2 => "HTTP/2",
+            Self::L2tp => "L2TP",
             Self::Raw => "Raw",
         }
     }
@@ -124,6 +148,11 @@ impl LayerKind {
             Self::Dot15d4 => 3,    // minimum: 2 bytes FCF + 1 byte seqnum
             Self::Dot15d4Fcs => 5, // minimum: 2 bytes FCF + 1 byte seqnum + 2 bytes FCS
             Self::Dot11 => dot11::DOT11_MIN_HEADER_LEN,
+            Self::Http => 14, // minimum: "GET / HTTP/1.1\r\n\r\n" is ~18 bytes, but use 14 as min
+            Self::Quic => quic::QUIC_MIN_HEADER_LEN,
+            Self::Generic => 0,
+            Self::Http2 => 9, // 9-byte frame header
+            Self::L2tp => l2tp::L2TP_MIN_HEADER_LEN,
             Self::Raw => 0,
         }
     }
@@ -260,6 +289,10 @@ pub enum LayerEnum {
     Dot15d4(dot15d4::Dot15d4Layer),
     Dot15d4Fcs(dot15d4::Dot15d4FcsLayer),
     Dot11(dot11::Dot11Layer),
+    Http(http::HttpLayer),
+    Http2(http2::Http2Layer),
+    Quic(quic::QuicLayer),
+    L2tp(l2tp::L2tpLayer),
     Raw(RawLayer),
 }
 
@@ -282,6 +315,10 @@ impl LayerEnum {
             Self::Dot15d4(_) => LayerKind::Dot15d4,
             Self::Dot15d4Fcs(_) => LayerKind::Dot15d4Fcs,
             Self::Dot11(_) => LayerKind::Dot11,
+            Self::Http(_) => LayerKind::Http,
+            Self::Http2(_) => LayerKind::Http2,
+            Self::Quic(_) => LayerKind::Quic,
+            Self::L2tp(_) => LayerKind::L2tp,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -304,6 +341,10 @@ impl LayerEnum {
             Self::Dot15d4(l) => &l.index,
             Self::Dot15d4Fcs(l) => &l.index,
             Self::Dot11(l) => &l.index,
+            Self::Http(l) => &l.index,
+            Self::Http2(l) => &l.index,
+            Self::Quic(l) => &l.index,
+            Self::L2tp(l) => &l.index,
             Self::Raw(l) => &l.index,
         }
     }
@@ -325,6 +366,10 @@ impl LayerEnum {
             Self::Dot15d4(l) => l.summary(buf),
             Self::Dot15d4Fcs(l) => l.summary(buf),
             Self::Dot11(l) => l.summary(buf),
+            Self::Http(l) => l.summary(buf),
+            Self::Http2(l) => l.summary(buf),
+            Self::Quic(l) => l.summary(buf),
+            Self::L2tp(l) => l.summary(buf),
             Self::Raw(l) => l.summary(buf),
         }
     }
@@ -361,6 +406,10 @@ impl LayerEnum {
             Self::Dot15d4(l) => l.header_len(buf),
             Self::Dot15d4Fcs(l) => l.header_len(buf),
             Self::Dot11(l) => l.header_len(buf),
+            Self::Http(l) => l.header_len(buf),
+            Self::Http2(l) => l.header_len(buf),
+            Self::Quic(l) => l.header_len(buf),
+            Self::L2tp(l) => l.header_len(buf),
             Self::Raw(l) => l.header_len(buf),
         }
     }
@@ -384,6 +433,10 @@ impl LayerEnum {
             Self::Dot15d4(l) => dot15d4_show_fields(l, buf),
             Self::Dot15d4Fcs(l) => dot15d4_fcs_show_fields(l, buf),
             Self::Dot11(l) => dot11_show_fields(l, buf),
+            Self::Http(l) => http_show_fields(l, buf),
+            Self::Http2(l) => http2_show_fields(l, buf),
+            Self::Quic(l) => quic_show_fields(l, buf),
+            Self::L2tp(l) => l2tp_show_fields(l, buf),
             Self::Raw(l) => raw::raw_show_fields(l, buf),
         }
     }
@@ -406,8 +459,12 @@ impl LayerEnum {
             Self::Dot15d4(l) => l.get_field(buf, name),
             Self::Dot15d4Fcs(l) => l.get_field(buf, name),
             Self::Dot11(l) => l.get_field(buf, name),
-            // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_) | Self::Icmpv6(_) => None,
+            Self::Http(l) => l.get_field(buf, name),
+            Self::Http2(l) => l.get_field(buf, name),
+            Self::Quic(l) => l.get_field(buf, name),
+            Self::Ipv6(l) => l.get_field(buf, name),
+            Self::Icmpv6(l) => l.get_field(buf, name),
+            Self::L2tp(l) => l.get_field(buf, name),
         }
     }
 
@@ -434,8 +491,12 @@ impl LayerEnum {
             Self::Dot15d4(l) => l.set_field(buf, name, value),
             Self::Dot15d4Fcs(l) => l.set_field(buf, name, value),
             Self::Dot11(l) => l.set_field(buf, name, value),
-            // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_) | Self::Icmpv6(_) => None,
+            Self::Http(_) => None, // HTTP fields are read-only (text protocol)
+            Self::Http2(_) => None, // HTTP/2 fields are read-only via this interface
+            Self::Quic(l) => l.set_field(buf, name, value),
+            Self::Ipv6(l) => l.set_field(buf, name, value),
+            Self::Icmpv6(l) => l.set_field(buf, name, value),
+            Self::L2tp(l) => l.set_field(buf, name, value),
         }
     }
 
@@ -456,8 +517,12 @@ impl LayerEnum {
             Self::Dot15d4(_) => dot15d4::Dot15d4Layer::field_names(),
             Self::Dot15d4Fcs(_) => dot15d4::Dot15d4FcsLayer::field_names(),
             Self::Dot11(_) => dot11::Dot11Layer::field_names(),
-            // Placeholder layers
-            Self::Ipv6(_) | Self::Icmpv6(_) => &[],
+            Self::Http(l) => l.field_names(),
+            Self::Http2(_) => Http2Layer::field_names(),
+            Self::Quic(_) => quic::QuicLayer::field_names(),
+            Self::Ipv6(_) => Ipv6Layer::field_names(),
+            Self::Icmpv6(_) => Icmpv6Layer::field_names(),
+            Self::L2tp(_) => l2tp::L2tpLayer::field_names(),
         }
     }
 }
@@ -640,34 +705,51 @@ fn ipv4_show_fields(l: &Ipv4Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
 }
 
 fn ipv6_show_fields(l: &Ipv6Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
-    let slice = l.index.slice(buf);
     let mut fields = Vec::new();
-    if slice.len() >= 40 {
-        let version = (slice[0] >> 4) & 0x0F;
-        fields.push(("version", version.to_string()));
-        let traffic_class = ((slice[0] & 0x0F) << 4) | ((slice[1] >> 4) & 0x0F);
-        fields.push(("tc", format!("{:#04x}", traffic_class)));
-        let flow_label =
-            ((slice[1] as u32 & 0x0F) << 16) | ((slice[2] as u32) << 8) | (slice[3] as u32);
-        fields.push(("fl", format!("{:#07x}", flow_label)));
-        let payload_len = u16::from_be_bytes([slice[4], slice[5]]);
-        fields.push(("plen", payload_len.to_string()));
-        let nh = slice[6];
-        fields.push(("nh", format!("{} ({})", nh, ipv4::protocol::to_name(nh))));
-        let hlim = slice[7];
-        fields.push(("hlim", hlim.to_string()));
-        // src/dst addresses
-        if slice.len() >= 40 {
-            let mut src_bytes = [0u8; 16];
-            let mut dst_bytes = [0u8; 16];
-            src_bytes.copy_from_slice(&slice[8..24]);
-            dst_bytes.copy_from_slice(&slice[24..40]);
-            let src = std::net::Ipv6Addr::from(src_bytes);
-            let dst = std::net::Ipv6Addr::from(dst_bytes);
-            fields.push(("src", src.to_string()));
-            fields.push(("dst", dst.to_string()));
-        }
-    }
+    fields.push((
+        "version",
+        l.version(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "tc",
+        l.traffic_class(buf)
+            .map(|v| format!("{:#04x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "fl",
+        l.flow_label(buf)
+            .map(|v| format!("{:#07x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "plen",
+        l.payload_len(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let nh = l.next_header(buf).unwrap_or(0);
+    fields.push(("nh", format!("{} ({})", nh, ipv4::protocol::to_name(nh))));
+    fields.push((
+        "hlim",
+        l.hop_limit(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "src",
+        l.src(buf)
+            .map(|a| a.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dst",
+        l.dst(buf)
+            .map(|a| a.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
     fields
 }
 
@@ -743,31 +825,33 @@ fn icmp_show_fields(l: &IcmpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
 }
 
 fn icmpv6_show_fields(l: &Icmpv6Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
-    let slice = l.index.slice(buf);
     let mut fields = Vec::new();
-    if !slice.is_empty() {
-        let icmp_type = slice[0];
-        let type_name = match icmp_type {
-            1 => "dest-unreach",
-            2 => "pkt-too-big",
-            3 => "time-exceeded",
-            4 => "param-problem",
-            128 => "echo-request",
-            129 => "echo-reply",
-            133 => "router-solicit",
-            134 => "router-advert",
-            135 => "neighbor-solicit",
-            136 => "neighbor-advert",
-            _ => "unknown",
-        };
-        fields.push(("type", format!("{} ({})", icmp_type, type_name)));
+    let icmpv6_type = l.icmpv6_type(buf).unwrap_or(0);
+    let type_name = icmpv6::types::name(icmpv6_type);
+    fields.push(("type", format!("{} ({})", icmpv6_type, type_name)));
+    fields.push((
+        "code",
+        l.code(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "chksum",
+        l.checksum(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    if let Ok(Some(id)) = l.id(buf) {
+        fields.push(("id", format!("{:#06x}", id)));
     }
-    if slice.len() > 1 {
-        fields.push(("code", slice[1].to_string()));
+    if let Ok(Some(seq)) = l.seq(buf) {
+        fields.push(("seq", seq.to_string()));
     }
-    if slice.len() >= 4 {
-        let chksum = u16::from_be_bytes([slice[2], slice[3]]);
-        fields.push(("chksum", format!("{:#06x}", chksum)));
+    if let Ok(Some(target)) = l.target_addr(buf) {
+        fields.push(("tgt", target.to_string()));
+    }
+    if let Ok(Some(mtu)) = l.mtu(buf) {
+        fields.push(("mtu", mtu.to_string()));
     }
     fields
 }
@@ -1204,33 +1288,109 @@ fn dot15d4_fcs_show_fields(
     fields
 }
 
-// Placeholder layer structs (to be fully implemented in later weeks)
-#[derive(Debug, Clone)]
-pub struct Ipv6Layer {
-    pub index: LayerIndex,
+fn http_show_fields(l: &http::HttpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    if l.is_request(buf) {
+        fields.push(("method", l.method(buf).unwrap_or("?").to_string()));
+        fields.push(("uri", l.uri(buf).unwrap_or("?").to_string()));
+        fields.push(("version", l.http_version(buf).unwrap_or("?").to_string()));
+    } else if l.is_response(buf) {
+        fields.push(("version", l.http_version(buf).unwrap_or("?").to_string()));
+        fields.push((
+            "status_code",
+            l.status_code(buf)
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "?".into()),
+        ));
+        fields.push(("reason", l.reason(buf).unwrap_or("?").to_string()));
+    }
+    fields
 }
 
-impl Ipv6Layer {
-    pub fn summary(&self, _buf: &[u8]) -> String {
-        "IPv6".to_string()
+fn http2_show_fields(l: &http2::Http2Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    if l.has_preface {
+        fields.push(("preface", "true".to_string()));
     }
-    pub fn header_len(&self, _buf: &[u8]) -> usize {
-        40
+    if let Some(frame) = l.first_frame(buf) {
+        fields.push((
+            "frame_type",
+            format!("{} ({})", frame.frame_type.as_u8(), frame.frame_type.name()),
+        ));
+        fields.push(("flags", format!("{:#04x}", frame.flags)));
+        fields.push(("stream_id", frame.stream_id.to_string()));
+        fields.push(("length", frame.length.to_string()));
     }
+    fields
 }
 
-#[derive(Debug, Clone)]
-pub struct Icmpv6Layer {
-    pub index: LayerIndex,
+fn quic_show_fields(l: &quic::QuicLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "header_form",
+        if l.is_long_header(buf) {
+            "long".to_string()
+        } else {
+            "short".to_string()
+        },
+    ));
+    if let Some(pt) = l.packet_type(buf) {
+        fields.push(("packet_type", pt.name().to_string()));
+    }
+    if let Some(ver) = l.version(buf) {
+        fields.push(("version", format!("{:#010x}", ver)));
+    }
+    fields
 }
 
-impl Icmpv6Layer {
-    pub fn summary(&self, _buf: &[u8]) -> String {
-        "ICMPv6".to_string()
+fn l2tp_show_fields(l: &l2tp::L2tpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "flags",
+        l.flags_word(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "version",
+        l.version(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "msg_type",
+        l.msg_type(buf)
+            .map(|v| {
+                if v == 0 {
+                    "data".to_string()
+                } else {
+                    "control".to_string()
+                }
+            })
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    if let Ok(Some(length)) = l.length(buf) {
+        fields.push(("length", length.to_string()));
     }
-    pub fn header_len(&self, _buf: &[u8]) -> usize {
-        8
+    fields.push((
+        "tunnel_id",
+        l.tunnel_id(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "session_id",
+        l.session_id(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    if let Ok(Some(ns)) = l.ns(buf) {
+        fields.push(("ns", ns.to_string()));
     }
+    if let Ok(Some(nr)) = l.nr(buf) {
+        fields.push(("nr", nr.to_string()));
+    }
+    fields
 }
 
 // DnsLayer is now in dns::DnsLayer

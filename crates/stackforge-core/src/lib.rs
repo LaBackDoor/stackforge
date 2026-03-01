@@ -70,6 +70,7 @@ pub use layer::neighbor::{
     ArpCache, CacheEntry, NdpCache, ipv4_multicast_mac, ipv6_multicast_mac, is_ipv4_multicast,
     is_ipv6_multicast, solicited_node_multicast,
 };
+pub use layer::quic::builder::QuicBuilder;
 pub use layer::{
     // Builders
     ArpBuilder,
@@ -87,15 +88,28 @@ pub use layer::{
     FieldError,
     FieldType,
     FieldValue,
+    Http2Builder,
+    Http2FrameBuilder,
+    HttpRequestBuilder,
+    HttpResponseBuilder,
+    ICMPV6_MIN_HEADER_LEN,
+    IPV6_HEADER_LEN,
     IcmpBuilder,
     IcmpLayer,
+    Icmpv6Builder,
     Icmpv6Layer,
     // Stacking
     IntoLayerStackEntry,
     Ipv4Builder,
     Ipv4Flags,
     Ipv4Layer,
+    Ipv6Builder,
     Ipv6Layer,
+    L2TP_FIELD_NAMES,
+    L2TP_MIN_HEADER_LEN,
+    L2TP_PORT,
+    L2tpBuilder,
+    L2tpLayer,
     LAYER_BINDINGS,
     // Core traits and enums
     Layer,
@@ -123,6 +137,8 @@ pub use layer::{
     TlsRecordBuilder,
     UdpBuilder,
     UdpLayer,
+    icmpv6_checksum,
+    verify_icmpv6_checksum,
 };
 pub use packet::Packet;
 pub use pcap::{
