@@ -61,6 +61,12 @@ pub enum PyLayerKind {
     Ssh,
     /// Transport Layer Security
     Tls,
+    /// IEEE 802.15.4
+    Dot15d4,
+    /// IEEE 802.15.4 with FCS
+    Dot15d4Fcs,
+    /// IEEE 802.11 (WiFi)
+    Dot11,
     /// Raw payload data
     Raw,
 }
@@ -106,6 +112,9 @@ impl PyLayerKind {
             PyLayerKind::SNAP => RustLayerKind::SNAP,
             PyLayerKind::Ssh => RustLayerKind::Ssh,
             PyLayerKind::Tls => RustLayerKind::Tls,
+            PyLayerKind::Dot15d4 => RustLayerKind::Dot15d4,
+            PyLayerKind::Dot15d4Fcs => RustLayerKind::Dot15d4Fcs,
+            PyLayerKind::Dot11 => RustLayerKind::Dot11,
             PyLayerKind::Raw => RustLayerKind::Raw,
         }
     }
@@ -129,6 +138,9 @@ impl PyLayerKind {
             RustLayerKind::SNAP => PyLayerKind::SNAP,
             RustLayerKind::Ssh => PyLayerKind::Ssh,
             RustLayerKind::Tls => PyLayerKind::Tls,
+            RustLayerKind::Dot15d4 => PyLayerKind::Dot15d4,
+            RustLayerKind::Dot15d4Fcs => PyLayerKind::Dot15d4Fcs,
+            RustLayerKind::Dot11 => PyLayerKind::Dot11,
             RustLayerKind::Raw => PyLayerKind::Raw,
         }
     }
@@ -561,6 +573,20 @@ fn field_value_to_python(py: Python<'_>, value: FieldValue) -> PyResult<Py<PyAny
         FieldValue::Ipv4(v) => Ok(v.to_string().into_pyobject(py)?.into_any().unbind()),
         FieldValue::Ipv6(v) => Ok(v.to_string().into_pyobject(py)?.into_any().unbind()),
         FieldValue::Bytes(v) => Ok(PyBytes::new(py, &v).into_any().unbind()),
+        FieldValue::I8(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::I16(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::I32(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::I64(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::Bool(v) => Ok(v.into_pyobject(py)?.to_owned().into_any().unbind()),
+        FieldValue::Str(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+        FieldValue::List(items) => {
+            let py_list = pyo3::types::PyList::empty(py);
+            for item in items {
+                let py_item = field_value_to_python(py, item)?;
+                py_list.append(py_item)?;
+            }
+            Ok(py_list.into_any().unbind())
+        }
     }
 }
 

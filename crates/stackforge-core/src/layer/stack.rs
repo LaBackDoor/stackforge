@@ -37,6 +37,7 @@
 //! ```
 
 use super::bindings::apply_binding;
+use super::dns::builder::DnsBuilder;
 use super::ethernet::{ETHERNET_HEADER_LEN, EthernetBuilder};
 use super::icmp::builder::IcmpBuilder;
 use super::ipv4::builder::Ipv4Builder;
@@ -47,6 +48,7 @@ use super::udp::builder::UdpBuilder;
 use super::{ArpBuilder, LayerKind};
 use crate::Packet;
 use crate::layer::arp::ARP_HEADER_LEN;
+use crate::layer::dns::DNS_HEADER_LEN;
 use crate::layer::icmp::ICMP_MIN_HEADER_LEN;
 use crate::layer::ipv4::IPV4_MIN_HEADER_LEN;
 use crate::layer::tcp::TCP_MIN_HEADER_LEN;
@@ -71,6 +73,8 @@ pub enum LayerStackEntry {
     Ssh(SshBuilder),
     /// TLS record layer
     Tls(TlsRecordBuilder),
+    /// DNS layer
+    Dns(DnsBuilder),
     /// Raw bytes payload
     Raw(Vec<u8>),
 }
@@ -87,6 +91,7 @@ impl LayerStackEntry {
             Self::Icmp(_) => LayerKind::Icmp,
             Self::Ssh(_) => LayerKind::Ssh,
             Self::Tls(_) => LayerKind::Tls,
+            Self::Dns(_) => LayerKind::Dns,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -102,6 +107,7 @@ impl LayerStackEntry {
             Self::Icmp(b) => b.build(),
             Self::Ssh(b) => b.build(),
             Self::Tls(b) => b.build(),
+            Self::Dns(b) => b.build(),
             Self::Raw(data) => data.clone(),
         }
     }
@@ -117,6 +123,7 @@ impl LayerStackEntry {
             Self::Icmp(b) => b.header_size(),
             Self::Ssh(b) => b.header_size(),
             Self::Tls(b) => b.record_size(),
+            Self::Dns(b) => b.header_size(),
             Self::Raw(data) => data.len(),
         }
     }
@@ -132,6 +139,7 @@ impl LayerStackEntry {
             Self::Icmp(_) => ICMP_MIN_HEADER_LEN,
             Self::Ssh(b) => b.header_size(),
             Self::Tls(_) => 5, // TLS record header is 5 bytes
+            Self::Dns(_) => DNS_HEADER_LEN,
             Self::Raw(data) => data.len(),
         }
     }
@@ -453,6 +461,20 @@ fn apply_field_to_bytes(bytes: &mut Vec<u8>, layer_kind: LayerKind, field_name: 
                 bytes[3] = (value & 0xFF) as u8;
             }
         }
+        LayerKind::Tcp => {
+            // dport field is at offset 2, 2 bytes
+            if field_name == "dport" && bytes.len() >= 4 {
+                bytes[2] = ((value >> 8) & 0xFF) as u8;
+                bytes[3] = (value & 0xFF) as u8;
+            }
+        }
+        LayerKind::Udp => {
+            // dport field is at offset 2, 2 bytes
+            if field_name == "dport" && bytes.len() >= 4 {
+                bytes[2] = ((value >> 8) & 0xFF) as u8;
+                bytes[3] = (value & 0xFF) as u8;
+            }
+        }
         _ => {}
     }
 }
@@ -483,6 +505,18 @@ impl IntoLayerStackEntry for Ipv4Builder {
 impl IntoLayerStackEntry for TcpBuilder {
     fn into_layer_stack_entry(self) -> LayerStackEntry {
         LayerStackEntry::Tcp(self)
+    }
+}
+
+impl IntoLayerStackEntry for UdpBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Udp(self)
+    }
+}
+
+impl IntoLayerStackEntry for DnsBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Dns(self)
     }
 }
 
@@ -545,6 +579,18 @@ impl From<Ipv4Builder> for LayerStack {
 impl From<TcpBuilder> for LayerStack {
     fn from(builder: TcpBuilder) -> Self {
         LayerStack::new().push(LayerStackEntry::Tcp(builder))
+    }
+}
+
+impl From<UdpBuilder> for LayerStack {
+    fn from(builder: UdpBuilder) -> Self {
+        LayerStack::new().push(LayerStackEntry::Udp(builder))
+    }
+}
+
+impl From<DnsBuilder> for LayerStack {
+    fn from(builder: DnsBuilder) -> Self {
+        LayerStack::new().push(LayerStackEntry::Dns(builder))
     }
 }
 

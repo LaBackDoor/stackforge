@@ -5,6 +5,9 @@
 
 mod arp;
 mod compat_tests;
+mod dns;
+mod dot11;
+mod dot15d4;
 mod ethernet;
 mod field;
 mod layer;

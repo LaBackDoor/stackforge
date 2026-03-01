@@ -17,3 +17,9 @@ stackforge.egg-info/
 helper_files/
 # Tools
 .bin/
+*.md
+!README.md
+.claude
+.pytest*
+.ruff*
+refs/

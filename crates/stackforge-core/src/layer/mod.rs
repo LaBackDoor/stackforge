@@ -5,8 +5,12 @@
 
 pub mod arp;
 pub mod bindings;
+pub mod dns;
+pub mod dot11;
+pub mod dot15d4;
 pub mod ethernet;
 pub mod field;
+pub mod field_ext;
 pub mod icmp;
 pub mod ipv4;
 pub mod neighbor;
@@ -65,6 +69,9 @@ pub enum LayerKind {
     SNAP = 14,
     Ssh = 15,
     Tls = 16,
+    Dot15d4 = 17,
+    Dot15d4Fcs = 18,
+    Dot11 = 19,
     Raw = 255,
 }
 
@@ -89,6 +96,9 @@ impl LayerKind {
             Self::SNAP => "SNAP",
             Self::Ssh => "SSH",
             Self::Tls => "TLS",
+            Self::Dot15d4 => "802.15.4",
+            Self::Dot15d4Fcs => "802.15.4 FCS",
+            Self::Dot11 => "802.11",
             Self::Raw => "Raw",
         }
     }
@@ -111,6 +121,9 @@ impl LayerKind {
             Self::SNAP => 5,
             Self::Ssh => ssh::SSH_BINARY_HEADER_LEN,
             Self::Tls => tls::TLS_RECORD_HEADER_LEN,
+            Self::Dot15d4 => 3,    // minimum: 2 bytes FCF + 1 byte seqnum
+            Self::Dot15d4Fcs => 5, // minimum: 2 bytes FCF + 1 byte seqnum + 2 bytes FCS
+            Self::Dot11 => dot11::DOT11_MIN_HEADER_LEN,
             Self::Raw => 0,
         }
     }
@@ -244,6 +257,9 @@ pub enum LayerEnum {
     Dns(DnsLayer),
     Ssh(SshLayer),
     Tls(TlsLayer),
+    Dot15d4(dot15d4::Dot15d4Layer),
+    Dot15d4Fcs(dot15d4::Dot15d4FcsLayer),
+    Dot11(dot11::Dot11Layer),
     Raw(RawLayer),
 }
 
@@ -263,6 +279,9 @@ impl LayerEnum {
             Self::Dns(_) => LayerKind::Dns,
             Self::Ssh(_) => LayerKind::Ssh,
             Self::Tls(_) => LayerKind::Tls,
+            Self::Dot15d4(_) => LayerKind::Dot15d4,
+            Self::Dot15d4Fcs(_) => LayerKind::Dot15d4Fcs,
+            Self::Dot11(_) => LayerKind::Dot11,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -282,6 +301,9 @@ impl LayerEnum {
             Self::Dns(l) => &l.index,
             Self::Ssh(l) => &l.index,
             Self::Tls(l) => &l.index,
+            Self::Dot15d4(l) => &l.index,
+            Self::Dot15d4Fcs(l) => &l.index,
+            Self::Dot11(l) => &l.index,
             Self::Raw(l) => &l.index,
         }
     }
@@ -300,6 +322,9 @@ impl LayerEnum {
             Self::Dns(l) => l.summary(buf),
             Self::Ssh(l) => l.summary(buf),
             Self::Tls(l) => l.summary(buf),
+            Self::Dot15d4(l) => l.summary(buf),
+            Self::Dot15d4Fcs(l) => l.summary(buf),
+            Self::Dot11(l) => l.summary(buf),
             Self::Raw(l) => l.summary(buf),
         }
     }
@@ -312,6 +337,9 @@ impl LayerEnum {
             Self::Icmp(l) => l.hashret(buf),
             Self::Tcp(l) => l.hashret(buf),
             Self::Udp(l) => l.hashret(buf),
+            Self::Dot15d4(l) => l.hashret(buf),
+            Self::Dot15d4Fcs(l) => l.hashret(buf),
+            Self::Dot11(l) => l.hashret(buf),
             _ => vec![],
         }
     }
@@ -330,6 +358,9 @@ impl LayerEnum {
             Self::Dns(l) => l.header_len(buf),
             Self::Ssh(l) => l.header_len(buf),
             Self::Tls(l) => l.header_len(buf),
+            Self::Dot15d4(l) => l.header_len(buf),
+            Self::Dot15d4Fcs(l) => l.header_len(buf),
+            Self::Dot11(l) => l.header_len(buf),
             Self::Raw(l) => l.header_len(buf),
         }
     }
@@ -350,6 +381,9 @@ impl LayerEnum {
             Self::Dns(l) => dns_show_fields(l, buf),
             Self::Ssh(l) => ssh_show_fields(l, buf),
             Self::Tls(l) => tls_show_fields(l, buf),
+            Self::Dot15d4(l) => dot15d4_show_fields(l, buf),
+            Self::Dot15d4Fcs(l) => dot15d4_fcs_show_fields(l, buf),
+            Self::Dot11(l) => dot11_show_fields(l, buf),
             Self::Raw(l) => raw::raw_show_fields(l, buf),
         }
     }
@@ -368,8 +402,12 @@ impl LayerEnum {
             Self::Raw(l) => l.get_field(buf, name),
             Self::Ssh(l) => l.get_field(buf, name),
             Self::Tls(l) => l.get_field(buf, name),
+            Self::Dns(l) => l.get_field(buf, name),
+            Self::Dot15d4(l) => l.get_field(buf, name),
+            Self::Dot15d4Fcs(l) => l.get_field(buf, name),
+            Self::Dot11(l) => l.get_field(buf, name),
             // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => None,
+            Self::Ipv6(_) | Self::Icmpv6(_) => None,
         }
     }
 
@@ -392,8 +430,12 @@ impl LayerEnum {
             Self::Raw(l) => l.set_field(buf, name, value),
             Self::Ssh(l) => l.set_field(buf, name, value),
             Self::Tls(l) => l.set_field(buf, name, value),
+            Self::Dns(l) => l.set_field(buf, name, value),
+            Self::Dot15d4(l) => l.set_field(buf, name, value),
+            Self::Dot15d4Fcs(l) => l.set_field(buf, name, value),
+            Self::Dot11(l) => l.set_field(buf, name, value),
             // Placeholder layers don't have dynamic field access yet
-            Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => None,
+            Self::Ipv6(_) | Self::Icmpv6(_) => None,
         }
     }
 
@@ -410,8 +452,12 @@ impl LayerEnum {
             Self::Raw(_) => RawLayer::field_names(),
             Self::Ssh(l) => l.field_names(),
             Self::Tls(l) => l.field_names(),
+            Self::Dns(_) => DnsLayer::field_names(),
+            Self::Dot15d4(_) => dot15d4::Dot15d4Layer::field_names(),
+            Self::Dot15d4Fcs(_) => dot15d4::Dot15d4FcsLayer::field_names(),
+            Self::Dot11(_) => dot11::Dot11Layer::field_names(),
             // Placeholder layers
-            Self::Ipv6(_) | Self::Icmpv6(_) | Self::Dns(_) => &[],
+            Self::Ipv6(_) | Self::Icmpv6(_) => &[],
         }
     }
 }
@@ -826,28 +872,98 @@ fn udp_show_fields(l: &UdpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
 }
 
 fn dns_show_fields(l: &DnsLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
-    let slice = l.index.slice(buf);
     let mut fields = Vec::new();
-    if slice.len() >= 12 {
-        let id = u16::from_be_bytes([slice[0], slice[1]]);
-        fields.push(("id", format!("{:#06x}", id)));
-        let flags = u16::from_be_bytes([slice[2], slice[3]]);
-        let qr = if (flags & 0x8000) != 0 {
-            "response"
-        } else {
-            "query"
-        };
-        fields.push(("qr", qr.to_string()));
-        let opcode = (flags >> 11) & 0x0F;
-        fields.push(("opcode", opcode.to_string()));
-        let qdcount = u16::from_be_bytes([slice[4], slice[5]]);
-        fields.push(("qdcount", qdcount.to_string()));
-        let ancount = u16::from_be_bytes([slice[6], slice[7]]);
-        fields.push(("ancount", ancount.to_string()));
-        let nscount = u16::from_be_bytes([slice[8], slice[9]]);
-        fields.push(("nscount", nscount.to_string()));
-        let arcount = u16::from_be_bytes([slice[10], slice[11]]);
-        fields.push(("arcount", arcount.to_string()));
+    fields.push((
+        "id",
+        l.id(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let qr = l.qr(buf).unwrap_or(false);
+    fields.push(("qr", if qr { "response" } else { "query" }.to_string()));
+    fields.push((
+        "opcode",
+        l.opcode(buf)
+            .map(|v| format!("{} ({})", v, dns::types::opcode_name(v)))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "aa",
+        l.aa(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "tc",
+        l.tc(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "rd",
+        l.rd(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ra",
+        l.ra(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "z",
+        l.z(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ad",
+        l.ad(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "cd",
+        l.cd(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "rcode",
+        l.rcode(buf)
+            .map(|v| format!("{} ({})", v, dns::types::rcode_name(v)))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "qdcount",
+        l.qdcount(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ancount",
+        l.ancount(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "nscount",
+        l.nscount(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "arcount",
+        l.arcount(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    // Show questions if present
+    if let Ok(questions) = l.questions(buf) {
+        for (i, q) in questions.iter().enumerate() {
+            fields.push(("qd", format!("[{}] {}", i, q.summary())));
+        }
     }
     fields
 }
@@ -921,6 +1037,173 @@ fn tls_show_fields(l: &TlsLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     fields
 }
 
+fn dot11_show_fields(l: &dot11::Dot11Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "type",
+        l.frame_type(buf)
+            .map(|v| format!("{} ({})", v, dot11::types::frame_type::name(v)))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "subtype",
+        l.subtype(buf)
+            .map(|v| {
+                let ft = l.frame_type(buf).unwrap_or(0);
+                format!("{} ({})", v, dot11::types::subtype_name(ft, v))
+            })
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "proto",
+        l.protocol_version(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "FCfield",
+        l.flags(buf)
+            .map(|v| format!("{:#04x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ID",
+        l.duration(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "addr1",
+        l.addr1(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "addr2",
+        l.addr2(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "addr3",
+        l.addr3(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "SC",
+        l.seq_ctrl_raw(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    if l.has_addr4(buf) {
+        fields.push((
+            "addr4",
+            l.addr4(buf)
+                .map(|v| v.to_string())
+                .unwrap_or_else(|_| "?".into()),
+        ));
+    }
+    fields
+}
+
+fn dot15d4_show_fields(l: &dot15d4::Dot15d4Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    // Frame type with name
+    let ft = l.fcf_frametype(buf).unwrap_or(0);
+    fields.push((
+        "fcf_frametype",
+        format!("{} ({})", ft, dot15d4::types::frame_type_name(ft)),
+    ));
+    // FCF flags
+    fields.push((
+        "fcf_security",
+        l.fcf_security(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "fcf_pending",
+        l.fcf_pending(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "fcf_ackreq",
+        l.fcf_ackreq(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "fcf_panidcompress",
+        l.fcf_panidcompress(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    // Address modes with names
+    let dam = l.fcf_destaddrmode(buf).unwrap_or(0);
+    fields.push((
+        "fcf_destaddrmode",
+        format!("{} ({})", dam, dot15d4::types::addr_mode_name(dam)),
+    ));
+    fields.push((
+        "fcf_framever",
+        l.fcf_framever(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let sam = l.fcf_srcaddrmode(buf).unwrap_or(0);
+    fields.push((
+        "fcf_srcaddrmode",
+        format!("{} ({})", sam, dot15d4::types::addr_mode_name(sam)),
+    ));
+    // Sequence number
+    fields.push((
+        "seqnum",
+        l.seqnum(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    // Conditional addressing fields
+    if let Ok(Some(panid)) = l.dest_panid(buf) {
+        fields.push(("dest_panid", format!("{:#06x}", panid)));
+    }
+    if let Ok(Some(addr)) = l.dest_addr_short(buf) {
+        fields.push(("dest_addr", format!("{:#06x}", addr)));
+    }
+    if let Ok(Some(addr)) = l.dest_addr_long(buf) {
+        fields.push(("dest_addr", format!("{:#018x}", addr)));
+    }
+    if let Ok(Some(panid)) = l.src_panid(buf) {
+        fields.push(("src_panid", format!("{:#06x}", panid)));
+    }
+    if let Ok(Some(addr)) = l.src_addr_short(buf) {
+        fields.push(("src_addr", format!("{:#06x}", addr)));
+    }
+    if let Ok(Some(addr)) = l.src_addr_long(buf) {
+        fields.push(("src_addr", format!("{:#018x}", addr)));
+    }
+    fields
+}
+
+fn dot15d4_fcs_show_fields(
+    l: &dot15d4::Dot15d4FcsLayer,
+    buf: &[u8],
+) -> Vec<(&'static str, String)> {
+    let inner = dot15d4::Dot15d4Layer::new(l.index.start, l.index.end.saturating_sub(2));
+    let mut fields = dot15d4_show_fields(&inner, buf);
+    // Show FCS with verification status
+    let slice = l.index.slice(buf);
+    if slice.len() >= 2 {
+        let fcs_bytes = &slice[slice.len() - 2..];
+        let fcs = u16::from_le_bytes([fcs_bytes[0], fcs_bytes[1]]);
+        let verified = l.verify_fcs(buf).unwrap_or(false);
+        let status = if verified { "ok" } else { "INVALID" };
+        fields.push(("fcs", format!("{:#06x} ({})", fcs, status)));
+    }
+    fields
+}
+
 // Placeholder layer structs (to be fully implemented in later weeks)
 #[derive(Debug, Clone)]
 pub struct Ipv6Layer {
@@ -950,21 +1233,8 @@ impl Icmpv6Layer {
     }
 }
 
-// TcpLayer and UdpLayer are now imported from their respective modules
-
-#[derive(Debug, Clone)]
-pub struct DnsLayer {
-    pub index: LayerIndex,
-}
-
-impl DnsLayer {
-    pub fn summary(&self, _buf: &[u8]) -> String {
-        "DNS".to_string()
-    }
-    pub fn header_len(&self, _buf: &[u8]) -> usize {
-        12
-    }
-}
+// DnsLayer is now in dns::DnsLayer
+pub use dns::DnsLayer;
 
 /// EtherType constants
 pub mod ethertype {
