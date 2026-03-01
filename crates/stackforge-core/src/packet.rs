@@ -14,11 +14,13 @@ use smallvec::SmallVec;
 
 use crate::error::{PacketError, Result};
 use crate::layer::{
-    DnsLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind, RawLayer,
-    SshLayer, TcpLayer, TlsLayer, UdpLayer,
+    DnsLayer, HttpLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind,
+    RawLayer, SshLayer, TcpLayer, TlsLayer, UdpLayer,
     arp::ArpLayer,
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
-    ethertype, icmp, ip_protocol,
+    ethertype, http,
+    http2::{Http2Layer, is_http2_payload},
+    icmp, ip_protocol,
     ipv4::Ipv4Layer,
     ssh::{SSH_PORT, is_ssh_payload},
     tls::is_tls_payload,
@@ -236,12 +238,17 @@ impl Packet {
             LayerKind::Dot11 => {
                 LayerEnum::Dot11(crate::layer::dot11::Dot11Layer::new(idx.start, idx.end))
             }
+            LayerKind::Http => LayerEnum::Http(HttpLayer { index: *idx }),
+            LayerKind::Http2 => LayerEnum::Http2(Http2Layer::new(idx.start, idx.end, false)),
+            LayerKind::Quic => LayerEnum::Quic(crate::layer::quic::QuicLayer::from_index(*idx)),
+            LayerKind::L2tp => LayerEnum::L2tp(crate::layer::l2tp::L2tpLayer::new(*idx)),
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
             | LayerKind::Dot1AH
             | LayerKind::LLC
-            | LayerKind::SNAP => LayerEnum::Raw(RawLayer { index: *idx }),
+            | LayerKind::SNAP
+            | LayerKind::Generic => LayerEnum::Raw(RawLayer { index: *idx }),
         }
     }
 
@@ -412,12 +419,17 @@ impl Packet {
             let src_port = u16::from_be_bytes([self.data[offset], self.data[offset + 1]]);
             let dst_port = u16::from_be_bytes([self.data[offset + 2], self.data[offset + 3]]);
 
-            if (src_port == SSH_PORT || dst_port == SSH_PORT)
-                && is_ssh_payload(&self.data[tcp_end..])
-            {
+            let payload = &self.data[tcp_end..];
+            if (src_port == SSH_PORT || dst_port == SSH_PORT) && is_ssh_payload(payload) {
                 self.parse_ssh(tcp_end)?;
-            } else if is_tls_payload(&self.data[tcp_end..]) {
+            } else if is_tls_payload(payload) {
                 self.parse_tls(tcp_end)?;
+            } else if is_http2_payload(payload) {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Http2, tcp_end, self.data.len()));
+            } else if http::detection::is_http(payload) {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Http, tcp_end, self.data.len()));
             } else {
                 self.layers
                     .push(LayerIndex::new(LayerKind::Raw, tcp_end, self.data.len()));
@@ -449,6 +461,19 @@ impl Packet {
         {
             self.layers
                 .push(LayerIndex::new(LayerKind::Dns, udp_end, self.data.len()));
+        } else if (dst_port == 443 || src_port == 443 || dst_port == 4433 || src_port == 4433)
+            && udp_end < self.data.len()
+            && is_quic_payload(&self.data[udp_end..])
+        {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Quic, udp_end, self.data.len()));
+        } else if (dst_port == 1701 || src_port == 1701)
+            && udp_end + 2 <= self.data.len()
+            && (self.data[udp_end + 1] & 0x0F) == 2
+        {
+            // L2TPv2: version nibble (low 4 bits of second byte) must be 2
+            self.layers
+                .push(LayerIndex::new(LayerKind::L2tp, udp_end, self.data.len()));
         } else if udp_end < self.data.len() {
             self.layers
                 .push(LayerIndex::new(LayerKind::Raw, udp_end, self.data.len()));
@@ -630,6 +655,12 @@ impl AsRef<[u8]> for Packet {
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
     }
+}
+
+/// Detect a QUIC payload by checking that the Fixed Bit (bit 6) is set.
+/// RFC 9000 §17: all QUIC packets have the Fixed Bit set to 1.
+fn is_quic_payload(buf: &[u8]) -> bool {
+    !buf.is_empty() && (buf[0] & 0x40) != 0
 }
 
 #[cfg(test)]

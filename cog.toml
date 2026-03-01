@@ -1,0 +1,10 @@
+tag_prefix = "v"
+ignore_merge_commits = true
+skip_untracked = true
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+repository = "stackforge"
+owner = "LaBackDoor"

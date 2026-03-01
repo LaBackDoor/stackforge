@@ -1,0 +1,22 @@
+edition = "2024"
+
+# Line width
+max_width = 100
+
+# Indentation
+hard_tabs = false
+tab_spaces = 4
+
+# Imports
+reorder_imports = true
+
+# Match arms
+match_block_trailing_comma = true
+
+# Function parameters layout: Tall puts each arg on its own line when they don't fit
+fn_params_layout = "Tall"
+
+# Misc
+use_field_init_shorthand = true
+use_try_shorthand = true
+force_explicit_abi = true

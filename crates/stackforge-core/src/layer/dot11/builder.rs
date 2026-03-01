@@ -4,8 +4,7 @@
 //! convenience methods for common frame types (beacon, probe, auth, etc.).
 
 use super::management::{
-    Dot11AssocReq, Dot11AssocResp, Dot11Auth, Dot11Beacon, Dot11Deauth, Dot11ProbeReq,
-    Dot11ProbeResp,
+    Dot11AssocReq, Dot11AssocResp, Dot11Auth, Dot11Beacon, Dot11Deauth, Dot11ProbeResp,
 };
 use super::{DOT11_MGMT_HEADER_LEN, DOT11_WDS_HEADER_LEN, build_frame_control, crc32_ieee, types};
 use crate::layer::dot11::data::Dot11QoS;

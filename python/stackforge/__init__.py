@@ -3,13 +3,21 @@ __version__ = "0.2.0"
 # Re-export all public classes from the Rust extension
 from stackforge.stackforge import (
     ARP,
+    HTTP,
+    HTTP2,
     ICMP,
     IP,
+    L2TP,
+    QUIC,
     SSH,
     TCP,
     TLS,
     UDP,
     Ether,
+    HTTPResponse,
+    ICMPv6,
+    # New protocol builders
+    IPv6,
     LayerIndex,
     LayerKind,
     LayerStack,
@@ -19,6 +27,17 @@ from stackforge.stackforge import (
     Raw,
     rdpcap,
     wrpcap,
+)
+
+from .custom import (
+    ByteField,
+    CustomLayer,
+    IntField,
+    LongField,
+    ShortField,
+    StrLenField,
+    get_protocol,
+    list_protocols,
 )
 
 __all__ = [
@@ -36,10 +55,27 @@ __all__ = [
     "TLS",
     "Raw",
     "LayerStack",
+    # New protocol builders
+    "IPv6",
+    "ICMPv6",
+    "HTTP",
+    "HTTPResponse",
+    "QUIC",
+    "HTTP2",
+    "L2TP",
     # PCAP I/O
     "rdpcap",
     "wrpcap",
     "PcapPacket",
     "PcapReader",
+    # Custom protocol API
+    "CustomLayer",
+    "ByteField",
+    "ShortField",
+    "IntField",
+    "LongField",
+    "StrLenField",
+    "get_protocol",
+    "list_protocols",
     "__version__",
 ]

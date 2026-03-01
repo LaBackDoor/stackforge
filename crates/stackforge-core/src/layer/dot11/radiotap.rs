@@ -263,7 +263,7 @@ impl RadioTapLayer {
             if align > 1 {
                 let base = start + 4 + (num_present_words * 4);
                 let relative = pos - base;
-                let padding = (align - (relative % align)) % align;
+                let _padding = (align - (relative % align)) % align;
                 // Also need to align relative to the start of header
                 let abs_padding = (align - ((pos - start) % align)) % align;
                 pos += abs_padding;
