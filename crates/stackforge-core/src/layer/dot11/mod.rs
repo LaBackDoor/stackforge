@@ -307,20 +307,20 @@ impl Dot11Layer {
                     types::ctrl_subtype::ACK | types::ctrl_subtype::CTS => {
                         // FC(2) + Duration(2) + Addr1(6) = 10
                         10
-                    }
+                    },
                     _ => {
                         // FC(2) + Duration(2) + Addr1(6) + Addr2(6) = 16
                         16
-                    }
+                    },
                 }
-            }
+            },
             types::frame_type::DATA => {
                 if self.has_addr4(buf) {
                     DOT11_WDS_HEADER_LEN
                 } else {
                     DOT11_MGMT_HEADER_LEN
                 }
-            }
+            },
             types::frame_type::EXTENSION => 10,
             _ => DOT11_MIN_HEADER_LEN,
         }
@@ -427,7 +427,7 @@ impl Dot11Layer {
                 } else {
                     None
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -517,7 +517,7 @@ impl Dot11Layer {
                 let self_sub = self.subtype(buf).unwrap_or(255);
                 let other_sub = other.subtype(other_buf).unwrap_or(255);
                 matches!((other_sub, self_sub), (0, 1) | (2, 3) | (4, 5) | (11, 11))
-            }
+            },
             types::frame_type::CONTROL => false,
             types::frame_type::DATA => true,
             _ => false,

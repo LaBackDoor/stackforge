@@ -169,7 +169,7 @@ mod tests {
                 assert_eq!(named_curve, 0x0017);
                 assert_eq!(point.len(), 65);
                 assert_eq!(signature, vec![0xDE, 0xAD]);
-            }
+            },
             _ => panic!("Expected ECDHE"),
         }
     }
@@ -201,7 +201,7 @@ mod tests {
                 assert_eq!(dh_g, vec![0x02]);
                 assert_eq!(dh_ys, vec![0x05, 0x06, 0x07, 0x08]);
                 assert_eq!(signature, vec![0xFF, 0xFE]);
-            }
+            },
             _ => panic!("Expected DHE"),
         }
     }

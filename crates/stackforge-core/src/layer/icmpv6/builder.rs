@@ -314,8 +314,8 @@ impl Icmpv6Builder {
                         offset += 16;
                     }
                 }
-            }
-            _ => {}
+            },
+            _ => {},
         }
 
         // Payload

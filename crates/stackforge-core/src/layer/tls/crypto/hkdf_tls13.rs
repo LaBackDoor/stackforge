@@ -36,19 +36,19 @@ impl Tls13Hkdf {
                 let mut okm = vec![0u8; length];
                 hk.expand(info, &mut okm).expect("valid output length");
                 okm
-            }
+            },
             TlsHash::Sha384 => {
                 let hk = Hkdf::<sha2::Sha384>::from_prk(prk).expect("valid PRK length");
                 let mut okm = vec![0u8; length];
                 hk.expand(info, &mut okm).expect("valid output length");
                 okm
-            }
+            },
             _ => {
                 let hk = Hkdf::<sha2::Sha256>::from_prk(prk).expect("valid PRK length");
                 let mut okm = vec![0u8; length];
                 hk.expand(info, &mut okm).expect("valid output length");
                 okm
-            }
+            },
         }
     }
 

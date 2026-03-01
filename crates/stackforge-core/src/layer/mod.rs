@@ -1077,11 +1077,11 @@ fn ssh_show_fields(l: &SshLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
                     "message_type",
                     format!("{} ({})", t, ssh::msg_types::name(t)),
                 ));
-            }
-            Ok(None) => {}
+            },
+            Ok(None) => {},
             Err(_) => {
                 fields.push(("message_type", "?".into()));
-            }
+            },
         }
     }
     fields

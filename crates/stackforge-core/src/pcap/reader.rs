@@ -76,7 +76,7 @@ impl<R: Read> Iterator for PcapIterator<R> {
                         orig_len: pcap_pkt.orig_len,
                     },
                 }))
-            }
+            },
             Some(Err(e)) => Some(Err(PacketError::Io(format!("PCAP read error: {}", e)))),
             None => None,
         }

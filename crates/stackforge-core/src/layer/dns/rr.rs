@@ -456,7 +456,7 @@ mod tests {
             FieldError::BufferTooShort { need, have, .. } => {
                 assert_eq!(need, 4);
                 assert_eq!(have, 2);
-            }
+            },
             other => panic!("Expected BufferTooShort, got {:?}", other),
         }
     }

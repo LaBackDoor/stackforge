@@ -51,7 +51,7 @@ impl SvcParam {
                     .map(|c| u16::from_be_bytes([c[0], c[1]]))
                     .collect();
                 Ok(SvcParam::Mandatory(keys))
-            }
+            },
 
             svc_key::ALPN => {
                 let mut alpns = Vec::new();
@@ -70,7 +70,7 @@ impl SvcParam {
                     pos += len;
                 }
                 Ok(SvcParam::Alpn(alpns))
-            }
+            },
 
             svc_key::NO_DEFAULT_ALPN => Ok(SvcParam::NoDefaultAlpn),
 
@@ -81,7 +81,7 @@ impl SvcParam {
                     ));
                 }
                 Ok(SvcParam::Port(u16::from_be_bytes([data[0], data[1]])))
-            }
+            },
 
             svc_key::IPV4HINT => {
                 if data.len() % 4 != 0 {
@@ -94,7 +94,7 @@ impl SvcParam {
                     .map(|c| Ipv4Addr::new(c[0], c[1], c[2], c[3]))
                     .collect();
                 Ok(SvcParam::Ipv4Hint(addrs))
-            }
+            },
 
             svc_key::ECH => Ok(SvcParam::Ech(data.to_vec())),
 
@@ -113,7 +113,7 @@ impl SvcParam {
                     })
                     .collect();
                 Ok(SvcParam::Ipv6Hint(addrs))
-            }
+            },
 
             _ => Ok(SvcParam::Unknown {
                 key,
@@ -147,7 +147,7 @@ impl SvcParam {
                     out.extend_from_slice(alpn.as_bytes());
                 }
                 out
-            }
+            },
             SvcParam::NoDefaultAlpn => Vec::new(),
             SvcParam::Port(port) => port.to_be_bytes().to_vec(),
             SvcParam::Ipv4Hint(addrs) => addrs.iter().flat_map(|a| a.octets()).collect(),

@@ -285,46 +285,46 @@ impl RadioTapLayer {
                         buf[pos + 6],
                         buf[pos + 7],
                     ]));
-                }
+                },
                 radiotap_present::FLAGS => {
                     fields.flags = Some(buf[pos]);
-                }
+                },
                 radiotap_present::RATE => {
                     fields.rate = Some(buf[pos]);
-                }
+                },
                 radiotap_present::CHANNEL => {
                     fields.channel_freq = Some(u16::from_le_bytes([buf[pos], buf[pos + 1]]));
                     fields.channel_flags = Some(u16::from_le_bytes([buf[pos + 2], buf[pos + 3]]));
-                }
+                },
                 radiotap_present::DBM_ANT_SIGNAL => {
                     fields.dbm_ant_signal = Some(buf[pos] as i8);
-                }
+                },
                 radiotap_present::DBM_ANT_NOISE => {
                     fields.dbm_ant_noise = Some(buf[pos] as i8);
-                }
+                },
                 radiotap_present::LOCK_QUALITY => {
                     fields.lock_quality = Some(u16::from_le_bytes([buf[pos], buf[pos + 1]]));
-                }
+                },
                 radiotap_present::ANTENNA => {
                     fields.antenna = Some(buf[pos]);
-                }
+                },
                 radiotap_present::DB_ANT_SIGNAL => {
                     fields.db_ant_signal = Some(buf[pos]);
-                }
+                },
                 radiotap_present::DB_ANT_NOISE => {
                     fields.db_ant_noise = Some(buf[pos]);
-                }
+                },
                 radiotap_present::RX_FLAGS => {
                     fields.rx_flags = Some(u16::from_le_bytes([buf[pos], buf[pos + 1]]));
-                }
+                },
                 radiotap_present::TX_FLAGS => {
                     fields.tx_flags = Some(u16::from_le_bytes([buf[pos], buf[pos + 1]]));
-                }
+                },
                 radiotap_present::MCS => {
                     fields.mcs_known = Some(buf[pos]);
                     fields.mcs_flags = Some(buf[pos + 1]);
                     fields.mcs_index = Some(buf[pos + 2]);
-                }
+                },
                 radiotap_present::A_MPDU => {
                     fields.a_mpdu_ref = Some(u32::from_le_bytes([
                         buf[pos],
@@ -338,8 +338,8 @@ impl RadioTapLayer {
                         buf[pos + 6],
                         buf[pos + 7],
                     ]));
-                }
-                _ => {}
+                },
+                _ => {},
             }
 
             pos += size;

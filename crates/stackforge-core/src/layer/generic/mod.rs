@@ -135,7 +135,7 @@ impl GenericLayer {
             FieldType::U16 => {
                 let v = u16::from_be_bytes([field_slice[0], field_slice[1]]);
                 FieldValue::U16(v)
-            }
+            },
             FieldType::U32 => {
                 let v = u32::from_be_bytes([
                     field_slice[0],
@@ -144,7 +144,7 @@ impl GenericLayer {
                     field_slice[3],
                 ]);
                 FieldValue::U32(v)
-            }
+            },
             FieldType::U64 => {
                 let v = u64::from_be_bytes([
                     field_slice[0],
@@ -157,11 +157,11 @@ impl GenericLayer {
                     field_slice[7],
                 ]);
                 FieldValue::U64(v)
-            }
+            },
             FieldType::LEU16 => {
                 let v = u16::from_le_bytes([field_slice[0], field_slice[1]]);
                 FieldValue::U16(v)
-            }
+            },
             FieldType::LEU32 => {
                 let v = u32::from_le_bytes([
                     field_slice[0],
@@ -170,7 +170,7 @@ impl GenericLayer {
                     field_slice[3],
                 ]);
                 FieldValue::U32(v)
-            }
+            },
             FieldType::LEU64 => {
                 let v = u64::from_le_bytes([
                     field_slice[0],
@@ -183,7 +183,7 @@ impl GenericLayer {
                     field_slice[7],
                 ]);
                 FieldValue::U64(v)
-            }
+            },
             FieldType::Bool => FieldValue::Bool(field_slice[0] != 0),
             // For all other types, return raw bytes.
             _ => FieldValue::Bytes(field_slice.to_vec()),
@@ -224,40 +224,40 @@ impl GenericLayer {
             (FieldType::U8, FieldValue::U8(v)) => {
                 dest[0] = *v;
                 Ok(())
-            }
+            },
             (FieldType::U16, FieldValue::U16(v)) => {
                 dest.copy_from_slice(&v.to_be_bytes());
                 Ok(())
-            }
+            },
             (FieldType::U32, FieldValue::U32(v)) => {
                 dest.copy_from_slice(&v.to_be_bytes());
                 Ok(())
-            }
+            },
             (FieldType::U64, FieldValue::U64(v)) => {
                 dest.copy_from_slice(&v.to_be_bytes());
                 Ok(())
-            }
+            },
             (FieldType::LEU16, FieldValue::U16(v)) => {
                 dest.copy_from_slice(&v.to_le_bytes());
                 Ok(())
-            }
+            },
             (FieldType::LEU32, FieldValue::U32(v)) => {
                 dest.copy_from_slice(&v.to_le_bytes());
                 Ok(())
-            }
+            },
             (FieldType::LEU64, FieldValue::U64(v)) => {
                 dest.copy_from_slice(&v.to_le_bytes());
                 Ok(())
-            }
+            },
             (FieldType::Bool, FieldValue::Bool(v)) => {
                 dest[0] = if *v { 1 } else { 0 };
                 Ok(())
-            }
+            },
             (_, FieldValue::Bytes(bytes)) => {
                 let copy_len = bytes.len().min(dest.len());
                 dest[..copy_len].copy_from_slice(&bytes[..copy_len]);
                 Ok(())
-            }
+            },
             _ => Err(FieldError::InvalidValue(format!(
                 "field '{}': value type {:?} does not match declared field type {:?}",
                 name, value, desc.field_type

@@ -215,13 +215,13 @@ impl SshLayer {
                     return Some(Ok(FieldValue::U32(0)));
                 }
                 Some(self.packet_length(buf).map(FieldValue::U32))
-            }
+            },
             "padding_length" => {
                 if self.is_version_exchange(buf) {
                     return Some(Ok(FieldValue::U8(0)));
                 }
                 Some(self.padding_length(buf).map(FieldValue::U8))
-            }
+            },
             "message_type" => match self.message_type(buf) {
                 Ok(Some(t)) => Some(Ok(FieldValue::U8(t))),
                 Ok(None) => Some(Ok(FieldValue::U8(0))),
@@ -233,7 +233,7 @@ impl SshLayer {
                 } else {
                     Some(Ok(FieldValue::Bytes(vec![])))
                 }
-            }
+            },
             _ => None,
         }
     }

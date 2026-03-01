@@ -83,24 +83,24 @@ impl AuxSecurityHeader {
             0 => {
                 // Implicit: no key identifier
                 key_index = None;
-            }
+            },
             1 => {
                 // Key Index only (1 byte)
                 key_index = Some(buf[offset + 5]);
-            }
+            },
             2 => {
                 // 4-byte Key Source + 1-byte Key Index
                 key_source = read_u32_le(buf, offset + 5)? as u64;
                 key_index = Some(buf[offset + 9]);
-            }
+            },
             3 => {
                 // 8-byte Key Source + 1-byte Key Index
                 key_source = read_u64_le(buf, offset + 5)?;
                 key_index = Some(buf[offset + 13]);
-            }
+            },
             _ => {
                 key_index = None;
-            }
+            },
         }
 
         Ok((
@@ -133,22 +133,22 @@ impl AuxSecurityHeader {
         match self.key_id_mode {
             0 => {
                 // No key identifier
-            }
+            },
             1 => {
                 // Key Index only
                 out.push(self.key_index.unwrap_or(0xFF));
-            }
+            },
             2 => {
                 // 4-byte Key Source (LE) + Key Index
                 out.extend_from_slice(&(self.key_source as u32).to_le_bytes());
                 out.push(self.key_index.unwrap_or(0xFF));
-            }
+            },
             3 => {
                 // 8-byte Key Source (LE) + Key Index
                 out.extend_from_slice(&self.key_source.to_le_bytes());
                 out.push(self.key_index.unwrap_or(0xFF));
-            }
-            _ => {}
+            },
+            _ => {},
         }
 
         out

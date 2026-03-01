@@ -142,7 +142,7 @@ impl CommandFrame {
                     allocate_address: (cap & 0x80) != 0,
                 };
                 (CommandPayload::AssocReq(payload), 1)
-            }
+            },
             types::cmd_id::ASSOC_RESP => {
                 if remaining.len() < 3 {
                     return Err(FieldError::BufferTooShort {
@@ -158,7 +158,7 @@ impl CommandFrame {
                     association_status,
                 };
                 (CommandPayload::AssocResp(payload), 3)
-            }
+            },
             types::cmd_id::DISASSOC_NOTIFY => {
                 if remaining.is_empty() {
                     return Err(FieldError::BufferTooShort {
@@ -171,7 +171,7 @@ impl CommandFrame {
                     reason: remaining[0],
                 };
                 (CommandPayload::DisassocNotify(payload), 1)
-            }
+            },
             types::cmd_id::DATA_REQ => (CommandPayload::DataReq, 0),
             types::cmd_id::PAN_ID_CONFLICT => (CommandPayload::PanIdConflict, 0),
             types::cmd_id::ORPHAN_NOTIFY => (CommandPayload::OrphanNotify, 0),
@@ -195,7 +195,7 @@ impl CommandFrame {
                     dev_address,
                 };
                 (CommandPayload::CoordRealign(payload), 7)
-            }
+            },
             types::cmd_id::GTS_REQ => {
                 if remaining.is_empty() {
                     return Err(FieldError::BufferTooShort {
@@ -211,12 +211,12 @@ impl CommandFrame {
                     charact_type: (charact & 0x20) != 0,
                 };
                 (CommandPayload::GtsReq(payload), 1)
-            }
+            },
             _ => {
                 let payload = CommandPayload::Unknown(remaining.to_vec());
                 let len = remaining.len();
                 (payload, len)
-            }
+            },
         };
 
         let consumed = 1 + payload_len;
@@ -250,24 +250,24 @@ impl CommandFrame {
                     cap |= 0x80;
                 }
                 out.push(cap);
-            }
+            },
             CommandPayload::AssocResp(p) => {
                 out.extend_from_slice(&p.short_address.to_le_bytes());
                 out.push(p.association_status);
-            }
+            },
             CommandPayload::DisassocNotify(p) => {
                 out.push(p.reason);
-            }
+            },
             CommandPayload::DataReq
             | CommandPayload::PanIdConflict
             | CommandPayload::OrphanNotify
-            | CommandPayload::BeaconReq => {}
+            | CommandPayload::BeaconReq => {},
             CommandPayload::CoordRealign(p) => {
                 out.extend_from_slice(&p.panid.to_le_bytes());
                 out.extend_from_slice(&p.coord_address.to_le_bytes());
                 out.push(p.channel);
                 out.extend_from_slice(&p.dev_address.to_le_bytes());
-            }
+            },
             CommandPayload::GtsReq(p) => {
                 let mut charact: u8 = p.gts_len & 0x0F;
                 if p.gts_dir {
@@ -277,10 +277,10 @@ impl CommandFrame {
                     charact |= 0x20;
                 }
                 out.push(charact);
-            }
+            },
             CommandPayload::Unknown(data) => {
                 out.extend_from_slice(data);
-            }
+            },
         }
 
         out

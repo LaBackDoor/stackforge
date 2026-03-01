@@ -79,7 +79,7 @@ impl Dot11Elt {
                 Ok((elt, consumed)) => {
                     offset += consumed;
                     elements.push(elt);
-                }
+                },
                 Err(_) => break,
             }
         }

@@ -145,7 +145,7 @@ pub fn parse_handshakes(data: &[u8]) -> Vec<Handshake> {
             Some((hs, consumed)) => {
                 offset += consumed;
                 messages.push(hs);
-            }
+            },
             None => break,
         }
     }

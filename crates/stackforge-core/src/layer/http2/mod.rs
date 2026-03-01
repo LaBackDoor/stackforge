@@ -143,7 +143,7 @@ impl Http2Layer {
                     if offset >= self.index.end {
                         break;
                     }
-                }
+                },
                 None => break,
             }
         }
@@ -227,7 +227,7 @@ impl Http2Layer {
                             "stream_id: expected integer, got {:?}",
                             value
                         ))));
-                    }
+                    },
                 };
 
                 let offset = self.frames_start() + 5; // stream_id at bytes 5-8 of frame header
@@ -241,7 +241,7 @@ impl Http2Layer {
                 let bytes = (id & 0x7FFFFFFF).to_be_bytes();
                 buf[offset..offset + 4].copy_from_slice(&bytes);
                 Some(Ok(()))
-            }
+            },
             "flags" => {
                 let flag_val = match value {
                     FieldValue::U8(v) => v,
@@ -250,7 +250,7 @@ impl Http2Layer {
                             "flags: expected U8, got {:?}",
                             value
                         ))));
-                    }
+                    },
                 };
 
                 let offset = self.frames_start() + 4; // flags at byte 4 of frame header
@@ -263,7 +263,7 @@ impl Http2Layer {
                 }
                 buf[offset] = flag_val;
                 Some(Ok(()))
-            }
+            },
             _ => None,
         }
     }

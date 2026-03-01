@@ -127,7 +127,7 @@ impl EdnsOption {
                     scope_prefix,
                     address,
                 })
-            }
+            },
 
             option_code::COOKIE => {
                 if data.len() < 8 {
@@ -144,7 +144,7 @@ impl EdnsOption {
                     Vec::new()
                 };
                 Ok(EdnsOption::Cookie { client, server })
-            }
+            },
 
             option_code::EXTENDED_DNS_ERROR => {
                 if data.len() < 2 {
@@ -164,7 +164,7 @@ impl EdnsOption {
                     info_code,
                     extra_text,
                 })
-            }
+            },
 
             option_code::OWNER => {
                 if data.len() < 8 {
@@ -183,7 +183,7 @@ impl EdnsOption {
                     seq,
                     primary_mac,
                 })
-            }
+            },
 
             _ => Ok(EdnsOption::Unknown {
                 code,
@@ -226,13 +226,13 @@ impl EdnsOption {
                 out.push(*scope_prefix);
                 out.extend_from_slice(address);
                 out
-            }
+            },
             EdnsOption::Cookie { client, server } => {
                 let mut out = Vec::with_capacity(client.len() + server.len());
                 out.extend_from_slice(client);
                 out.extend_from_slice(server);
                 out
-            }
+            },
             EdnsOption::ExtendedDnsError {
                 info_code,
                 extra_text,
@@ -241,7 +241,7 @@ impl EdnsOption {
                 out.extend_from_slice(&info_code.to_be_bytes());
                 out.extend_from_slice(extra_text.as_bytes());
                 out
-            }
+            },
             EdnsOption::Owner {
                 version,
                 seq,
@@ -250,7 +250,7 @@ impl EdnsOption {
                 let mut out = vec![*version, *seq];
                 out.extend_from_slice(primary_mac.as_bytes());
                 out
-            }
+            },
             EdnsOption::Unknown { data, .. } => data.clone(),
         }
     }
@@ -315,26 +315,26 @@ impl EdnsOption {
                     "ClientSubnet: family={} source=/{} scope=/{}",
                     family, source_prefix, scope_prefix
                 )
-            }
+            },
             EdnsOption::Cookie { client, server } => {
                 format!("Cookie: client={} server={}", hex(client), hex(server))
-            }
+            },
             EdnsOption::ExtendedDnsError {
                 info_code,
                 extra_text,
             } => {
                 format!("EDE: code={} text={:?}", info_code, extra_text)
-            }
+            },
             EdnsOption::Owner {
                 version,
                 seq,
                 primary_mac,
             } => {
                 format!("Owner: v={} seq={} mac={}", version, seq, primary_mac)
-            }
+            },
             EdnsOption::Unknown { code, data } => {
                 format!("Option({}): {} bytes", code, data.len())
-            }
+            },
         }
     }
 }
@@ -363,7 +363,7 @@ mod tests {
                 assert_eq!(source_prefix, 24);
                 assert_eq!(scope_prefix, 0);
                 assert_eq!(address, vec![192, 168, 1]);
-            }
+            },
             _ => panic!("wrong variant"),
         }
     }
@@ -392,7 +392,7 @@ mod tests {
             EdnsOption::Cookie { client, server } => {
                 assert_eq!(client.len(), 8);
                 assert_eq!(server.len(), 8);
-            }
+            },
             _ => panic!("wrong variant"),
         }
     }
@@ -409,7 +409,7 @@ mod tests {
             } => {
                 assert_eq!(info_code, 6);
                 assert_eq!(extra_text, "signature verification failed");
-            }
+            },
             _ => panic!("wrong variant"),
         }
     }
@@ -443,7 +443,7 @@ mod tests {
             EdnsOption::Unknown { code, data } => {
                 assert_eq!(code, 9999);
                 assert_eq!(data, vec![1, 2, 3]);
-            }
+            },
             _ => panic!("wrong variant"),
         }
     }

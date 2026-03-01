@@ -51,32 +51,32 @@ impl TlsHash {
                 let mut hasher = md5::Md5::new();
                 hasher.update(data);
                 hasher.finalize().to_vec()
-            }
+            },
             Self::Sha1 => {
                 let mut hasher = sha1::Sha1::new();
                 hasher.update(data);
                 hasher.finalize().to_vec()
-            }
+            },
             Self::Sha224 => {
                 let mut hasher = sha2::Sha224::new();
                 hasher.update(data);
                 hasher.finalize().to_vec()
-            }
+            },
             Self::Sha256 => {
                 let mut hasher = sha2::Sha256::new();
                 hasher.update(data);
                 hasher.finalize().to_vec()
-            }
+            },
             Self::Sha384 => {
                 let mut hasher = sha2::Sha384::new();
                 hasher.update(data);
                 hasher.finalize().to_vec()
-            }
+            },
             Self::Sha512 => {
                 let mut hasher = sha2::Sha512::new();
                 hasher.update(data);
                 hasher.finalize().to_vec()
-            }
+            },
         }
     }
 

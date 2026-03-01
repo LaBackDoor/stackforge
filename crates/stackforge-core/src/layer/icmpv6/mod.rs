@@ -446,7 +446,7 @@ impl Icmpv6Layer {
                         .map(|seq| format!(" seq={}", seq))
                         .unwrap_or_default();
                     format!("{}{}", id_str, seq_str)
-                }
+                },
                 types::PKT_TOO_BIG => self
                     .mtu(buf)
                     .ok()
@@ -495,7 +495,7 @@ impl Icmpv6Layer {
                     (seq >> 8) as u8,
                     (seq & 0xFF) as u8,
                 ]
-            }
+            },
             _ => vec![],
         }
     }
@@ -513,7 +513,7 @@ impl Icmpv6Layer {
                 let self_seq = self.seq(buf).ok().flatten();
                 let other_seq = other.seq(other_buf).ok().flatten();
                 self_id == other_id && self_seq == other_seq
-            }
+            },
             _ => false,
         }
     }

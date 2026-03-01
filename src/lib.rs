@@ -610,7 +610,7 @@ fn field_value_to_python(py: Python<'_>, value: FieldValue) -> PyResult<Py<PyAny
                 py_list.append(py_item)?;
             }
             Ok(py_list.into_any().unbind())
-        }
+        },
     }
 }
 
@@ -1105,7 +1105,7 @@ impl PyIP {
                     match c {
                         'D' | 'd' => builder = builder.dont_fragment(),
                         'M' | 'm' => builder = builder.more_fragments(),
-                        _ => {}
+                        _ => {},
                     }
                 }
             } else if let Ok(flag_int) = flags_val.extract::<u8>() {
@@ -1643,7 +1643,7 @@ impl PyARP {
                         return Err(pyo3::exceptions::PyValueError::new_err(
                             "Invalid ARP operation",
                         ));
-                    }
+                    },
                 }
             } else if let Ok(op_num) = op_val.extract::<u16>() {
                 builder = builder.op(op_num);
@@ -3141,6 +3141,323 @@ fn wrpcap(filename: &str, packets: Vec<Bound<'_, pyo3::PyAny>>) -> PyResult<()> 
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))
 }
 
+// ============================================================================
+// Flow Extraction Bindings
+// ============================================================================
+
+/// Configuration for flow extraction engine.
+#[pyclass(name = "FlowConfig")]
+#[derive(Clone)]
+struct PyFlowConfig {
+    inner: stackforge_core::FlowConfig,
+}
+
+#[pymethods]
+impl PyFlowConfig {
+    #[new]
+    #[pyo3(signature = (
+        tcp_established_timeout=86400.0,
+        tcp_half_open_timeout=5.0,
+        tcp_time_wait_timeout=120.0,
+        udp_timeout=120.0,
+        max_reassembly_buffer=16777216,
+        max_ooo_fragments=100,
+    ))]
+    fn new(
+        tcp_established_timeout: f64,
+        tcp_half_open_timeout: f64,
+        tcp_time_wait_timeout: f64,
+        udp_timeout: f64,
+        max_reassembly_buffer: usize,
+        max_ooo_fragments: usize,
+    ) -> Self {
+        Self {
+            inner: stackforge_core::FlowConfig {
+                tcp_established_timeout: std::time::Duration::from_secs_f64(
+                    tcp_established_timeout,
+                ),
+                tcp_half_open_timeout: std::time::Duration::from_secs_f64(tcp_half_open_timeout),
+                tcp_time_wait_timeout: std::time::Duration::from_secs_f64(tcp_time_wait_timeout),
+                udp_timeout: std::time::Duration::from_secs_f64(udp_timeout),
+                max_reassembly_buffer,
+                max_ooo_fragments,
+                ..stackforge_core::FlowConfig::default()
+            },
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "FlowConfig(tcp_established_timeout={}, udp_timeout={}, max_reassembly_buffer={})",
+            self.inner.tcp_established_timeout.as_secs(),
+            self.inner.udp_timeout.as_secs(),
+            self.inner.max_reassembly_buffer,
+        )
+    }
+}
+
+/// A bidirectional conversation extracted from network traffic.
+#[pyclass(name = "Conversation")]
+struct PyConversation {
+    inner: stackforge_core::ConversationState,
+}
+
+#[pymethods]
+impl PyConversation {
+    /// Source address (addr_a — the smaller IP).
+    #[getter]
+    fn src_addr(&self) -> String {
+        self.inner.key.addr_a.to_string()
+    }
+
+    /// Destination address (addr_b — the larger IP).
+    #[getter]
+    fn dst_addr(&self) -> String {
+        self.inner.key.addr_b.to_string()
+    }
+
+    /// Source port (port_a).
+    #[getter]
+    fn src_port(&self) -> u16 {
+        self.inner.key.port_a
+    }
+
+    /// Destination port (port_b).
+    #[getter]
+    fn dst_port(&self) -> u16 {
+        self.inner.key.port_b
+    }
+
+    /// Transport protocol name ("TCP", "UDP", etc.).
+    #[getter]
+    fn protocol(&self) -> &'static str {
+        self.inner.key.protocol.name()
+    }
+
+    /// Current conversation status ("Active", "Closed", etc.).
+    #[getter]
+    fn status(&self) -> &'static str {
+        self.inner.status.name()
+    }
+
+    /// Start time in seconds.
+    #[getter]
+    fn start_time(&self) -> f64 {
+        self.inner.start_time.as_secs_f64()
+    }
+
+    /// Duration of the conversation in seconds.
+    #[getter]
+    fn duration(&self) -> f64 {
+        self.inner.duration().as_secs_f64()
+    }
+
+    /// Number of packets in the forward direction.
+    #[getter]
+    fn forward_packets(&self) -> u64 {
+        self.inner.forward.packets
+    }
+
+    /// Number of packets in the reverse direction.
+    #[getter]
+    fn reverse_packets(&self) -> u64 {
+        self.inner.reverse.packets
+    }
+
+    /// Bytes in the forward direction.
+    #[getter]
+    fn forward_bytes(&self) -> u64 {
+        self.inner.forward.bytes
+    }
+
+    /// Bytes in the reverse direction.
+    #[getter]
+    fn reverse_bytes(&self) -> u64 {
+        self.inner.reverse.bytes
+    }
+
+    /// Total packets across both directions.
+    #[getter]
+    fn total_packets(&self) -> u64 {
+        self.inner.total_packets()
+    }
+
+    /// Total bytes across both directions.
+    #[getter]
+    fn total_bytes(&self) -> u64 {
+        self.inner.total_bytes()
+    }
+
+    /// Indices of packets belonging to this conversation.
+    #[getter]
+    fn packet_indices(&self) -> Vec<usize> {
+        self.inner.packet_indices.clone()
+    }
+
+    /// TCP connection state name, or None for non-TCP flows.
+    #[getter]
+    fn tcp_state(&self) -> Option<&'static str> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => Some(tcp.conn_state.name()),
+            _ => None,
+        }
+    }
+
+    /// Reassembled forward TCP stream data, or None.
+    #[getter]
+    fn reassembled_forward<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Option<Bound<'py, pyo3::types::PyBytes>> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => {
+                let data = tcp.reassembler_fwd.reassembled_data();
+                if data.is_empty() {
+                    None
+                } else {
+                    Some(pyo3::types::PyBytes::new(py, data))
+                }
+            },
+            _ => None,
+        }
+    }
+
+    /// Reassembled reverse TCP stream data, or None.
+    #[getter]
+    fn reassembled_reverse<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Option<Bound<'py, pyo3::types::PyBytes>> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => {
+                let data = tcp.reassembler_rev.reassembled_data();
+                if data.is_empty() {
+                    None
+                } else {
+                    Some(pyo3::types::PyBytes::new(py, data))
+                }
+            },
+            _ => None,
+        }
+    }
+
+    /// Show detailed conversation information.
+    fn show(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&format!("Conversation: {}\n", self.inner.key));
+        s.push_str(&format!("  Status: {}\n", self.inner.status));
+        s.push_str(&format!(
+            "  Start: {:.6}s\n",
+            self.inner.start_time.as_secs_f64()
+        ));
+        s.push_str(&format!(
+            "  Duration: {:.6}s\n",
+            self.inner.duration().as_secs_f64()
+        ));
+        s.push_str(&format!(
+            "  Forward: {} pkts, {} bytes\n",
+            self.inner.forward.packets, self.inner.forward.bytes
+        ));
+        s.push_str(&format!(
+            "  Reverse: {} pkts, {} bytes\n",
+            self.inner.reverse.packets, self.inner.reverse.bytes
+        ));
+        if let stackforge_core::ProtocolState::Tcp(tcp) = &self.inner.protocol_state {
+            s.push_str(&format!("  TCP State: {}\n", tcp.conn_state));
+            let fwd_len = tcp.reassembler_fwd.reassembled_data().len();
+            let rev_len = tcp.reassembler_rev.reassembled_data().len();
+            if fwd_len > 0 || rev_len > 0 {
+                s.push_str(&format!(
+                    "  Reassembled: fwd={} bytes, rev={} bytes\n",
+                    fwd_len, rev_len
+                ));
+            }
+        }
+        s
+    }
+
+    /// One-line summary of the conversation.
+    fn summary(&self) -> String {
+        format!(
+            "{} | {} pkts | {:.3}s | {}",
+            self.inner.key,
+            self.inner.total_packets(),
+            self.inner.duration().as_secs_f64(),
+            self.inner.status,
+        )
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "<Conversation {} {} pkts>",
+            self.inner.key,
+            self.inner.total_packets(),
+        )
+    }
+}
+
+/// Extract stateful conversations from a PCAP file.
+///
+/// Args:
+///     pcap_path: Path to the PCAP file.
+///     config: Optional FlowConfig for custom timeouts/limits.
+///
+/// Returns:
+///     List of Conversation objects sorted by start time.
+#[pyfunction]
+#[pyo3(signature = (pcap_path, config=None))]
+fn extract_flows(pcap_path: &str, config: Option<PyFlowConfig>) -> PyResult<Vec<PyConversation>> {
+    let packets = stackforge_core::rdpcap(pcap_path)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+
+    let flow_config = config.map(|c| c.inner).unwrap_or_default();
+
+    let conversations = stackforge_core::extract_flows_with_config(&packets, flow_config)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
+
+    Ok(conversations
+        .into_iter()
+        .map(|c| PyConversation { inner: c })
+        .collect())
+}
+
+/// Extract stateful conversations from already-loaded packets.
+///
+/// Args:
+///     packets: List of Packet objects.
+///     config: Optional FlowConfig for custom timeouts/limits.
+///
+/// Returns:
+///     List of Conversation objects sorted by start time.
+#[pyfunction]
+#[pyo3(signature = (packets, config=None))]
+fn extract_flows_from_packets(
+    packets: Vec<PyRef<'_, PyPacket>>,
+    config: Option<PyFlowConfig>,
+) -> PyResult<Vec<PyConversation>> {
+    let captured: Vec<stackforge_core::CapturedPacket> = packets
+        .iter()
+        .enumerate()
+        .map(|(i, pkt)| stackforge_core::CapturedPacket {
+            packet: pkt.inner.clone(),
+            metadata: stackforge_core::PcapMetadata {
+                timestamp: std::time::Duration::from_secs(i as u64),
+                orig_len: pkt.inner.len() as u32,
+            },
+        })
+        .collect();
+
+    let flow_config = config.map(|c| c.inner).unwrap_or_default();
+
+    let conversations = stackforge_core::extract_flows_with_config(&captured, flow_config)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
+
+    Ok(conversations
+        .into_iter()
+        .map(|c| PyConversation { inner: c })
+        .collect())
+}
+
 /// Stackforge: High-performance network packet manipulation.
 ///
 /// This module provides Python bindings to the Rust networking engine,
@@ -3176,5 +3493,11 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPcapReader>()?;
     m.add_function(wrap_pyfunction!(rdpcap, m)?)?;
     m.add_function(wrap_pyfunction!(wrpcap, m)?)?;
+
+    // Flow extraction
+    m.add_class::<PyConversation>()?;
+    m.add_class::<PyFlowConfig>()?;
+    m.add_function(wrap_pyfunction!(extract_flows, m)?)?;
+    m.add_function(wrap_pyfunction!(extract_flows_from_packets, m)?)?;
     Ok(())
 }

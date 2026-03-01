@@ -605,7 +605,7 @@ impl IcmpLayer {
                     } else {
                         String::new()
                     }
-                }
+                },
                 types::types::DEST_UNREACH if code == 4 => {
                     // Fragmentation needed
                     if let Ok(Some(mtu)) = self.next_hop_mtu(buf) {
@@ -613,14 +613,14 @@ impl IcmpLayer {
                     } else {
                         String::new()
                     }
-                }
+                },
                 types::types::PARAM_PROBLEM => {
                     if let Ok(Some(ptr)) = self.ptr(buf) {
                         format!(" ptr={}", ptr)
                     } else {
                         String::new()
                     }
-                }
+                },
                 types::types::ECHO_REQUEST | types::types::ECHO_REPLY => {
                     let id_str = self
                         .id(buf)
@@ -635,7 +635,7 @@ impl IcmpLayer {
                         .map(|seq| format!(" seq={}", seq))
                         .unwrap_or_default();
                     format!("{}{}", id_str, seq_str)
-                }
+                },
                 _ => String::new(),
             };
 
@@ -785,7 +785,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "code" => {
                 if let FieldValue::U8(v) = value {
                     Some(self.set_code(buf, v))
@@ -795,7 +795,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "chksum" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_checksum(buf, v))
@@ -805,7 +805,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "id" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_id(buf, v))
@@ -815,7 +815,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "seq" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_seq(buf, v))
@@ -825,7 +825,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "gw" => {
                 if let FieldValue::Ipv4(v) = value {
                     Some(self.set_gateway(buf, v))
@@ -835,7 +835,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "ptr" => {
                 if let FieldValue::U8(v) = value {
                     Some(self.set_ptr(buf, v))
@@ -845,7 +845,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "mtu" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_next_hop_mtu(buf, v))
@@ -855,7 +855,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "ts_ori" => {
                 if let FieldValue::U32(v) = value {
                     Some(self.set_ts_ori(buf, v))
@@ -865,7 +865,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "ts_rx" => {
                 if let FieldValue::U32(v) = value {
                     Some(self.set_ts_rx(buf, v))
@@ -875,7 +875,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "ts_tx" => {
                 if let FieldValue::U32(v) = value {
                     Some(self.set_ts_tx(buf, v))
@@ -885,7 +885,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             "addr_mask" => {
                 if let FieldValue::Ipv4(v) = value {
                     Some(self.set_addr_mask(buf, v))
@@ -895,7 +895,7 @@ impl IcmpLayer {
                         value
                     ))))
                 }
-            }
+            },
             _ => None,
         }
     }

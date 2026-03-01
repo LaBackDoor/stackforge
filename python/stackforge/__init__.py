@@ -13,7 +13,10 @@ from stackforge.stackforge import (
     TCP,
     TLS,
     UDP,
+    # Flow extraction
+    Conversation,
     Ether,
+    FlowConfig,
     HTTPResponse,
     ICMPv6,
     # New protocol builders
@@ -25,6 +28,8 @@ from stackforge.stackforge import (
     PcapPacket,
     PcapReader,
     Raw,
+    extract_flows,
+    extract_flows_from_packets,
     rdpcap,
     wrpcap,
 )
@@ -68,6 +73,11 @@ __all__ = [
     "wrpcap",
     "PcapPacket",
     "PcapReader",
+    # Flow extraction
+    "Conversation",
+    "FlowConfig",
+    "extract_flows",
+    "extract_flows_from_packets",
     # Custom protocol API
     "CustomLayer",
     "ByteField",

@@ -12,6 +12,7 @@
 - **Scapy-style API** — Stack layers with `Ether() / IP() / TCP()`, set fields with keyword arguments
 - **High Performance** — Core logic in Rust, zero-copy parsing, copy-on-write mutation
 - **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP, ICMPv6, DNS, HTTP/1.x, HTTP/2, QUIC, L2TP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
+- **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP files with TCP state tracking, stream reassembly, and UDP timeout handling
 - **PCAP I/O** — Read and write pcap files with `rdpcap()` / `wrpcap()`
 - **Python Bindings** — Seamless integration via PyO3/maturin
 - **Custom Protocols** — Define runtime protocols with `CustomLayer` and typed fields
@@ -254,6 +255,52 @@ pkt = Packet(raw_bytes)
 pkt.parse()
 
 print(pkt.has_layer(LayerKind.L2tp))
+```
+
+### Stateful Flow Extraction
+
+Extract bidirectional conversations from PCAP captures with full TCP state machine tracking, stream reassembly, and UDP timeout-based flow grouping.
+
+```python
+from stackforge import extract_flows, extract_flows_from_packets, FlowConfig, rdpcap
+
+# Extract conversations from a PCAP file
+conversations = extract_flows("capture.pcap")
+
+for conv in conversations:
+    print(f"{conv.src_addr}:{conv.src_port} <-> {conv.dst_addr}:{conv.dst_port}")
+    print(f"  Protocol: {conv.protocol}, Status: {conv.status}")
+    print(f"  Packets: {conv.total_packets}, Bytes: {conv.total_bytes}")
+    print(f"  Duration: {conv.duration:.3f}s")
+
+    # TCP-specific state and reassembled stream data
+    if conv.tcp_state:
+        print(f"  TCP State: {conv.tcp_state}")
+    if conv.reassembled_forward:
+        print(f"  Forward stream: {len(conv.reassembled_forward)} bytes")
+    if conv.reassembled_reverse:
+        print(f"  Reverse stream: {len(conv.reassembled_reverse)} bytes")
+
+    # Indices into the original packet list
+    print(f"  Packet indices: {conv.packet_indices}")
+```
+
+Use `extract_flows_from_packets` to extract flows from already-loaded packets:
+
+```python
+packets = rdpcap("capture.pcap")
+conversations = extract_flows_from_packets(packets)
+```
+
+Customize timeouts and buffer limits with `FlowConfig`:
+
+```python
+config = FlowConfig(
+    tcp_established_timeout=3600.0,  # 1 hour (default: 86400s)
+    udp_timeout=60.0,                # 1 minute (default: 120s)
+    max_reassembly_buffer=1048576,   # 1 MB per flow (default: 16 MB)
+)
+conversations = extract_flows("capture.pcap", config=config)
 ```
 
 ## Rust Crate

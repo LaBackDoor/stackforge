@@ -231,13 +231,13 @@ impl Packet {
             LayerKind::Tls => LayerEnum::Tls(TlsLayer { index: *idx }),
             LayerKind::Dot15d4 => {
                 LayerEnum::Dot15d4(crate::layer::dot15d4::Dot15d4Layer::new(idx.start, idx.end))
-            }
+            },
             LayerKind::Dot15d4Fcs => LayerEnum::Dot15d4Fcs(
                 crate::layer::dot15d4::Dot15d4FcsLayer::new(idx.start, idx.end),
             ),
             LayerKind::Dot11 => {
                 LayerEnum::Dot11(crate::layer::dot11::Dot11Layer::new(idx.start, idx.end))
-            }
+            },
             LayerKind::Http => LayerEnum::Http(HttpLayer { index: *idx }),
             LayerKind::Http2 => LayerEnum::Http2(Http2Layer::new(idx.start, idx.end, false)),
             LayerKind::Quic => LayerEnum::Quic(crate::layer::quic::QuicLayer::from_index(*idx)),
@@ -285,7 +285,7 @@ impl Packet {
                     self.layers
                         .push(LayerIndex::new(LayerKind::Raw, eth_end, self.data.len()));
                 }
-            }
+            },
         }
 
         Ok(())
@@ -331,7 +331,7 @@ impl Packet {
                     self.layers
                         .push(LayerIndex::new(LayerKind::Raw, ip_end, self.data.len()));
                 }
-            }
+            },
         }
 
         Ok(())
@@ -360,7 +360,7 @@ impl Packet {
                     self.layers
                         .push(LayerIndex::new(LayerKind::Raw, ip_end, self.data.len()));
                 }
-            }
+            },
         }
 
         Ok(())

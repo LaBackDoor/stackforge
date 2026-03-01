@@ -819,7 +819,7 @@ impl Layer for Dot15d4Layer {
                 let computed = compute_header_len(fcf);
                 let available = self.index.len();
                 computed.min(available)
-            }
+            },
             Err(_) => DOT15D4_MIN_HEADER_LEN.min(self.index.len()),
         }
     }
