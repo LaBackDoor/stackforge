@@ -248,10 +248,10 @@ impl SmtpLayer {
             .map_err(|_| FieldError::InvalidValue("args: non-UTF8 payload".into()))?;
         let first_line = text.lines().next().unwrap_or("");
         let rest = first_line
-            .splitn(2, ' ')
-            .nth(1)
+            .split_once(' ')
+            .map(|(_, r)| r)
             .unwrap_or("")
-            .trim_end_matches(|c| c == '\r' || c == '\n');
+            .trim_end_matches(['\r', '\n']);
         Ok(rest.to_string())
     }
 
@@ -328,7 +328,7 @@ impl Layer for SmtpLayer {
         let s = self.slice(buf);
         let text = String::from_utf8_lossy(s);
         let first_line = text.lines().next().unwrap_or("").trim_end_matches('\r');
-        format!("SMTP {}", first_line)
+        format!("SMTP {first_line}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -351,6 +351,7 @@ impl Layer for SmtpLayer {
 }
 
 /// Returns a human-readable display of SMTP layer fields.
+#[must_use]
 pub fn smtp_show_fields(l: &SmtpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
     if l.is_response(buf) {
@@ -361,10 +362,8 @@ pub fn smtp_show_fields(l: &SmtpLayer, buf: &[u8]) -> Vec<(&'static str, String)
             fields.push(("reply_text", text));
         }
         fields.push(("is_multiline", l.is_multiline(buf).to_string()));
-    } else {
-        if let Ok(cmd) = l.command(buf) {
-            fields.push(("command", cmd));
-        }
+    } else if let Ok(cmd) = l.command(buf) {
+        fields.push(("command", cmd));
         if let Ok(args) = l.args(buf) {
             if !args.is_empty() {
                 fields.push(("args", args));
@@ -375,6 +374,7 @@ pub fn smtp_show_fields(l: &SmtpLayer, buf: &[u8]) -> Vec<(&'static str, String)
 }
 
 /// Returns a description for an SMTP reply code.
+#[must_use]
 pub fn reply_code_description(code: u16) -> &'static str {
     match code {
         211 => "System status, or system help reply",

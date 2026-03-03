@@ -325,7 +325,7 @@ impl PyPacket {
     fn parse(&mut self) -> PyResult<()> {
         self.inner
             .parse()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{e}")))
     }
 
     /// Returns a list of all layer indices in this packet.
@@ -373,7 +373,7 @@ impl PyPacket {
             Err(PacketError::LayerNotFound(_)) => Err(pyo3::exceptions::PyKeyError::new_err(
                 format!("Layer {} not found", kind.name()),
             )),
-            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{}", e))),
+            Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{e}"))),
         }
     }
 
@@ -441,12 +441,7 @@ impl PyPacket {
             let max_name_len = fields.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
 
             for (name, value) in fields {
-                output.push_str(&format!(
-                    "  {:<width$} = {}\n",
-                    name,
-                    value,
-                    width = max_name_len
-                ));
+                output.push_str(&format!("  {name:<max_name_len$} = {value}\n"));
             }
         }
 
@@ -458,10 +453,10 @@ impl PyPacket {
             let preview_len = payload.len().min(32);
             let hex_str: String = payload[..preview_len]
                 .iter()
-                .map(|b| format!("{:02x}", b))
+                .map(|b| format!("{b:02x}"))
                 .collect::<Vec<_>>()
                 .join(" ");
-            output.push_str(&format!("  {}", hex_str));
+            output.push_str(&format!("  {hex_str}"));
             if payload.len() > 32 {
                 output.push_str("...");
             }
@@ -524,13 +519,12 @@ impl PyPacket {
             if let Some(result) = layer_enum.get_field(self.inner.as_bytes(), name) {
                 return match result {
                     Ok(value) => field_value_to_python(py, value),
-                    Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{}", e))),
+                    Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{e}"))),
                 };
             }
         }
         Err(pyo3::exceptions::PyAttributeError::new_err(format!(
-            "Packet has no field '{}'",
-            name
+            "Packet has no field '{name}'"
         )))
     }
 
@@ -554,12 +548,10 @@ impl PyPacket {
                 // Use copy-on-write mutation
                 self.inner.with_data_mut(|buf| {
                     if let Some(result) = layer_enum.set_field(buf, name, field_value) {
-                        result
-                            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))
+                        result.map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{e}")))
                     } else {
                         Err(pyo3::exceptions::PyAttributeError::new_err(format!(
-                            "Field '{}' not writable",
-                            name
+                            "Field '{name}' not writable"
                         )))
                     }
                 })?;
@@ -567,8 +559,7 @@ impl PyPacket {
             }
         }
         Err(pyo3::exceptions::PyAttributeError::new_err(format!(
-            "Packet has no field '{}'",
-            name
+            "Packet has no field '{name}'"
         )))
     }
 
@@ -608,7 +599,7 @@ impl PyPacket {
                 if let Some(result) = layer_enum.get_field(self.inner.as_bytes(), name) {
                     return match result {
                         Ok(value) => field_value_to_python(py, value),
-                        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{}", e))),
+                        Err(e) => Err(pyo3::exceptions::PyValueError::new_err(format!("{e}"))),
                     };
                 } else {
                     return Err(pyo3::exceptions::PyKeyError::new_err(format!(
@@ -678,8 +669,7 @@ fn python_to_field_value(
             return Ok(FieldValue::Ipv6(ip));
         }
         return Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Cannot parse '{}' as a valid field value",
-            s
+            "Cannot parse '{s}' as a valid field value"
         )));
     }
 
@@ -734,8 +724,7 @@ fn python_to_field_value(
     }
 
     Err(pyo3::exceptions::PyTypeError::new_err(format!(
-        "Cannot convert Python value to field type for '{}'",
-        field_name
+        "Cannot convert Python value to field type for '{field_name}'"
     )))
 }
 
@@ -751,7 +740,7 @@ fn hexdump_bytes(data: &[u8]) -> String {
             if j == 8 {
                 output.push(' ');
             }
-            output.push_str(&format!("{:02x} ", byte));
+            output.push_str(&format!("{byte:02x} "));
         }
 
         // Padding for incomplete lines
@@ -941,12 +930,7 @@ fn show_packet(pkt: &RustPacket) -> String {
         let max_name_len = fields.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
 
         for (name, value) in fields {
-            output.push_str(&format!(
-                "  {:<width$} = {}\n",
-                name,
-                value,
-                width = max_name_len
-            ));
+            output.push_str(&format!("  {name:<max_name_len$} = {value}\n"));
         }
     }
 
@@ -956,10 +940,10 @@ fn show_packet(pkt: &RustPacket) -> String {
         let preview_len = payload.len().min(32);
         let hex_str: String = payload[..preview_len]
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<_>>()
             .join(" ");
-        output.push_str(&format!("  {}", hex_str));
+        output.push_str(&format!("  {hex_str}"));
         if payload.len() > 32 {
             output.push_str("...");
         }
@@ -1028,14 +1012,14 @@ impl PyEther {
 
         if let Some(dst_str) = dst {
             let mac = MacAddress::parse(dst_str).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {e}"))
             })?;
             builder = builder.dst(mac);
         }
 
         if let Some(src_str) = src {
             let mac = MacAddress::parse(src_str).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {e}"))
             })?;
             builder = builder.src(mac);
         }
@@ -1130,16 +1114,16 @@ impl PyIP {
         let mut builder = RustIpv4Builder::new();
 
         if let Some(src_str) = src {
-            let ip: Ipv4Addr = src_str.parse().map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
-            })?;
+            let ip: Ipv4Addr = src_str
+                .parse()
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {e}")))?;
             builder = builder.src(ip);
         }
 
         if let Some(dst_str) = dst {
-            let ip: Ipv4Addr = dst_str.parse().map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
-            })?;
+            let ip: Ipv4Addr = dst_str
+                .parse()
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {e}")))?;
             builder = builder.dst(ip);
         }
 
@@ -1717,29 +1701,29 @@ impl PyARP {
 
         if let Some(mac_str) = hwsrc {
             let mac = MacAddress::parse(mac_str).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {e}"))
             })?;
             builder = builder.hwsrc(mac);
         }
 
         if let Some(ip_str) = psrc {
-            let ip: Ipv4Addr = ip_str.parse().map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
-            })?;
+            let ip: Ipv4Addr = ip_str
+                .parse()
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {e}")))?;
             builder = builder.psrc(ip);
         }
 
         if let Some(mac_str) = hwdst {
             let mac = MacAddress::parse(mac_str).map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {}", e))
+                pyo3::exceptions::PyValueError::new_err(format!("Invalid MAC: {e}"))
             })?;
             builder = builder.hwdst(mac);
         }
 
         if let Some(ip_str) = pdst {
-            let ip: Ipv4Addr = ip_str.parse().map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {}", e))
-            })?;
+            let ip: Ipv4Addr = ip_str
+                .parse()
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid IP: {e}")))?;
             builder = builder.pdst(ip);
         }
 
@@ -1905,14 +1889,14 @@ impl PyRaw {
     /// Get the hex representation of the payload.
     #[getter]
     fn hex(&self) -> String {
-        self.data.iter().map(|b| format!("{:02x}", b)).collect()
+        self.data.iter().map(|b| format!("{b:02x}")).collect()
     }
 
     /// Get a hex representation with spaces between bytes.
     fn hexdump(&self) -> String {
         self.data
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<_>>()
             .join(" ")
     }
@@ -3908,7 +3892,7 @@ impl PyPcapReader {
     #[new]
     fn new(filename: &str) -> PyResult<Self> {
         let iter = stackforge_core::PcapIterator::open(filename)
-            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
         Ok(Self { inner: Some(iter) })
     }
 
@@ -3920,7 +3904,7 @@ impl PyPcapReader {
         if let Some(ref mut iter) = slf.inner {
             match iter.next() {
                 Some(Ok(cap)) => Ok(Some(PyPcapPacket { inner: cap })),
-                Some(Err(e)) => Err(pyo3::exceptions::PyIOError::new_err(format!("{}", e))),
+                Some(Err(e)) => Err(pyo3::exceptions::PyIOError::new_err(format!("{e}"))),
                 None => Ok(None),
             }
         } else {
@@ -3945,7 +3929,7 @@ impl PyPcapReader {
 #[pyo3(signature = (filename, count=0))]
 fn rdpcap(filename: &str, count: usize) -> PyResult<Vec<PyPcapPacket>> {
     let iter = stackforge_core::PcapIterator::open(filename)
-        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
 
     let results: Vec<PyPcapPacket> = if count > 0 {
         iter.take(count)
@@ -4003,7 +3987,7 @@ fn wrpcap(filename: &str, packets: Vec<Bound<'_, pyo3::PyAny>>) -> PyResult<()> 
     }
 
     stackforge_core::wrpcap(filename, &captured)
-        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))
 }
 
 // ============================================================================
@@ -4261,8 +4245,7 @@ impl PyConversation {
                 let rev_len = tcp.reassembler_rev.reassembled_data().len();
                 if fwd_len > 0 || rev_len > 0 {
                     s.push_str(&format!(
-                        "  Reassembled: fwd={} bytes, rev={} bytes\n",
-                        fwd_len, rev_len
+                        "  Reassembled: fwd={fwd_len} bytes, rev={rev_len} bytes\n"
                     ));
                 }
             },
@@ -4310,12 +4293,12 @@ impl PyConversation {
 #[pyo3(signature = (pcap_path, config=None))]
 fn extract_flows(pcap_path: &str, config: Option<PyFlowConfig>) -> PyResult<Vec<PyConversation>> {
     let packets = stackforge_core::rdpcap(pcap_path)
-        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}", e)))?;
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
 
     let flow_config = config.map(|c| c.inner).unwrap_or_default();
 
     let conversations = stackforge_core::extract_flows_with_config(&packets, flow_config)
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
 
     Ok(conversations
         .into_iter()
@@ -4352,7 +4335,7 @@ fn extract_flows_from_packets(
     let flow_config = config.map(|c| c.inner).unwrap_or_default();
 
     let conversations = stackforge_core::extract_flows_with_config(&captured, flow_config)
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{}", e)))?;
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
 
     Ok(conversations
         .into_iter()

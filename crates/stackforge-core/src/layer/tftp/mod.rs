@@ -103,6 +103,7 @@ pub static TFTP_FIELD_NAMES: &[&str] = &[
 /// Returns true if `buf` looks like a TFTP payload.
 ///
 /// A valid TFTP packet starts with a 2-byte opcode in range [1, 5].
+#[must_use]
 pub fn is_tftp_payload(buf: &[u8]) -> bool {
     if buf.len() < 2 {
         return false;
@@ -112,6 +113,7 @@ pub fn is_tftp_payload(buf: &[u8]) -> bool {
 }
 
 /// Returns a human-readable name for a TFTP opcode.
+#[must_use]
 pub fn opcode_name(opcode: u16) -> &'static str {
     match opcode {
         OPCODE_RRQ => "RRQ",
@@ -124,6 +126,7 @@ pub fn opcode_name(opcode: u16) -> &'static str {
 }
 
 /// Returns a human-readable description for a TFTP error code.
+#[must_use]
 pub fn error_code_description(code: u16) -> &'static str {
     match code {
         ERR_UNDEFINED => "Not defined",
@@ -143,6 +146,7 @@ pub fn error_code_description(code: u16) -> &'static str {
 // ============================================================================
 
 /// A zero-copy view into a TFTP layer within a packet buffer.
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct TftpLayer {
     pub index: LayerIndex,
@@ -206,8 +210,7 @@ impl TftpLayer {
         let end = s[start..]
             .iter()
             .position(|&b| b == 0)
-            .map(|p| start + p)
-            .unwrap_or(s.len());
+            .map_or(s.len(), |p| start + p);
         let name = std::str::from_utf8(&s[start..end])
             .map_err(|_| FieldError::InvalidValue("invalid UTF-8 in filename".into()))?;
         Ok(name.to_string())
@@ -233,8 +236,7 @@ impl TftpLayer {
         let mode_end = s[mode_start..]
             .iter()
             .position(|&b| b == 0)
-            .map(|p| mode_start + p)
-            .unwrap_or(s.len());
+            .map_or(s.len(), |p| mode_start + p);
 
         let mode = std::str::from_utf8(&s[mode_start..mode_end])
             .map_err(|_| FieldError::InvalidValue("invalid UTF-8 in mode".into()))?;
@@ -318,8 +320,7 @@ impl TftpLayer {
         let msg_end = s[msg_start..]
             .iter()
             .position(|&b| b == 0)
-            .map(|p| msg_start + p)
-            .unwrap_or(s.len());
+            .map_or(s.len(), |p| msg_start + p);
         let msg = std::str::from_utf8(&s[msg_start..msg_end])
             .map_err(|_| FieldError::InvalidValue("invalid UTF-8 in error message".into()))?;
         Ok(msg.to_string())
@@ -356,28 +357,28 @@ impl Layer for TftpLayer {
             OPCODE_RRQ => {
                 let fname = self.filename(buf).unwrap_or_default();
                 let mode = self.mode(buf).unwrap_or_default();
-                format!("TFTP Read Request File: {} Mode: {}", fname, mode)
+                format!("TFTP Read Request File: {fname} Mode: {mode}")
             },
             OPCODE_WRQ => {
                 let fname = self.filename(buf).unwrap_or_default();
                 let mode = self.mode(buf).unwrap_or_default();
-                format!("TFTP Write Request File: {} Mode: {}", fname, mode)
+                format!("TFTP Write Request File: {fname} Mode: {mode}")
             },
             OPCODE_DATA => {
                 let block = self.block_num(buf).unwrap_or(0);
                 let data_len = if s.len() >= 4 { s.len() - 4 } else { 0 };
-                format!("TFTP Data Block#{} ({} bytes)", block, data_len)
+                format!("TFTP Data Block#{block} ({data_len} bytes)")
             },
             OPCODE_ACK => {
                 let block = self.block_num(buf).unwrap_or(0);
-                format!("TFTP Ack Block#{}", block)
+                format!("TFTP Ack Block#{block}")
             },
             OPCODE_ERROR => {
                 let code = self.error_code(buf).unwrap_or(0);
                 let msg = self.error_msg(buf).unwrap_or_default();
-                format!("TFTP Error Code: {} Message: {}", code, msg)
+                format!("TFTP Error Code: {code} Message: {msg}")
             },
-            _ => format!("TFTP [unknown opcode {}]", opcode),
+            _ => format!("TFTP [unknown opcode {opcode}]"),
         }
     }
 
@@ -388,9 +389,8 @@ impl Layer for TftpLayer {
         }
         let opcode = u16::from_be_bytes([s[0], s[1]]);
         match opcode {
-            OPCODE_RRQ | OPCODE_WRQ => s.len(), // variable
-            OPCODE_DATA => 4.min(s.len()),      // opcode + block#, data is payload
-            OPCODE_ACK => 4.min(s.len()),
+            OPCODE_RRQ | OPCODE_WRQ => s.len(),         // variable
+            OPCODE_DATA | OPCODE_ACK => 4.min(s.len()), // opcode + block#, data is payload
             OPCODE_ERROR => s.len(),
             _ => 2,
         }
@@ -411,7 +411,8 @@ impl Layer for TftpLayer {
     }
 }
 
-/// Display fields for TftpLayer in show() output.
+/// Display fields for `TftpLayer` in `show()` output.
+#[must_use]
 pub fn tftp_show_fields(l: &TftpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
     if let Ok(op) = l.opcode(buf) {
@@ -426,12 +427,7 @@ pub fn tftp_show_fields(l: &TftpLayer, buf: &[u8]) -> Vec<(&'static str, String)
                     fields.push(("mode", m));
                 }
             },
-            OPCODE_DATA => {
-                if let Ok(b) = l.block_num(buf) {
-                    fields.push(("block_num", b.to_string()));
-                }
-            },
-            OPCODE_ACK => {
+            OPCODE_DATA | OPCODE_ACK => {
                 if let Ok(b) = l.block_num(buf) {
                     fields.push(("block_num", b.to_string()));
                 }

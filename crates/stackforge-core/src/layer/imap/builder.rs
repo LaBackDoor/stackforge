@@ -312,37 +312,39 @@ impl ImapBuilder {
     // Build
     // ========================================================================
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::new();
+        let args = &self.args;
+        let tag = &self.tag;
+        let command = &self.command;
         if self.tag == "+" {
             // Continuation
-            if self.args.is_empty() {
+            if args.is_empty() {
                 out.extend_from_slice(b"+ \r\n");
             } else {
-                out.extend_from_slice(format!("+ {}\r\n", self.args).as_bytes());
+                out.extend_from_slice(format!("+ {args}\r\n").as_bytes());
             }
         } else if self.tag == "*" {
             // Untagged
-            if self.args.is_empty() {
-                out.extend_from_slice(format!("* {}\r\n", self.command).as_bytes());
+            if args.is_empty() {
+                out.extend_from_slice(format!("* {command}\r\n").as_bytes());
             } else {
-                out.extend_from_slice(format!("* {} {}\r\n", self.command, self.args).as_bytes());
+                out.extend_from_slice(format!("* {command} {args}\r\n").as_bytes());
             }
         } else {
             // Tagged (command or response)
-            if self.command.is_empty() {
-                out.extend_from_slice(format!("{}\r\n", self.tag).as_bytes());
-            } else if self.args.is_empty() {
-                out.extend_from_slice(format!("{} {}\r\n", self.tag, self.command).as_bytes());
+            if command.is_empty() {
+                out.extend_from_slice(format!("{tag}\r\n").as_bytes());
+            } else if args.is_empty() {
+                out.extend_from_slice(format!("{tag} {command}\r\n").as_bytes());
             } else {
-                out.extend_from_slice(
-                    format!("{} {} {}\r\n", self.tag, self.command, self.args).as_bytes(),
-                );
+                out.extend_from_slice(format!("{tag} {command} {args}\r\n").as_bytes());
             }
         }
         // Append extra lines
         for line in &self.extra_lines {
-            out.extend_from_slice(format!("{}\r\n", line).as_bytes());
+            out.extend_from_slice(format!("{line}\r\n").as_bytes());
         }
         out
     }

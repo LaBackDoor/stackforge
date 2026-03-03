@@ -11,14 +11,14 @@
 //! let pkt = L2tpBuilder::new().build();
 //! assert_eq!(pkt, b"\x00\x02\x00\x00\x00\x00");
 //!
-//! // Control + length message
+//! // Control + length message (T=1, L=1, ver=2; header = 8 bytes)
 //! let pkt = L2tpBuilder::new()
 //!     .control()
 //!     .with_length()
 //!     .tunnel_id(1)
 //!     .session_id(2)
 //!     .build();
-//! assert_eq!(pkt, b"\xc0\x02\x00\x0c\x00\x01\x00\x02\x00\x00\x00\x00");
+//! assert_eq!(pkt, b"\xc0\x02\x00\x08\x00\x01\x00\x02");
 //! ```
 
 /// Builder for L2TPv2 packets.
