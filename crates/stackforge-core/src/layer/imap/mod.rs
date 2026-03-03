@@ -172,6 +172,7 @@ pub static IMAP_FIELD_NAMES: &[&str] = &[
 // ============================================================================
 
 /// Returns true if `buf` looks like an IMAP payload.
+#[must_use]
 pub fn is_imap_payload(buf: &[u8]) -> bool {
     if buf.len() < 3 {
         return false;
@@ -215,6 +216,7 @@ pub fn is_imap_payload(buf: &[u8]) -> bool {
 // ============================================================================
 
 /// A zero-copy view into an IMAP layer within a packet buffer.
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct ImapLayer {
     pub index: LayerIndex,
@@ -304,9 +306,9 @@ impl ImapLayer {
     pub fn command(&self, buf: &[u8]) -> Result<String, FieldError> {
         let line = self.first_line(buf);
         // Untagged: "* <number> <command> ..." or "* <status> ..."
-        if line.starts_with("* ") {
-            let parts: Vec<&str> = line[2..].splitn(2, ' ').collect();
-            return Ok(parts[0].to_ascii_uppercase());
+        if let Some(rest) = line.strip_prefix("* ") {
+            let word = rest.split_once(' ').map_or(rest, |(w, _)| w);
+            return Ok(word.to_ascii_uppercase());
         }
         // Continuation
         if line.starts_with("+ ") {
@@ -327,14 +329,13 @@ impl ImapLayer {
     pub fn args(&self, buf: &[u8]) -> Result<String, FieldError> {
         let line = self.first_line(buf);
         // Untagged
-        if line.starts_with("* ") {
-            let rest = &line[2..];
-            let args = rest.splitn(2, ' ').nth(1).unwrap_or("").trim_start();
+        if let Some(rest) = line.strip_prefix("* ") {
+            let args = rest.split_once(' ').map_or("", |(_, a)| a).trim_start();
             return Ok(args.to_string());
         }
         // Continuation
-        if line.starts_with("+ ") {
-            return Ok(line[2..].trim().to_string());
+        if let Some(rest) = line.strip_prefix("+ ") {
+            return Ok(rest.trim().to_string());
         }
         // Tagged
         let parts: Vec<&str> = line.splitn(3, ' ').collect();
@@ -394,7 +395,7 @@ impl Layer for ImapLayer {
         let s = self.slice(buf);
         let text = String::from_utf8_lossy(s);
         let first_line = text.lines().next().unwrap_or("").trim_end_matches('\r');
-        format!("IMAP {}", first_line)
+        format!("IMAP {first_line}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -415,6 +416,7 @@ impl Layer for ImapLayer {
 }
 
 /// Returns a human-readable display of IMAP layer fields.
+#[must_use]
 pub fn imap_show_fields(l: &ImapLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
     if let Ok(tag) = l.tag(buf) {
@@ -422,10 +424,10 @@ pub fn imap_show_fields(l: &ImapLayer, buf: &[u8]) -> Vec<(&'static str, String)
     }
     if let Ok(cmd) = l.command(buf) {
         fields.push(("command", cmd));
-    }
-    if let Ok(args) = l.args(buf) {
-        if !args.is_empty() {
-            fields.push(("args", args));
+        if let Ok(args) = l.args(buf) {
+            if !args.is_empty() {
+                fields.push(("args", args));
+            }
         }
     }
     fields.push(("is_untagged", l.is_untagged(buf).to_string()));

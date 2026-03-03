@@ -172,6 +172,7 @@ pub static FTP_FIELD_NAMES: &[&str] = &[
 /// FTP is text-based. We check for either:
 /// - A 3-digit ASCII reply code followed by space, dash, or CR/LF
 /// - A recognized FTP command verb followed by space or CR/LF
+#[must_use]
 pub fn is_ftp_payload(buf: &[u8]) -> bool {
     if buf.len() < 3 {
         return false;
@@ -185,7 +186,7 @@ pub fn is_ftp_payload(buf: &[u8]) -> bool {
         let upper = text.to_ascii_uppercase();
         let first_word = upper.split_ascii_whitespace().next().unwrap_or("");
         // Strip trailing \r\n from first word if applicable
-        let first_word = first_word.trim_end_matches(|c| c == '\r' || c == '\n');
+        let first_word = first_word.trim_end_matches(['\r', '\n']);
         return FTP_COMMANDS.contains(&first_word);
     }
     false
@@ -210,6 +211,7 @@ pub enum FtpMessageKind {
 ///
 /// FTP is text-based, so all field access involves parsing ASCII text
 /// from the buffer slice on demand.
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct FtpLayer {
     pub index: LayerIndex,
@@ -274,10 +276,10 @@ impl FtpLayer {
         let first_line = text.lines().next().unwrap_or("");
         // Skip the first word (command verb)
         let rest = first_line
-            .splitn(2, ' ')
-            .nth(1)
+            .split_once(' ')
+            .map(|(_, r)| r)
             .unwrap_or("")
-            .trim_end_matches(|c| c == '\r' || c == '\n');
+            .trim_end_matches(['\r', '\n']);
         Ok(rest.to_string())
     }
 
@@ -293,7 +295,7 @@ impl FtpLayer {
         }
         if s[0].is_ascii_digit() && s[1].is_ascii_digit() && s[2].is_ascii_digit() {
             let code =
-                ((s[0] - b'0') as u16) * 100 + ((s[1] - b'0') as u16) * 10 + (s[2] - b'0') as u16;
+                u16::from(s[0] - b'0') * 100 + u16::from(s[1] - b'0') * 10 + u16::from(s[2] - b'0');
             Ok(code)
         } else {
             Err(FieldError::InvalidValue(
@@ -310,9 +312,7 @@ impl FtpLayer {
         // Get first line, skip the code prefix (NNN SP or NNN-)
         let first_line = text.lines().next().unwrap_or("");
         if first_line.len() >= 4 {
-            let msg = first_line[4..]
-                .trim_end_matches(|c| c == '\r' || c == '\n')
-                .to_string();
+            let msg = first_line[4..].trim_end_matches(['\r', '\n']).to_string();
             Ok(msg)
         } else if first_line.len() == 3 {
             Ok(String::new())
@@ -369,7 +369,7 @@ impl Layer for FtpLayer {
         let s = self.slice(buf);
         let text = String::from_utf8_lossy(s);
         let first_line = text.lines().next().unwrap_or("").trim_end_matches('\r');
-        format!("FTP {}", first_line)
+        format!("FTP {first_line}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -392,7 +392,8 @@ impl Layer for FtpLayer {
     }
 }
 
-/// Display fields for FtpLayer in show() output.
+/// Display fields for `FtpLayer` in `show()` output.
+#[must_use]
 pub fn ftp_show_fields(l: &FtpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
     if l.is_response(buf) {
@@ -403,10 +404,8 @@ pub fn ftp_show_fields(l: &FtpLayer, buf: &[u8]) -> Vec<(&'static str, String)> 
             fields.push(("reply_text", text));
         }
         fields.push(("is_multiline", l.is_multiline(buf).to_string()));
-    } else {
-        if let Ok(cmd) = l.command(buf) {
-            fields.push(("command", cmd));
-        }
+    } else if let Ok(cmd) = l.command(buf) {
+        fields.push(("command", cmd));
         if let Ok(args) = l.args(buf) {
             if !args.is_empty() {
                 fields.push(("args", args));
@@ -421,6 +420,7 @@ pub fn ftp_show_fields(l: &FtpLayer, buf: &[u8]) -> Vec<(&'static str, String)> 
 // ============================================================================
 
 /// Returns a human-readable description for an FTP reply code.
+#[must_use]
 pub fn reply_code_description(code: u16) -> &'static str {
     match code {
         110 => "Restart marker reply",

@@ -99,17 +99,17 @@ impl ImapBuilder {
 
     /// `* N EXISTS` (mailbox contains N messages).
     pub fn exists(self, n: u32) -> Self {
-        self.untagged(format!("{}", n), "EXISTS")
+        self.untagged(format!("{n}"), "EXISTS")
     }
 
     /// `* N RECENT` (N messages are recent).
     pub fn recent(self, n: u32) -> Self {
-        self.untagged(format!("{}", n), "RECENT")
+        self.untagged(format!("{n}"), "RECENT")
     }
 
     /// `* N EXPUNGE` (message N was expunged).
     pub fn expunge_notify(self, n: u32) -> Self {
-        self.untagged(format!("{}", n), "EXPUNGE")
+        self.untagged(format!("{n}"), "EXPUNGE")
     }
 
     /// `tag OK [text]`

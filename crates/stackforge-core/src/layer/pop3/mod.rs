@@ -97,6 +97,7 @@ pub static POP3_FIELD_NAMES: &[&str] = &[
 // ============================================================================
 
 /// Returns true if `buf` looks like a POP3 payload.
+#[must_use]
 pub fn is_pop3_payload(buf: &[u8]) -> bool {
     if buf.is_empty() {
         return false;
