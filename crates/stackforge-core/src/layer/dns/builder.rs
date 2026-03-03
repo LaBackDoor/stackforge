@@ -49,6 +49,7 @@ pub struct DnsBuilder {
 
 impl DnsBuilder {
     /// Create a new DNS builder with default values (standard query with RD=1).
+    #[must_use]
     pub fn new() -> Self {
         Self {
             id: 0,
@@ -71,6 +72,7 @@ impl DnsBuilder {
     }
 
     /// Create a builder for a standard query.
+    #[must_use]
     pub fn query(qname: &str, qtype: u16) -> Self {
         let mut b = Self::new();
         if let Ok(q) = DnsQuestion::from_name(qname) {
@@ -82,6 +84,7 @@ impl DnsBuilder {
     }
 
     /// Create a builder for a standard response.
+    #[must_use]
     pub fn response() -> Self {
         let mut b = Self::new();
         b.qr = true;
@@ -91,91 +94,108 @@ impl DnsBuilder {
 
     // Fluent setters
 
+    #[must_use]
     pub fn id(mut self, id: u16) -> Self {
         self.id = id;
         self
     }
 
+    #[must_use]
     pub fn qr(mut self, qr: bool) -> Self {
         self.qr = qr;
         self
     }
 
+    #[must_use]
     pub fn opcode(mut self, opcode: u8) -> Self {
         self.opcode = opcode;
         self
     }
 
+    #[must_use]
     pub fn aa(mut self, aa: bool) -> Self {
         self.aa = aa;
         self
     }
 
+    #[must_use]
     pub fn tc(mut self, tc: bool) -> Self {
         self.tc = tc;
         self
     }
 
+    #[must_use]
     pub fn rd(mut self, rd: bool) -> Self {
         self.rd = rd;
         self
     }
 
+    #[must_use]
     pub fn ra(mut self, ra: bool) -> Self {
         self.ra = ra;
         self
     }
 
+    #[must_use]
     pub fn z(mut self, z: bool) -> Self {
         self.z = z;
         self
     }
 
+    #[must_use]
     pub fn ad(mut self, ad: bool) -> Self {
         self.ad = ad;
         self
     }
 
+    #[must_use]
     pub fn cd(mut self, cd: bool) -> Self {
         self.cd = cd;
         self
     }
 
+    #[must_use]
     pub fn rcode(mut self, rcode: u8) -> Self {
         self.rcode = rcode;
         self
     }
 
+    #[must_use]
     pub fn compress(mut self, compress: bool) -> Self {
         self.compress = compress;
         self
     }
 
     /// Add a question to the question section.
+    #[must_use]
     pub fn question(mut self, q: DnsQuestion) -> Self {
         self.questions.push(q);
         self
     }
 
     /// Add a resource record to the answer section.
+    #[must_use]
     pub fn answer(mut self, rr: DnsResourceRecord) -> Self {
         self.answers.push(rr);
         self
     }
 
     /// Add a resource record to the authority section.
+    #[must_use]
     pub fn authority(mut self, rr: DnsResourceRecord) -> Self {
         self.authorities.push(rr);
         self
     }
 
     /// Add a resource record to the additional section.
+    #[must_use]
     pub fn additional(mut self, rr: DnsResourceRecord) -> Self {
         self.additionals.push(rr);
         self
     }
 
     /// Build the DNS packet bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         if self.compress {
             self.build_compressed()
@@ -284,6 +304,7 @@ impl DnsBuilder {
     }
 
     /// Get the minimum header size.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         header::DNS_HEADER_LEN
     }

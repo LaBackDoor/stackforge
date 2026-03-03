@@ -71,7 +71,7 @@ impl TlsLayer {
         Ok(u16::from_be_bytes([slice[1], slice[2]]))
     }
 
-    /// Read the protocol version as TlsVersion.
+    /// Read the protocol version as `TlsVersion`.
     pub fn version_typed(&self, buf: &[u8]) -> Result<TlsVersion, FieldError> {
         self.version(buf).map(TlsVersion)
     }
@@ -90,6 +90,7 @@ impl TlsLayer {
     }
 
     /// Get the fragment data (everything after the 5-byte header).
+    #[must_use]
     pub fn fragment<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         let slice = self.index.slice(buf);
         if slice.len() <= TLS_RECORD_HEADER_LEN {
@@ -105,6 +106,7 @@ impl TlsLayer {
     }
 
     /// Get a human-readable description of the content.
+    #[must_use]
     pub fn content_summary(&self, buf: &[u8]) -> String {
         let ct = match self.content_type(buf) {
             Ok(ct) => ct,
@@ -116,11 +118,11 @@ impl TlsLayer {
         match ct {
             TlsContentType::Handshake => {
                 let frag = self.fragment(buf);
-                if !frag.is_empty() {
+                if frag.is_empty() {
+                    format!("TLS {} {}", ver_name, ct.name())
+                } else {
                     let hs_type = HandshakeType(frag[0]);
                     format!("TLS {} {} {}", ver_name, ct.name(), hs_type.name())
-                } else {
-                    format!("TLS {} {}", ver_name, ct.name())
                 }
             },
             TlsContentType::Alert => {
@@ -130,7 +132,7 @@ impl TlsLayer {
                     let desc = TlsAlertDescription(frag[1]);
                     format!("TLS {} Alert {} {}", ver_name, level.name(), desc.name())
                 } else {
-                    format!("TLS {} Alert", ver_name)
+                    format!("TLS {ver_name} Alert")
                 }
             },
             _ => format!("TLS {} {}", ver_name, ct.name()),
@@ -211,6 +213,7 @@ impl TlsLayer {
     }
 
     /// Get field names.
+    #[must_use]
     pub fn field_names(&self) -> &'static [&'static str] {
         TLS_FIELDS
     }

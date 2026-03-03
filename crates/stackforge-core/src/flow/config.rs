@@ -10,7 +10,7 @@ pub struct FlowConfig {
     pub tcp_established_timeout: Duration,
     /// Timeout for half-open TCP connections (SYN sent, no ACK) (default: 5s).
     pub tcp_half_open_timeout: Duration,
-    /// Timeout for TCP TIME_WAIT state (default: 120s).
+    /// Timeout for TCP `TIME_WAIT` state (default: 120s).
     pub tcp_time_wait_timeout: Duration,
     /// Timeout for UDP pseudo-conversations (default: 120s).
     pub udp_timeout: Duration,

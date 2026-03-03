@@ -72,6 +72,7 @@ impl Default for IcmpBuilder {
 
 impl IcmpBuilder {
     /// Create a new ICMP builder with default values (echo request).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -83,6 +84,7 @@ impl IcmpBuilder {
     /// # Arguments
     /// * `id` - Identifier
     /// * `seq` - Sequence number
+    #[must_use]
     pub fn echo_request(id: u16, seq: u16) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::ECHO_REQUEST;
@@ -96,6 +98,7 @@ impl IcmpBuilder {
     /// # Arguments
     /// * `id` - Identifier (should match request)
     /// * `seq` - Sequence number (should match request)
+    #[must_use]
     pub fn echo_reply(id: u16, seq: u16) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::ECHO_REPLY;
@@ -113,6 +116,7 @@ impl IcmpBuilder {
     ///   - 2: Protocol unreachable
     ///   - 3: Port unreachable
     ///   - 4: Fragmentation needed (use `dest_unreach_need_frag` for this)
+    #[must_use]
     pub fn dest_unreach(code: u8) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::DEST_UNREACH;
@@ -125,6 +129,7 @@ impl IcmpBuilder {
     ///
     /// # Arguments
     /// * `mtu` - Next-hop MTU value
+    #[must_use]
     pub fn dest_unreach_need_frag(mtu: u16) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::DEST_UNREACH;
@@ -144,6 +149,7 @@ impl IcmpBuilder {
     ///   - 2: Redirect for TOS and network
     ///   - 3: Redirect for TOS and host
     /// * `gateway` - Gateway IP address to redirect to
+    #[must_use]
     pub fn redirect(code: u8, gateway: Ipv4Addr) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::REDIRECT;
@@ -158,6 +164,7 @@ impl IcmpBuilder {
     /// * `code` - Time exceeded code
     ///   - 0: TTL exceeded in transit
     ///   - 1: Fragment reassembly time exceeded
+    #[must_use]
     pub fn time_exceeded(code: u8) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::TIME_EXCEEDED;
@@ -170,6 +177,7 @@ impl IcmpBuilder {
     ///
     /// # Arguments
     /// * `ptr` - Pointer to the problematic byte in the original packet
+    #[must_use]
     pub fn param_problem(ptr: u8) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::PARAM_PROBLEM;
@@ -182,6 +190,7 @@ impl IcmpBuilder {
     }
 
     /// Create a source quench message (deprecated).
+    #[must_use]
     pub fn source_quench() -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::SOURCE_QUENCH;
@@ -198,6 +207,7 @@ impl IcmpBuilder {
     /// * `ts_ori` - Originate timestamp (milliseconds since midnight UT)
     /// * `ts_rx` - Receive timestamp (0 for request)
     /// * `ts_tx` - Transmit timestamp (0 for request)
+    #[must_use]
     pub fn timestamp_request(id: u16, seq: u16, ts_ori: u32, ts_rx: u32, ts_tx: u32) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::TIMESTAMP;
@@ -221,6 +231,7 @@ impl IcmpBuilder {
     /// * `ts_ori` - Originate timestamp from request
     /// * `ts_rx` - Receive timestamp (when request was received)
     /// * `ts_tx` - Transmit timestamp (when reply is sent)
+    #[must_use]
     pub fn timestamp_reply(id: u16, seq: u16, ts_ori: u32, ts_rx: u32, ts_tx: u32) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::TIMESTAMP_REPLY;
@@ -241,6 +252,7 @@ impl IcmpBuilder {
     /// # Arguments
     /// * `id` - Identifier
     /// * `seq` - Sequence number
+    #[must_use]
     pub fn address_mask_request(id: u16, seq: u16) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::ADDRESS_MASK_REQUEST;
@@ -255,6 +267,7 @@ impl IcmpBuilder {
     /// * `id` - Identifier (should match request)
     /// * `seq` - Sequence number (should match request)
     /// * `mask` - Address mask
+    #[must_use]
     pub fn address_mask_reply(id: u16, seq: u16, mask: Ipv4Addr) -> Self {
         let mut builder = Self::new();
         builder.icmp_type = types::ADDRESS_MASK_REPLY;
@@ -276,12 +289,14 @@ impl IcmpBuilder {
     // ========== Field Setters ==========
 
     /// Set the ICMP type manually (use factory methods instead when possible).
+    #[must_use]
     pub fn icmp_type(mut self, t: u8) -> Self {
         self.icmp_type = t;
         self
     }
 
     /// Set the ICMP code manually.
+    #[must_use]
     pub fn code(mut self, c: u8) -> Self {
         self.code = c;
         self
@@ -290,6 +305,7 @@ impl IcmpBuilder {
     /// Set the checksum manually.
     ///
     /// If not set, the checksum will be calculated automatically.
+    #[must_use]
     pub fn checksum(mut self, csum: u16) -> Self {
         self.checksum = Some(csum);
         self.auto_checksum = false;
@@ -297,11 +313,13 @@ impl IcmpBuilder {
     }
 
     /// Alias for checksum (Scapy compatibility).
+    #[must_use]
     pub fn chksum(self, csum: u16) -> Self {
         self.checksum(csum)
     }
 
     /// Enable automatic checksum calculation (default).
+    #[must_use]
     pub fn enable_auto_checksum(mut self) -> Self {
         self.auto_checksum = true;
         self.checksum = None;
@@ -309,6 +327,7 @@ impl IcmpBuilder {
     }
 
     /// Disable automatic checksum calculation.
+    #[must_use]
     pub fn disable_auto_checksum(mut self) -> Self {
         self.auto_checksum = false;
         self
@@ -329,6 +348,7 @@ impl IcmpBuilder {
     // ========== Size Calculation ==========
 
     /// Get the total packet size (header + optional timestamp + payload).
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         let mut size = ICMP_MIN_HEADER_LEN; // Base 8 bytes
 
@@ -341,6 +361,7 @@ impl IcmpBuilder {
     }
 
     /// Get the header size (8 bytes for most, 20 for timestamp).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         if self.timestamp_data.is_some() {
             20 // 8 base + 12 timestamp data
@@ -352,6 +373,7 @@ impl IcmpBuilder {
     // ========== Build Methods ==========
 
     /// Build the ICMP packet into a new buffer.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total_size = self.packet_size();
         let mut buf = vec![0u8; total_size];
@@ -409,6 +431,7 @@ impl IcmpBuilder {
     }
 
     /// Build just the ICMP header (without payload).
+    #[must_use]
     pub fn build_header(&self) -> Vec<u8> {
         let header_size = self.header_size();
         let mut buf = vec![0u8; header_size];

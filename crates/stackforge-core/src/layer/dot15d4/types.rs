@@ -18,6 +18,7 @@ pub mod frame_type {
 }
 
 /// Get the name of a frame type.
+#[must_use]
 pub fn frame_type_name(ft: u8) -> &'static str {
     match ft {
         frame_type::BEACON => "Beacon",
@@ -43,6 +44,7 @@ pub mod addr_mode {
 }
 
 /// Get the name of an address mode.
+#[must_use]
 pub fn addr_mode_name(mode: u8) -> &'static str {
     match mode {
         addr_mode::NONE => "None",
@@ -54,6 +56,7 @@ pub fn addr_mode_name(mode: u8) -> &'static str {
 }
 
 /// Get the byte length of an address for a given address mode.
+#[must_use]
 pub fn addr_mode_len(mode: u8) -> usize {
     match mode {
         addr_mode::SHORT => 2,
@@ -80,6 +83,7 @@ pub mod cmd_id {
 }
 
 /// Get the name of a MAC command identifier.
+#[must_use]
 pub fn cmd_id_name(id: u8) -> &'static str {
     match id {
         cmd_id::ASSOC_REQ => "AssocReq",
@@ -112,6 +116,7 @@ pub mod security_level {
 }
 
 /// Get the name of a security level.
+#[must_use]
 pub fn security_level_name(level: u8) -> &'static str {
     match level {
         security_level::NONE => "None",
@@ -139,6 +144,7 @@ pub mod key_id_mode {
 }
 
 /// Get the name of a key identifier mode.
+#[must_use]
 pub fn key_id_mode_name(mode: u8) -> &'static str {
     match mode {
         key_id_mode::IMPLICIT => "Implicit",
@@ -151,6 +157,7 @@ pub fn key_id_mode_name(mode: u8) -> &'static str {
 
 /// Get the byte length of the Key Identifier field for a given key ID mode.
 /// This includes the key source and key index bytes.
+#[must_use]
 pub fn key_id_len(mode: u8) -> usize {
     match mode {
         key_id_mode::IMPLICIT => 0,
@@ -173,6 +180,7 @@ pub mod assoc_status {
 }
 
 /// Get the name of an association status.
+#[must_use]
 pub fn assoc_status_name(status: u8) -> &'static str {
     match status {
         assoc_status::SUCCESSFUL => "successful",
@@ -193,6 +201,7 @@ pub mod disassoc_reason {
 }
 
 /// Get the name of a disassociation reason.
+#[must_use]
 pub fn disassoc_reason_name(reason: u8) -> &'static str {
     match reason {
         disassoc_reason::COORD_WISHES_DEVICE_TO_LEAVE => "coord_wishes_device_to_leave",

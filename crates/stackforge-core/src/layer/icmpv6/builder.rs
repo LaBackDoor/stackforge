@@ -1,6 +1,6 @@
-//! ICMPv6 packet builder.
+//! `ICMPv6` packet builder.
 //!
-//! Provides a fluent API for constructing ICMPv6 packets with type-specific
+//! Provides a fluent API for constructing `ICMPv6` packets with type-specific
 //! fields and automatic checksum calculation using the IPv6 pseudo-header.
 //!
 //! # Example
@@ -22,12 +22,12 @@ use std::net::Ipv6Addr;
 
 use super::{ICMPV6_MIN_HEADER_LEN, icmpv6_checksum, offsets, types};
 
-/// Builder for ICMPv6 packets.
+/// Builder for `ICMPv6` packets.
 #[derive(Debug, Clone)]
 pub struct Icmpv6Builder {
-    /// ICMPv6 Type
+    /// `ICMPv6` Type
     icmpv6_type: u8,
-    /// ICMPv6 Code
+    /// `ICMPv6` Code
     code: u8,
     /// Optional manual checksum override
     checksum: Option<u16>,
@@ -71,7 +71,8 @@ impl Default for Icmpv6Builder {
 }
 
 impl Icmpv6Builder {
-    /// Create a new ICMPv6 builder with default values.
+    /// Create a new `ICMPv6` builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -83,6 +84,7 @@ impl Icmpv6Builder {
     /// # Arguments
     /// * `id` - Identifier
     /// * `seq` - Sequence number
+    #[must_use]
     pub fn echo_request(id: u16, seq: u16) -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::ECHO_REQUEST;
@@ -101,6 +103,7 @@ impl Icmpv6Builder {
     /// # Arguments
     /// * `id` - Identifier (should match the request)
     /// * `seq` - Sequence number (should match the request)
+    #[must_use]
     pub fn echo_reply(id: u16, seq: u16) -> Self {
         let mut b = Self::echo_request(id, seq);
         b.icmpv6_type = types::ECHO_REPLY;
@@ -111,6 +114,7 @@ impl Icmpv6Builder {
     ///
     /// # Arguments
     /// * `target` - The IPv6 address being queried
+    #[must_use]
     pub fn neighbor_solicitation(target: Ipv6Addr) -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::NEIGHBOR_SOLICIT;
@@ -124,6 +128,7 @@ impl Icmpv6Builder {
     ///
     /// # Arguments
     /// * `target` - The IPv6 address being advertised
+    #[must_use]
     pub fn neighbor_advertisement(target: Ipv6Addr) -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::NEIGHBOR_ADVERT;
@@ -136,6 +141,7 @@ impl Icmpv6Builder {
     }
 
     /// Create a Router Solicitation (NDP) packet.
+    #[must_use]
     pub fn router_solicitation() -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::ROUTER_SOLICIT;
@@ -145,6 +151,7 @@ impl Icmpv6Builder {
     }
 
     /// Create a Router Advertisement (NDP) packet.
+    #[must_use]
     pub fn router_advertisement() -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::ROUTER_ADVERT;
@@ -159,6 +166,7 @@ impl Icmpv6Builder {
     /// # Arguments
     /// * `code` - Reason code (0=No route, 1=Admin prohibited, 3=Port unreachable, etc.)
     /// * `payload` - The offending packet bytes (or truncation thereof)
+    #[must_use]
     pub fn dest_unreachable(code: u8, payload: Vec<u8>) -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::DEST_UNREACH;
@@ -173,6 +181,7 @@ impl Icmpv6Builder {
     /// # Arguments
     /// * `code` - 0=Hop limit exceeded, 1=Fragment reassembly time exceeded
     /// * `payload` - The offending packet bytes (or truncation thereof)
+    #[must_use]
     pub fn time_exceeded(code: u8, payload: Vec<u8>) -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::TIME_EXCEEDED;
@@ -187,6 +196,7 @@ impl Icmpv6Builder {
     /// # Arguments
     /// * `mtu` - Maximum Transmission Unit of the next-hop link
     /// * `payload` - The offending packet bytes (or truncation thereof)
+    #[must_use]
     pub fn pkt_too_big(mtu: u32, payload: Vec<u8>) -> Self {
         let mut b = Self::new();
         b.icmpv6_type = types::PKT_TOO_BIG;
@@ -204,19 +214,22 @@ impl Icmpv6Builder {
 
     // ========== Field Setters ==========
 
-    /// Set the ICMPv6 type manually.
+    /// Set the `ICMPv6` type manually.
+    #[must_use]
     pub fn icmpv6_type(mut self, t: u8) -> Self {
         self.icmpv6_type = t;
         self
     }
 
-    /// Set the ICMPv6 code.
+    /// Set the `ICMPv6` code.
+    #[must_use]
     pub fn code(mut self, c: u8) -> Self {
         self.code = c;
         self
     }
 
     /// Set the checksum manually (disables auto-checksum).
+    #[must_use]
     pub fn checksum(mut self, csum: u16) -> Self {
         self.checksum = Some(csum);
         self.auto_checksum = false;
@@ -224,6 +237,7 @@ impl Icmpv6Builder {
     }
 
     /// Alias for checksum (Scapy compatibility).
+    #[must_use]
     pub fn chksum(self, csum: u16) -> Self {
         self.checksum(csum)
     }
@@ -235,6 +249,7 @@ impl Icmpv6Builder {
     }
 
     /// Enable automatic checksum calculation (default: true).
+    #[must_use]
     pub fn enable_auto_checksum(mut self) -> Self {
         self.auto_checksum = true;
         self.checksum = None;
@@ -242,18 +257,21 @@ impl Icmpv6Builder {
     }
 
     /// Disable automatic checksum calculation.
+    #[must_use]
     pub fn disable_auto_checksum(mut self) -> Self {
         self.auto_checksum = false;
         self
     }
 
     /// Set the source IP address (used for checksum calculation).
+    #[must_use]
     pub fn set_src_ip(mut self, src: Ipv6Addr) -> Self {
         self.src_ip = Some(src);
         self
     }
 
     /// Set the destination IP address (used for checksum calculation).
+    #[must_use]
     pub fn set_dst_ip(mut self, dst: Ipv6Addr) -> Self {
         self.dst_ip = Some(dst);
         self
@@ -262,6 +280,7 @@ impl Icmpv6Builder {
     // ========== Size Calculation ==========
 
     /// Get the total packet size.
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         let base = ICMPV6_MIN_HEADER_LEN;
         let extra = match self.icmpv6_type {
@@ -272,13 +291,14 @@ impl Icmpv6Builder {
     }
 
     /// Get the header size (base 8 bytes + any type-specific fixed fields).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         ICMPV6_MIN_HEADER_LEN
     }
 
     // ========== Build Methods ==========
 
-    /// Build the ICMPv6 packet into a byte vector.
+    /// Build the `ICMPv6` packet into a byte vector.
     ///
     /// # Byte layout:
     /// - Byte 0: type
@@ -286,6 +306,7 @@ impl Icmpv6Builder {
     /// - Bytes 2-3: checksum (computed or manual or zero)
     /// - Bytes 4-7: type-specific data
     /// - Bytes 8+: type-specific body (target addr for NS/NA) + payload
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total = self.packet_size();
         let mut buf = vec![0u8; total];
@@ -308,11 +329,11 @@ impl Icmpv6Builder {
         // Type-specific body
         match self.icmpv6_type {
             types::NEIGHBOR_SOLICIT | types::NEIGHBOR_ADVERT | types::REDIRECT => {
-                if let Some(target) = self.target {
-                    if offset + 16 <= buf.len() {
-                        buf[offset..offset + 16].copy_from_slice(&target.octets());
-                        offset += 16;
-                    }
+                if let Some(target) = self.target
+                    && offset + 16 <= buf.len()
+                {
+                    buf[offset..offset + 16].copy_from_slice(&target.octets());
+                    offset += 16;
                 }
             },
             _ => {},

@@ -60,6 +60,7 @@ pub const TCP_PROTOCOL: u8 = 6;
 /// # Returns
 ///
 /// The computed checksum value.
+#[must_use]
 pub fn tcp_checksum_ipv4(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, tcp_data: &[u8]) -> u16 {
     transport_checksum(&src_ip.octets(), &dst_ip.octets(), TCP_PROTOCOL, tcp_data)
 }
@@ -75,6 +76,7 @@ pub fn tcp_checksum_ipv4(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, tcp_data: &[u8]) ->
 /// # Returns
 ///
 /// The computed checksum value.
+#[must_use]
 pub fn tcp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_data: &[u8]) -> u16 {
     let tcp_len = tcp_data.len() as u32;
 
@@ -84,21 +86,21 @@ pub fn tcp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_data: &[u8]) ->
     // Source address (16 bytes)
     let src_octets = src_ip.octets();
     for chunk in src_octets.chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Destination address (16 bytes)
     let dst_octets = dst_ip.octets();
     for chunk in dst_octets.chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Upper-layer packet length (4 bytes)
-    sum += ((tcp_len >> 16) & 0xFFFF) as u32;
-    sum += (tcp_len & 0xFFFF) as u32;
+    sum += (tcp_len >> 16) & 0xFFFF;
+    sum += tcp_len & 0xFFFF;
 
     // Zero + Next Header (4 bytes, but only last byte is non-zero)
-    sum += TCP_PROTOCOL as u32;
+    sum += u32::from(TCP_PROTOCOL);
 
     // Add TCP data
     sum = partial_checksum(tcp_data, sum);
@@ -121,6 +123,7 @@ pub fn tcp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_data: &[u8]) ->
 /// # Returns
 ///
 /// The computed checksum value, or None if address lengths are invalid.
+#[must_use]
 pub fn tcp_checksum(src_ip: &[u8], dst_ip: &[u8], tcp_data: &[u8]) -> Option<u16> {
     match (src_ip.len(), dst_ip.len()) {
         (4, 4) => {
@@ -152,6 +155,7 @@ pub fn tcp_checksum(src_ip: &[u8], dst_ip: &[u8], tcp_data: &[u8]) -> Option<u16
 /// # Returns
 ///
 /// `true` if the checksum is valid.
+#[must_use]
 pub fn verify_tcp_checksum(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, tcp_data: &[u8]) -> bool {
     if tcp_data.len() < 20 {
         return false;
@@ -162,6 +166,7 @@ pub fn verify_tcp_checksum(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, tcp_data: &[u8]) 
 }
 
 /// Verify TCP checksum with IPv6 pseudo-header.
+#[must_use]
 pub fn verify_tcp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_data: &[u8]) -> bool {
     if tcp_data.len() < 20 {
         return false;
@@ -182,6 +187,7 @@ pub fn verify_tcp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_data: &[
 /// # Returns
 ///
 /// 12-byte pseudo-header.
+#[must_use]
 pub fn ipv4_pseudo_header(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, tcp_len: u16) -> [u8; 12] {
     let mut header = [0u8; 12];
 
@@ -214,6 +220,7 @@ pub fn ipv4_pseudo_header(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, tcp_len: u16) -> [
 /// # Returns
 ///
 /// 40-byte pseudo-header.
+#[must_use]
 pub fn ipv6_pseudo_header(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_len: u32) -> [u8; 40] {
     let mut header = [0u8; 40];
 
@@ -238,6 +245,7 @@ pub fn ipv6_pseudo_header(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, tcp_len: u32) -> [
 /// Compute checksum for partial data (for segmented computation).
 ///
 /// Useful when computing checksum across multiple buffers.
+#[must_use]
 pub fn tcp_partial_checksum(src_ip: &[u8; 4], dst_ip: &[u8; 4], tcp_len: u16) -> u32 {
     pseudo_header_checksum(src_ip, dst_ip, TCP_PROTOCOL, tcp_len)
 }

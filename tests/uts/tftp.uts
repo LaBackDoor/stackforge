@@ -1,0 +1,92 @@
+# TFTP layer unit tests
+# Tests for the Trivial File Transfer Protocol (RFC 1350) layer.
+# TFTP operates on UDP port 69 and has 5 packet types: RRQ, WRQ, DATA, ACK, ERROR.
+
++ Syntax check
+= Import the TFTP layer
+from scapy.contrib.tftp import *
+
+
++ TFTP builder tests
+
+= TFTP RRQ (Read Request) opcode=1
+p = TFTP(opcode=1, filename="test.txt", mode="octet")
+data = bytes(p)
+assert data[0:2] == b"\x00\x01"
+assert b"test.txt" in data
+assert b"octet" in data
+
+= TFTP WRQ (Write Request) opcode=2
+p = TFTP(opcode=2, filename="upload.bin", mode="octet")
+data = bytes(p)
+assert data[0:2] == b"\x00\x02"
+assert b"upload.bin" in data
+assert b"octet" in data
+
+= TFTP DATA opcode=3
+p = TFTP(opcode=3, block=1, data=b"hello world")
+data = bytes(p)
+assert data[0:2] == b"\x00\x03"
+assert data[2:4] == b"\x00\x01"
+assert b"hello world" in data
+
+= TFTP ACK opcode=4
+p = TFTP(opcode=4, block=3)
+data = bytes(p)
+assert data == b"\x00\x04\x00\x03"
+assert len(data) == 4
+
+= TFTP ERROR opcode=5
+p = TFTP(opcode=5, error_code=1, error_msg="File not found")
+data = bytes(p)
+assert data[0:2] == b"\x00\x05"
+assert data[2:4] == b"\x00\x01"
+assert b"File not found" in data
+
+
++ TFTP packet dissection tests
+
+= TFTP RRQ dissection
+s = b"\x00\x01test.txt\x00octet\x00"
+p = TFTP(s)
+assert p.opcode == 1
+assert p.filename == "test.txt"
+assert p.mode == "octet"
+
+= TFTP WRQ dissection
+s = b"\x00\x02upload.bin\x00netascii\x00"
+p = TFTP(s)
+assert p.opcode == 2
+assert p.filename == "upload.bin"
+assert p.mode == "netascii"
+
+= TFTP DATA dissection
+s = b"\x00\x03\x00\x05hello world"
+p = TFTP(s)
+assert p.opcode == 3
+assert p.block_num == 5
+
+= TFTP ACK dissection
+s = b"\x00\x04\x00\x07"
+p = TFTP(s)
+assert p.opcode == 4
+assert p.block_num == 7
+
+= TFTP ERROR dissection
+s = b"\x00\x05\x00\x02Access violation\x00"
+p = TFTP(s)
+assert p.opcode == 5
+assert p.error_code == 2
+assert p.error_msg == "Access violation"
+
+= TFTP ACK block_num 0 (acknowledge WRQ)
+s = b"\x00\x04\x00\x00"
+p = TFTP(s)
+assert p.opcode == 4
+assert p.block_num == 0
+
+= TFTP DATA large block
+s = b"\x00\x03\x00\x0a" + b"X" * 512
+p = TFTP(s)
+assert p.opcode == 3
+assert p.block_num == 10

@@ -15,6 +15,7 @@
 use super::Extension;
 
 /// Parse SNI extension data to extract hostnames.
+#[must_use]
 pub fn parse_sni(data: &[u8]) -> Vec<String> {
     let mut names = Vec::new();
     if data.len() < 2 {
@@ -44,6 +45,7 @@ pub fn parse_sni(data: &[u8]) -> Vec<String> {
 }
 
 /// Build SNI extension for a single hostname.
+#[must_use]
 pub fn build_sni(hostname: &str) -> Extension {
     let name_bytes = hostname.as_bytes();
     let name_len = name_bytes.len();

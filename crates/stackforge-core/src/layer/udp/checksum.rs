@@ -20,22 +20,23 @@ const UDP_PROTOCOL: u8 = 17;
 ///
 /// # Returns
 /// The calculated checksum. Per RFC 768, if result is 0, returns 0xFFFF.
+#[must_use]
 pub fn udp_checksum_ipv4(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, udp_data: &[u8]) -> u16 {
     let mut sum: u32 = 0;
 
     // Add IPv4 pseudo-header
     // Source IP (4 bytes)
     for chunk in src_ip.octets().chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Destination IP (4 bytes)
     for chunk in dst_ip.octets().chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Zero + Protocol (2 bytes): 0x00 (zero) + 0x11 (UDP) = 0x0011 as u16
-    sum += UDP_PROTOCOL as u32;
+    sum += u32::from(UDP_PROTOCOL);
 
     // UDP Length (2 bytes)
     sum += udp_data.len() as u32;
@@ -58,27 +59,28 @@ pub fn udp_checksum_ipv4(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, udp_data: &[u8]) ->
 ///
 /// # Returns
 /// The calculated checksum. Per RFC 2460, if result is 0, returns 0xFFFF.
+#[must_use]
 pub fn udp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, udp_data: &[u8]) -> u16 {
     let mut sum: u32 = 0;
 
     // Add IPv6 pseudo-header
     // Source IP (16 bytes)
     for chunk in src_ip.octets().chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Destination IP (16 bytes)
     for chunk in dst_ip.octets().chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // UDP Length (4 bytes, big-endian)
     let udp_len = udp_data.len() as u32;
-    sum += (udp_len >> 16) as u32;
-    sum += (udp_len & 0xFFFF) as u32;
+    sum += udp_len >> 16;
+    sum += udp_len & 0xFFFF;
 
     // Three zero bytes + Next Header (4 bytes total)
-    sum += UDP_PROTOCOL as u32;
+    sum += u32::from(UDP_PROTOCOL);
 
     // Add UDP data
     sum = partial_checksum(udp_data, sum);
@@ -90,6 +92,7 @@ pub fn udp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, udp_data: &[u8]) ->
 }
 
 /// Verify UDP checksum with IPv4 pseudo-header.
+#[must_use]
 pub fn verify_udp_checksum_ipv4(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, udp_data: &[u8]) -> bool {
     if udp_data.len() < 8 {
         return false;
@@ -108,6 +111,7 @@ pub fn verify_udp_checksum_ipv4(src_ip: Ipv4Addr, dst_ip: Ipv4Addr, udp_data: &[
 }
 
 /// Verify UDP checksum with IPv6 pseudo-header.
+#[must_use]
 pub fn verify_udp_checksum_ipv6(src_ip: Ipv6Addr, dst_ip: Ipv6Addr, udp_data: &[u8]) -> bool {
     if udp_data.len() < 8 {
         return false;

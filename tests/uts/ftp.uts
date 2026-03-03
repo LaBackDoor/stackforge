@@ -1,0 +1,119 @@
+# FTP layer unit tests
+# Tests for the File Transfer Protocol (RFC 959) control connection layer.
+# FTP operates on TCP port 21 for the control connection.
+
++ Syntax check
+= Import the FTP layer
+from scapy.contrib.ftp import *
+
+
++ FTP server reply tests
+
+= FTP 220 Service Ready reply
+p = FTP(reply_code=220, reply_text="FTP Server ready")
+assert bytes(p) == b"220 FTP Server ready\r\n"
+
+= FTP 221 Goodbye reply
+p = FTP(reply_code=221, reply_text="Goodbye")
+assert bytes(p) == b"221 Goodbye\r\n"
+
+= FTP 230 User logged in reply
+p = FTP(reply_code=230, reply_text="User logged in, proceed")
+assert bytes(p) == b"230 User logged in, proceed\r\n"
+
+= FTP 331 Password required reply
+p = FTP(reply_code=331, reply_text="Password required")
+assert bytes(p) == b"331 Password required\r\n"
+
+= FTP 227 Entering Passive Mode reply
+p = FTP(reply_code=227, reply_text="Entering Passive Mode (192,168,1,1,200,50)")
+assert bytes(p) == b"227 Entering Passive Mode (192,168,1,1,200,50)\r\n"
+
+= FTP 530 Not logged in reply
+p = FTP(reply_code=530, reply_text="Not logged in")
+assert bytes(p) == b"530 Not logged in\r\n"
+
+= FTP 550 File unavailable reply
+p = FTP(reply_code=550, reply_text="No such file or directory")
+assert bytes(p) == b"550 No such file or directory\r\n"
+
+
++ FTP client command tests
+
+= FTP USER command
+p = FTP(command="USER", args="anonymous")
+assert bytes(p) == b"USER anonymous\r\n"
+
+= FTP PASS command
+p = FTP(command="PASS", args="secret")
+assert bytes(p) == b"PASS secret\r\n"
+
+= FTP RETR command
+p = FTP(command="RETR", args="file.txt")
+assert bytes(p) == b"RETR file.txt\r\n"
+
+= FTP STOR command
+p = FTP(command="STOR", args="upload.dat")
+assert bytes(p) == b"STOR upload.dat\r\n"
+
+= FTP LIST command without arguments
+p = FTP(command="LIST")
+assert bytes(p) == b"LIST\r\n"
+
+= FTP LIST command with path
+p = FTP(command="LIST", args="/pub")
+assert bytes(p) == b"LIST /pub\r\n"
+
+= FTP QUIT command
+p = FTP(command="QUIT")
+assert bytes(p) == b"QUIT\r\n"
+
+= FTP PASV command
+p = FTP(command="PASV")
+assert bytes(p) == b"PASV\r\n"
+
+= FTP CWD command
+p = FTP(command="CWD", args="/pub/files")
+assert bytes(p) == b"CWD /pub/files\r\n"
+
+
++ FTP packet dissection tests
+
+= FTP 220 dissection
+s = b"220 FTP Server ready\r\n"
+p = FTP(s)
+assert p.reply_code == 220
+assert p.reply_text == "FTP Server ready"
+assert p.is_response is True
+assert p.is_multiline is False
+
+= FTP USER dissection
+s = b"USER alice\r\n"
+p = FTP(s)
+assert p.command == "USER"
+assert p.args == "alice"
+assert p.is_response is False
+
+= FTP 331 dissection
+s = b"331 Password required\r\n"
+p = FTP(s)
+assert p.reply_code == 331
+assert p.is_response is True
+
+= FTP multiline dissection
+s = b"220-Welcome to FTP\r\n220 Ready\r\n"
+p = FTP(s)
+assert p.reply_code == 220
+assert p.is_multiline is True
+
+= FTP RETR with filename dissection
+s = b"RETR document.pdf\r\n"
+p = FTP(s)
+assert p.command == "RETR"
+assert p.args == "document.pdf"
+
+= FTP PASV dissection (no args)
+s = b"PASV\r\n"
+p = FTP(s)
+assert p.command == "PASV"
+assert p.args == ""

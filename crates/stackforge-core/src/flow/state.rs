@@ -19,6 +19,7 @@ pub enum ConversationStatus {
 }
 
 impl ConversationStatus {
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Active => "Active",
@@ -49,6 +50,7 @@ pub struct DirectionStats {
 }
 
 impl DirectionStats {
+    #[must_use]
     pub fn new(timestamp: Duration) -> Self {
         Self {
             packets: 0,
@@ -73,8 +75,21 @@ pub enum ProtocolState {
     Tcp(TcpConversationState),
     /// UDP pseudo-conversation with timeout tracking.
     Udp(UdpFlowState),
+    /// Z-Wave wireless conversation with home ID and node tracking.
+    ZWave(ZWaveFlowState),
     /// Other protocols (ICMP, etc.) — no specific state tracking.
     Other,
+}
+
+/// Z-Wave conversation state tracking.
+#[derive(Debug, Clone)]
+pub struct ZWaveFlowState {
+    /// Z-Wave network home ID.
+    pub home_id: u32,
+    /// Number of command messages (non-ACK frames) seen.
+    pub command_count: u64,
+    /// Number of ACK frames seen.
+    pub ack_count: u64,
 }
 
 /// Complete state for a single bidirectional conversation.
@@ -92,9 +107,9 @@ pub struct ConversationState {
     pub start_time: Duration,
     /// Timestamp of the most recent packet in the conversation.
     pub last_seen: Duration,
-    /// Statistics for the forward direction (addr_a → addr_b).
+    /// Statistics for the forward direction (`addr_a` → `addr_b`).
     pub forward: DirectionStats,
-    /// Statistics for the reverse direction (addr_b → addr_a).
+    /// Statistics for the reverse direction (`addr_b` → `addr_a`).
     pub reverse: DirectionStats,
     /// Indices of packets belonging to this conversation (into original packet list).
     pub packet_indices: Vec<usize>,
@@ -104,6 +119,7 @@ pub struct ConversationState {
 
 impl ConversationState {
     /// Create a new conversation state from the first observed packet.
+    #[must_use]
     pub fn new(key: CanonicalKey, timestamp: Duration) -> Self {
         let protocol_state = match key.protocol {
             TransportProtocol::Tcp => ProtocolState::Tcp(TcpConversationState::new()),
@@ -123,17 +139,56 @@ impl ConversationState {
         }
     }
 
+    /// Create a new Z-Wave conversation state.
+    ///
+    /// Z-Wave conversations use a dummy canonical key since they are
+    /// keyed by home ID and node pair rather than IP 5-tuple.
+    #[must_use]
+    pub fn new_zwave(zwave_key: super::key::ZWaveKey, timestamp: Duration) -> Self {
+        use std::net::{IpAddr, Ipv4Addr};
+
+        // Create a placeholder canonical key — the real key is the ZWaveKey
+        // stored in the ProtocolState. We encode node IDs in the port fields
+        // for display purposes.
+        let (key, _) = CanonicalKey::new(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            u16::from(zwave_key.node_a),
+            u16::from(zwave_key.node_b),
+            TransportProtocol::Other(0),
+            None,
+        );
+
+        Self {
+            key,
+            status: ConversationStatus::Active,
+            start_time: timestamp,
+            last_seen: timestamp,
+            forward: DirectionStats::new(timestamp),
+            reverse: DirectionStats::new(timestamp),
+            packet_indices: Vec::new(),
+            protocol_state: ProtocolState::ZWave(ZWaveFlowState {
+                home_id: zwave_key.home_id,
+                command_count: 0,
+                ack_count: 0,
+            }),
+        }
+    }
+
     /// Total packets across both directions.
+    #[must_use]
     pub fn total_packets(&self) -> u64 {
         self.forward.packets + self.reverse.packets
     }
 
     /// Total bytes across both directions.
+    #[must_use]
     pub fn total_bytes(&self) -> u64 {
         self.forward.bytes + self.reverse.bytes
     }
 
     /// Duration of the conversation.
+    #[must_use]
     pub fn duration(&self) -> Duration {
         self.last_seen.saturating_sub(self.start_time)
     }
@@ -175,11 +230,13 @@ impl ConversationState {
             ProtocolState::Udp(udp) => {
                 self.status = udp.status;
             },
+            ProtocolState::ZWave(_) => {},
             ProtocolState::Other => {},
         }
     }
 
     /// Check whether this conversation has exceeded its idle timeout.
+    #[must_use]
     pub fn is_timed_out(&self, now: Duration, config: &FlowConfig) -> bool {
         let elapsed = now.saturating_sub(self.last_seen);
         match &self.protocol_state {
@@ -193,6 +250,7 @@ impl ConversationState {
                 }
             },
             ProtocolState::Udp(_) => elapsed > config.udp_timeout,
+            ProtocolState::ZWave(_) => elapsed > config.udp_timeout,
             ProtocolState::Other => elapsed > config.udp_timeout,
         }
     }

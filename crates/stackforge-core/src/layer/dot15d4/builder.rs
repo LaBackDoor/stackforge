@@ -58,6 +58,7 @@ pub struct Dot15d4Builder {
 
 impl Dot15d4Builder {
     /// Create a new builder with default values (Data frame, short addressing).
+    #[must_use]
     pub fn new() -> Self {
         Self {
             frame_type: types::frame_type::DATA,
@@ -75,6 +76,7 @@ impl Dot15d4Builder {
     }
 
     /// Create a builder for a beacon frame.
+    #[must_use]
     pub fn beacon() -> Self {
         Self {
             frame_type: types::frame_type::BEACON,
@@ -92,11 +94,13 @@ impl Dot15d4Builder {
     }
 
     /// Create a builder for a data frame.
+    #[must_use]
     pub fn data() -> Self {
         Self::new()
     }
 
     /// Create a builder for an ACK frame.
+    #[must_use]
     pub fn ack() -> Self {
         Self {
             frame_type: types::frame_type::ACK,
@@ -114,6 +118,7 @@ impl Dot15d4Builder {
     }
 
     /// Create a builder for a command frame.
+    #[must_use]
     pub fn command() -> Self {
         Self {
             frame_type: types::frame_type::MAC_CMD,
@@ -133,54 +138,63 @@ impl Dot15d4Builder {
     // Fluent setters
 
     /// Set the frame type.
+    #[must_use]
     pub fn frame_type(mut self, ft: u8) -> Self {
         self.frame_type = ft;
         self
     }
 
     /// Set the security enabled flag.
+    #[must_use]
     pub fn security(mut self, val: bool) -> Self {
         self.security = val;
         self
     }
 
     /// Set the frame pending flag.
+    #[must_use]
     pub fn pending(mut self, val: bool) -> Self {
         self.pending = val;
         self
     }
 
     /// Set the ACK request flag.
+    #[must_use]
     pub fn ackreq(mut self, val: bool) -> Self {
         self.ackreq = val;
         self
     }
 
     /// Set the PAN ID compression flag.
+    #[must_use]
     pub fn panid_compress(mut self, val: bool) -> Self {
         self.panid_compress = val;
         self
     }
 
     /// Set the frame version.
+    #[must_use]
     pub fn frame_ver(mut self, ver: u8) -> Self {
         self.frame_ver = ver;
         self
     }
 
     /// Set the sequence number.
+    #[must_use]
     pub fn seqnum(mut self, seq: u8) -> Self {
         self.seqnum = seq;
         self
     }
 
     /// Set the destination PAN ID.
+    #[must_use]
     pub fn dest_panid(mut self, panid: u16) -> Self {
         self.dest_panid = Some(panid);
         self
     }
 
     /// Set the destination short address.
+    #[must_use]
     pub fn dest_addr_short(mut self, addr: u16) -> Self {
         self.dest_addr = Dot15d4Addr::Short(addr);
         if self.dest_panid.is_none() {
@@ -190,6 +204,7 @@ impl Dot15d4Builder {
     }
 
     /// Set the destination long address.
+    #[must_use]
     pub fn dest_addr_long(mut self, addr: u64) -> Self {
         self.dest_addr = Dot15d4Addr::Long(addr);
         if self.dest_panid.is_none() {
@@ -199,6 +214,7 @@ impl Dot15d4Builder {
     }
 
     /// Clear the destination address (set to None).
+    #[must_use]
     pub fn no_dest_addr(mut self) -> Self {
         self.dest_addr = Dot15d4Addr::None;
         self.dest_panid = None;
@@ -206,24 +222,28 @@ impl Dot15d4Builder {
     }
 
     /// Set the source PAN ID.
+    #[must_use]
     pub fn src_panid(mut self, panid: u16) -> Self {
         self.src_panid = Some(panid);
         self
     }
 
     /// Set the source short address.
+    #[must_use]
     pub fn src_addr_short(mut self, addr: u16) -> Self {
         self.src_addr = Dot15d4Addr::Short(addr);
         self
     }
 
     /// Set the source long address.
+    #[must_use]
     pub fn src_addr_long(mut self, addr: u64) -> Self {
         self.src_addr = Dot15d4Addr::Long(addr);
         self
     }
 
     /// Clear the source address (set to None).
+    #[must_use]
     pub fn no_src_addr(mut self) -> Self {
         self.src_addr = Dot15d4Addr::None;
         self.src_panid = None;
@@ -241,6 +261,7 @@ impl Dot15d4Builder {
     }
 
     /// Build the 802.15.4 MAC frame bytes (without FCS).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let dest_mode = self.dest_addr_mode();
         let src_mode = self.src_addr_mode();
@@ -303,6 +324,7 @@ impl Dot15d4Builder {
     }
 
     /// Get the expected header size for the current configuration.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         let fcf = build_fcf(
             self.frame_type,
@@ -335,18 +357,21 @@ pub struct Dot15d4FcsBuilder {
 
 impl Dot15d4FcsBuilder {
     /// Create a new FCS builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             inner: Dot15d4Builder::new(),
         }
     }
 
-    /// Create from an existing Dot15d4Builder.
+    /// Create from an existing `Dot15d4Builder`.
+    #[must_use]
     pub fn from_builder(builder: Dot15d4Builder) -> Self {
         Self { inner: builder }
     }
 
     /// Create a builder for a beacon frame with FCS.
+    #[must_use]
     pub fn beacon() -> Self {
         Self {
             inner: Dot15d4Builder::beacon(),
@@ -354,6 +379,7 @@ impl Dot15d4FcsBuilder {
     }
 
     /// Create a builder for a data frame with FCS.
+    #[must_use]
     pub fn data() -> Self {
         Self {
             inner: Dot15d4Builder::data(),
@@ -361,6 +387,7 @@ impl Dot15d4FcsBuilder {
     }
 
     /// Create a builder for an ACK frame with FCS.
+    #[must_use]
     pub fn ack() -> Self {
         Self {
             inner: Dot15d4Builder::ack(),
@@ -368,6 +395,7 @@ impl Dot15d4FcsBuilder {
     }
 
     /// Create a builder for a command frame with FCS.
+    #[must_use]
     pub fn command() -> Self {
         Self {
             inner: Dot15d4Builder::command(),
@@ -376,82 +404,98 @@ impl Dot15d4FcsBuilder {
 
     // Fluent setters that delegate to inner builder
 
+    #[must_use]
     pub fn frame_type(mut self, ft: u8) -> Self {
         self.inner = self.inner.frame_type(ft);
         self
     }
 
+    #[must_use]
     pub fn security(mut self, val: bool) -> Self {
         self.inner = self.inner.security(val);
         self
     }
 
+    #[must_use]
     pub fn pending(mut self, val: bool) -> Self {
         self.inner = self.inner.pending(val);
         self
     }
 
+    #[must_use]
     pub fn ackreq(mut self, val: bool) -> Self {
         self.inner = self.inner.ackreq(val);
         self
     }
 
+    #[must_use]
     pub fn panid_compress(mut self, val: bool) -> Self {
         self.inner = self.inner.panid_compress(val);
         self
     }
 
+    #[must_use]
     pub fn frame_ver(mut self, ver: u8) -> Self {
         self.inner = self.inner.frame_ver(ver);
         self
     }
 
+    #[must_use]
     pub fn seqnum(mut self, seq: u8) -> Self {
         self.inner = self.inner.seqnum(seq);
         self
     }
 
+    #[must_use]
     pub fn dest_panid(mut self, panid: u16) -> Self {
         self.inner = self.inner.dest_panid(panid);
         self
     }
 
+    #[must_use]
     pub fn dest_addr_short(mut self, addr: u16) -> Self {
         self.inner = self.inner.dest_addr_short(addr);
         self
     }
 
+    #[must_use]
     pub fn dest_addr_long(mut self, addr: u64) -> Self {
         self.inner = self.inner.dest_addr_long(addr);
         self
     }
 
+    #[must_use]
     pub fn no_dest_addr(mut self) -> Self {
         self.inner = self.inner.no_dest_addr();
         self
     }
 
+    #[must_use]
     pub fn src_panid(mut self, panid: u16) -> Self {
         self.inner = self.inner.src_panid(panid);
         self
     }
 
+    #[must_use]
     pub fn src_addr_short(mut self, addr: u16) -> Self {
         self.inner = self.inner.src_addr_short(addr);
         self
     }
 
+    #[must_use]
     pub fn src_addr_long(mut self, addr: u64) -> Self {
         self.inner = self.inner.src_addr_long(addr);
         self
     }
 
+    #[must_use]
     pub fn no_src_addr(mut self) -> Self {
         self.inner = self.inner.no_src_addr();
         self
     }
 
     /// Build the 802.15.4 MAC frame bytes with FCS appended.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut frame = self.inner.build();
         let fcs = crc::compute_fcs(&frame);
@@ -460,6 +504,7 @@ impl Dot15d4FcsBuilder {
     }
 
     /// Get the expected total size (header + FCS).
+    #[must_use]
     pub fn total_size(&self) -> usize {
         self.inner.header_size() + FCS_LEN
     }

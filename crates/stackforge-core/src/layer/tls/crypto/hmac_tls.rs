@@ -1,7 +1,7 @@
 //! TLS HMAC abstractions.
 //!
 //! Provides HMAC computation for TLS MAC operations, supporting
-//! both standard HMAC (RFC 2104) and SSLv3 MAC.
+//! both standard HMAC (RFC 2104) and `SSLv3` MAC.
 
 use hmac::{Hmac, Mac};
 
@@ -16,6 +16,7 @@ pub struct TlsHmac {
 
 impl TlsHmac {
     /// Create a new HMAC instance with the given hash and key.
+    #[must_use]
     pub fn new(hash: TlsHash, key: &[u8]) -> Self {
         Self {
             hash,
@@ -24,11 +25,13 @@ impl TlsHmac {
     }
 
     /// Returns the HMAC output length.
+    #[must_use]
     pub fn hmac_len(&self) -> usize {
         self.hash.hash_len()
     }
 
     /// Compute HMAC over the given data.
+    #[must_use]
     pub fn digest(&self, data: &[u8]) -> Vec<u8> {
         match self.hash {
             TlsHash::Null => vec![],
@@ -72,7 +75,8 @@ impl TlsHmac {
 
     /// SSLv3-style MAC computation.
     ///
-    /// SSLv3 MAC = hash(key + pad2 + hash(key + pad1 + data))
+    /// `SSLv3` MAC = hash(key + pad2 + hash(key + pad1 + data))
+    #[must_use]
     pub fn digest_sslv3(&self, data: &[u8]) -> Vec<u8> {
         let pad_len = match self.hash {
             TlsHash::Md5 => 48,
@@ -97,6 +101,7 @@ impl TlsHmac {
     }
 
     /// Verify HMAC.
+    #[must_use]
     pub fn verify(&self, data: &[u8], expected: &[u8]) -> bool {
         let computed = self.digest(data);
         constant_time_eq(&computed, expected)

@@ -41,7 +41,8 @@ pub struct DnsLayer {
 }
 
 impl DnsLayer {
-    /// Create a new DnsLayer from start/end offsets.
+    /// Create a new `DnsLayer` from start/end offsets.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Dns, start, end),
@@ -384,6 +385,7 @@ impl DnsLayer {
     }
 
     /// Get the list of field names.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         DNS_FIELDS
     }
@@ -419,7 +421,7 @@ impl Layer for DnsLayer {
             let qname_str = self
                 .questions(buf)
                 .ok()
-                .and_then(|qs| qs.first().map(|q| q.summary()));
+                .and_then(|qs| qs.first().map(query::DnsQuestion::summary));
             match qname_str {
                 Some(q) => format!("DNS {} {}", types::opcode_name(opcode), q),
                 None => format!("DNS {} qd={}", types::opcode_name(opcode), qdcount),

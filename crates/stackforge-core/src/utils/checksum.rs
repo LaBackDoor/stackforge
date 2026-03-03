@@ -13,6 +13,7 @@
 /// 2. Add any odd byte as the high byte of a word
 /// 3. Fold 32-bit sum to 16 bits by adding carry bits
 /// 4. Take one's complement of the result
+#[must_use]
 pub fn internet_checksum(data: &[u8]) -> u16 {
     let sum = partial_checksum(data, 0);
     finalize_checksum(sum)
@@ -32,18 +33,19 @@ pub fn internet_checksum(data: &[u8]) -> u16 {
 ///
 /// The 32-bit partial sum (not yet folded or complemented).
 #[inline]
+#[must_use]
 pub fn partial_checksum(data: &[u8], initial: u32) -> u32 {
     let mut sum = initial;
 
     // Process 16-bit words
     let mut chunks = data.chunks_exact(2);
     for chunk in chunks.by_ref() {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Handle odd byte (pad with zero on the right)
     if let Some(&last) = chunks.remainder().first() {
-        sum += (last as u32) << 8;
+        sum += u32::from(last) << 8;
     }
 
     sum
@@ -62,6 +64,7 @@ pub fn partial_checksum(data: &[u8], initial: u32) -> u32 {
 ///
 /// The final 16-bit checksum value.
 #[inline]
+#[must_use]
 pub fn finalize_checksum(sum: u32) -> u16 {
     let mut s = sum;
     // Fold 32-bit sum to 16 bits (add carry)
@@ -73,6 +76,7 @@ pub fn finalize_checksum(sum: u32) -> u16 {
 }
 
 /// Calculate checksum with pseudo-header (for TCP/UDP).
+#[must_use]
 pub fn transport_checksum(src_ip: &[u8], dst_ip: &[u8], protocol: u8, data: &[u8]) -> u16 {
     let mut pseudo_header = Vec::with_capacity(12 + data.len());
 
@@ -94,6 +98,7 @@ pub fn transport_checksum(src_ip: &[u8], dst_ip: &[u8], protocol: u8, data: &[u8
 }
 
 /// Verify a checksum is valid (should be 0 or 0xFFFF when calculated over data with checksum).
+#[must_use]
 pub fn verify_checksum(data: &[u8]) -> bool {
     let sum = internet_checksum(data);
     sum == 0 || sum == 0xFFFF

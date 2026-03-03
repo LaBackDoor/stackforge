@@ -10,7 +10,7 @@
 /// Binary SSH packets require encryption and are not constructable.
 #[derive(Debug, Clone)]
 pub struct SshBuilder {
-    /// Version string (e.g., "OpenSSH_9.2p1")
+    /// Version string (e.g., "`OpenSSH_9.2p1`")
     version: String,
 }
 
@@ -24,6 +24,7 @@ impl Default for SshBuilder {
 
 impl SshBuilder {
     /// Create a new SSH builder with default version string.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -31,6 +32,7 @@ impl SshBuilder {
     /// Create an SSH version exchange message.
     ///
     /// Generates `SSH-2.0-{version}\r\n`.
+    #[must_use]
     pub fn version_exchange(version: &str) -> Self {
         Self {
             version: version.to_string(),
@@ -38,18 +40,21 @@ impl SshBuilder {
     }
 
     /// Set the version string.
+    #[must_use]
     pub fn version(mut self, version: &str) -> Self {
         self.version = version.to_string();
         self
     }
 
     /// Get the header size (the full version exchange message length).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         // "SSH-2.0-" + version + "\r\n"
         8 + self.version.len() + 2
     }
 
     /// Build the SSH version exchange into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         format!("SSH-2.0-{}\r\n", self.version).into_bytes()
     }

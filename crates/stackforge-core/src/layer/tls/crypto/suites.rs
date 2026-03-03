@@ -25,7 +25,7 @@ pub enum KeyExchange {
     EcdhePsk,
     /// TLS 1.3 (no separate KX in suite name)
     Tls13,
-    /// SSLv2
+    /// `SSLv2`
     Sslv2,
 }
 
@@ -73,7 +73,7 @@ pub enum SuiteHmac {
 /// A TLS cipher suite definition.
 #[derive(Debug, Clone, Copy)]
 pub struct CipherSuite {
-    /// Numeric cipher suite ID (e.g., 0x002F for TLS_RSA_WITH_AES_128_CBC_SHA).
+    /// Numeric cipher suite ID (e.g., 0x002F for `TLS_RSA_WITH_AES_128_CBC_SHA`).
     pub id: u16,
     /// Human-readable name.
     pub name: &'static str,
@@ -100,7 +100,8 @@ pub struct CipherSuite {
 impl CipherSuite {
     /// Total key block length needed for key derivation.
     ///
-    /// key_block_len = 2 * (mac_len + key_len + iv_len)
+    /// `key_block_len` = 2 * (`mac_len` + `key_len` + `iv_len`)
+    #[must_use]
     pub fn key_block_len(&self) -> usize {
         2 * (self.mac_len + self.key_len + self.iv_len)
     }
@@ -470,11 +471,13 @@ pub static CIPHER_SUITES: &[CipherSuite] = &[
 ];
 
 /// Look up a cipher suite by its numeric ID.
+#[must_use]
 pub fn find_suite(id: u16) -> Option<&'static CipherSuite> {
     CIPHER_SUITES.iter().find(|s| s.id == id)
 }
 
 /// Look up a cipher suite by name (case-insensitive).
+#[must_use]
 pub fn find_suite_by_name(name: &str) -> Option<&'static CipherSuite> {
     let upper = name.to_uppercase();
     CIPHER_SUITES.iter().find(|s| s.name == upper)

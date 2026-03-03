@@ -90,7 +90,7 @@ pub mod record_type {
     pub const DS: u16 = 43;
     /// SSH key fingerprint
     pub const SSHFP: u16 = 44;
-    /// IPsec key
+    /// `IPsec` key
     pub const IPSECKEY: u16 = 45;
     /// DNSSEC signature
     pub const RRSIG: u16 = 46;
@@ -114,7 +114,7 @@ pub mod record_type {
     pub const CDS: u16 = 59;
     /// Child DNSKEY
     pub const CDNSKEY: u16 = 60;
-    /// OpenPGP public key record
+    /// `OpenPGP` public key record
     pub const OPENPGPKEY: u16 = 61;
     /// Child-to-parent synchronization
     pub const CSYNC: u16 = 62;
@@ -128,9 +128,9 @@ pub mod record_type {
     pub const SPF: u16 = 99;
     /// Node identifier
     pub const NID: u16 = 104;
-    /// 32-bit locator for ILNPv4
+    /// 32-bit locator for `ILNPv4`
     pub const L32: u16 = 105;
-    /// 64-bit locator for ILNPv6
+    /// 64-bit locator for `ILNPv6`
     pub const L64: u16 = 106;
     /// Name of an ILNP subnetwork
     pub const LP: u16 = 107;
@@ -166,6 +166,7 @@ pub mod record_type {
 pub use record_type as rr_type;
 
 /// Returns a human-readable name for the given DNS record type value.
+#[must_use]
 pub fn dns_type_name(t: u16) -> &'static str {
     match t {
         record_type::A => "A",
@@ -266,6 +267,7 @@ pub mod dns_class {
 }
 
 /// Returns a human-readable name for the given DNS class value.
+#[must_use]
 pub fn dns_class_name(c: u16) -> &'static str {
     match c {
         dns_class::IN => "IN",
@@ -299,6 +301,7 @@ pub mod dns_opcode {
 pub use dns_opcode as opcode;
 
 /// Returns a human-readable name for the given DNS opcode value.
+#[must_use]
 pub fn dns_opcode_name(o: u8) -> &'static str {
     match o {
         dns_opcode::QUERY => "QUERY",
@@ -311,6 +314,7 @@ pub fn dns_opcode_name(o: u8) -> &'static str {
 }
 
 /// Backward-compatible alias for `dns_opcode_name`.
+#[must_use]
 pub fn opcode_name(o: u8) -> &'static str {
     dns_opcode_name(o)
 }
@@ -349,6 +353,7 @@ pub mod dns_rcode {
 pub use dns_rcode as rcode;
 
 /// Returns a human-readable name for the given DNS response code value.
+#[must_use]
 pub fn dns_rcode_name(r: u8) -> &'static str {
     match r {
         dns_rcode::NOERROR => "NOERROR",
@@ -367,6 +372,7 @@ pub fn dns_rcode_name(r: u8) -> &'static str {
 }
 
 /// Backward-compatible alias for `dns_rcode_name`.
+#[must_use]
 pub fn rcode_name(r: u8) -> &'static str {
     dns_rcode_name(r)
 }
@@ -419,6 +425,7 @@ pub mod dnssec_algorithm {
 pub use dnssec_algorithm as algorithm;
 
 /// Returns a human-readable name for the given DNSSEC algorithm type value.
+#[must_use]
 pub fn dnssec_algorithm_name(a: u8) -> &'static str {
     match a {
         dnssec_algorithm::DELETE => "DELETE",
@@ -463,6 +470,7 @@ pub mod dnssec_digest {
 pub use dnssec_digest as digest_type;
 
 /// Returns a human-readable name for the given DNSSEC digest type value.
+#[must_use]
 pub fn dnssec_digest_name(d: u8) -> &'static str {
     match d {
         dnssec_digest::SHA1 => "SHA-1",
@@ -502,6 +510,7 @@ pub mod edns0_option {
 }
 
 /// Returns a human-readable name for the given EDNS0 option code value.
+#[must_use]
 pub fn edns0_option_name(code: u16) -> &'static str {
     match code {
         edns0_option::LLQ => "LLQ",

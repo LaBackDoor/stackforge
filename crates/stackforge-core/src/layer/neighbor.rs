@@ -27,6 +27,7 @@ pub struct CacheEntry {
 }
 
 impl CacheEntry {
+    #[must_use]
     pub fn new(mac: MacAddress, ttl: Duration) -> Self {
         Self {
             mac,
@@ -34,6 +35,7 @@ impl CacheEntry {
         }
     }
 
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         Instant::now() > self.expires
     }
@@ -47,10 +49,12 @@ pub struct ArpCache {
 }
 
 impl ArpCache {
+    #[must_use]
     pub fn new() -> Self {
         Self::with_ttl(Duration::from_secs(120)) // 2 minute default like Scapy
     }
 
+    #[must_use]
     pub fn with_ttl(ttl: Duration) -> Self {
         Self {
             entries: HashMap::new(),
@@ -59,6 +63,7 @@ impl ArpCache {
     }
 
     /// Get a cached MAC address for an IP.
+    #[must_use]
     pub fn get(&self, ip: &Ipv4Addr) -> Option<MacAddress> {
         self.entries.get(ip).and_then(|entry| {
             if entry.is_expired() {
@@ -85,10 +90,12 @@ impl ArpCache {
     }
 
     /// Get number of entries.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -102,10 +109,12 @@ pub struct NdpCache {
 }
 
 impl NdpCache {
+    #[must_use]
     pub fn new() -> Self {
         Self::with_ttl(Duration::from_secs(120))
     }
 
+    #[must_use]
     pub fn with_ttl(ttl: Duration) -> Self {
         Self {
             entries: HashMap::new(),
@@ -113,6 +122,7 @@ impl NdpCache {
         }
     }
 
+    #[must_use]
     pub fn get(&self, ip: &Ipv6Addr) -> Option<MacAddress> {
         self.entries.get(ip).and_then(|entry| {
             if entry.is_expired() {
@@ -160,6 +170,7 @@ impl Default for NeighborCache {
 }
 
 impl NeighborCache {
+    #[must_use]
     pub fn new() -> Self {
         let mut cache = Self {
             resolvers: HashMap::new(),
@@ -183,6 +194,7 @@ impl NeighborCache {
     }
 
     /// Resolve destination MAC for the given layer data.
+    #[must_use]
     pub fn resolve(
         &self,
         l2: LayerKind,
@@ -196,11 +208,13 @@ impl NeighborCache {
     }
 
     /// Get the ARP cache.
+    #[must_use]
     pub fn arp_cache(&self) -> &Arc<RwLock<ArpCache>> {
         &self.arp_cache
     }
 
     /// Get the NDP cache.
+    #[must_use]
     pub fn ndp_cache(&self) -> &Arc<RwLock<NdpCache>> {
         &self.ndp_cache
     }
@@ -213,6 +227,7 @@ impl NeighborCache {
     }
 
     /// Lookup an ARP entry.
+    #[must_use]
     pub fn lookup_arp(&self, ip: &Ipv4Addr) -> Option<MacAddress> {
         self.arp_cache.read().ok()?.get(ip)
     }
@@ -225,6 +240,7 @@ impl NeighborCache {
     }
 
     /// Lookup an NDP entry.
+    #[must_use]
     pub fn lookup_ndp(&self, ip: &Ipv6Addr) -> Option<MacAddress> {
         self.ndp_cache.read().ok()?.get(ip)
     }
@@ -276,7 +292,7 @@ fn resolve_ether_ipv4(
     if dst_ip.is_multicast() {
         return Some(MacAddress::from_ipv4_multicast(dst_ip));
     }
-    if dst_ip.is_broadcast() || dst_ip == Ipv4Addr::new(255, 255, 255, 255) {
+    if dst_ip.is_broadcast() || dst_ip == Ipv4Addr::BROADCAST {
         return Some(MacAddress::BROADCAST);
     }
 
@@ -289,11 +305,11 @@ fn resolve_ether_ipv4(
             continue;
         }
         for ip_net in &iface.ips {
-            if let IpAddr::V4(local_ip) = ip_net.ip() {
-                if local_ip == dst_ip {
-                    is_local = true;
-                    break;
-                }
+            if let IpAddr::V4(local_ip) = ip_net.ip()
+                && local_ip == dst_ip
+            {
+                is_local = true;
+                break;
             }
             if ip_net.contains(IpAddr::V4(dst_ip)) {
                 is_local = true;
@@ -302,12 +318,11 @@ fn resolve_ether_ipv4(
         }
     }
 
-    if !is_local {
-        if let Ok(gw) = default_net::get_default_gateway() {
-            if let IpAddr::V4(gw_ip) = gw.ip_addr {
-                next_hop = gw_ip;
-            }
-        }
+    if !is_local
+        && let Ok(gw) = default_net::get_default_gateway()
+        && let IpAddr::V4(gw_ip) = gw.ip_addr
+    {
+        next_hop = gw_ip;
     }
 
     cache.lookup_arp(&next_hop)
@@ -347,12 +362,11 @@ fn resolve_ether_ipv6(
         }
     }
 
-    if !is_local {
-        if let Ok(gw) = default_net::get_default_gateway() {
-            if let IpAddr::V6(gw_ip) = gw.ip_addr {
-                next_hop = gw_ip;
-            }
-        }
+    if !is_local
+        && let Ok(gw) = default_net::get_default_gateway()
+        && let IpAddr::V6(gw_ip) = gw.ip_addr
+    {
+        next_hop = gw_ip;
     }
 
     cache.lookup_ndp(&next_hop)
@@ -363,26 +377,31 @@ fn resolve_ether_ipv6(
 // ============================================================================
 
 /// Get multicast MAC for IPv4 multicast address.
+#[must_use]
 pub fn ipv4_multicast_mac(ip: Ipv4Addr) -> MacAddress {
     MacAddress::from_ipv4_multicast(ip)
 }
 
 /// Get multicast MAC for IPv6 multicast address.
+#[must_use]
 pub fn ipv6_multicast_mac(ip: Ipv6Addr) -> MacAddress {
     MacAddress::from_ipv6_multicast(ip)
 }
 
 /// Check if an IPv4 address is multicast.
+#[must_use]
 pub fn is_ipv4_multicast(ip: Ipv4Addr) -> bool {
     ip.is_multicast()
 }
 
 /// Check if an IPv6 address is multicast.
+#[must_use]
 pub fn is_ipv6_multicast(ip: Ipv6Addr) -> bool {
     ip.segments()[0] >> 8 == 0xff
 }
 
 /// Solicited-node multicast address for IPv6.
+#[must_use]
 pub fn solicited_node_multicast(ip: Ipv6Addr) -> Ipv6Addr {
     let octets = ip.octets();
     Ipv6Addr::new(
@@ -392,8 +411,8 @@ pub fn solicited_node_multicast(ip: Ipv6Addr) -> Ipv6Addr {
         0,
         0,
         1,
-        0xff00 | (octets[13] as u16),
-        ((octets[14] as u16) << 8) | (octets[15] as u16),
+        0xff00 | u16::from(octets[13]),
+        (u16::from(octets[14]) << 8) | u16::from(octets[15]),
     )
 }
 

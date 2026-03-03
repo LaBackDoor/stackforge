@@ -88,53 +88,62 @@ fn write_fcf(buf: &mut [u8], offset: usize, fcf: u16) -> Result<(), FieldError> 
 
 /// Extract frame type from FCF (bits 0-2).
 #[inline]
+#[must_use]
 pub fn fcf_frame_type(fcf: u16) -> u8 {
     (fcf & 0x0007) as u8
 }
 
 /// Extract security enabled flag from FCF (bit 3).
 #[inline]
+#[must_use]
 pub fn fcf_security(fcf: u16) -> bool {
     (fcf & 0x0008) != 0
 }
 
 /// Extract frame pending flag from FCF (bit 4).
 #[inline]
+#[must_use]
 pub fn fcf_pending(fcf: u16) -> bool {
     (fcf & 0x0010) != 0
 }
 
 /// Extract ACK request flag from FCF (bit 5).
 #[inline]
+#[must_use]
 pub fn fcf_ackreq(fcf: u16) -> bool {
     (fcf & 0x0020) != 0
 }
 
 /// Extract PAN ID compression flag from FCF (bit 6).
 #[inline]
+#[must_use]
 pub fn fcf_panid_compress(fcf: u16) -> bool {
     (fcf & 0x0040) != 0
 }
 
 /// Extract destination address mode from FCF (bits 10-11).
 #[inline]
+#[must_use]
 pub fn fcf_dest_addr_mode(fcf: u16) -> u8 {
     ((fcf >> 10) & 0x03) as u8
 }
 
 /// Extract frame version from FCF (bits 12-13).
 #[inline]
+#[must_use]
 pub fn fcf_frame_ver(fcf: u16) -> u8 {
     ((fcf >> 12) & 0x03) as u8
 }
 
 /// Extract source address mode from FCF (bits 14-15).
 #[inline]
+#[must_use]
 pub fn fcf_src_addr_mode(fcf: u16) -> u8 {
     ((fcf >> 14) & 0x03) as u8
 }
 
 /// Build a Frame Control Field value from individual fields.
+#[must_use]
 pub fn build_fcf(
     frame_type: u8,
     security: bool,
@@ -146,7 +155,7 @@ pub fn build_fcf(
     src_addr_mode: u8,
 ) -> u16 {
     let mut fcf: u16 = 0;
-    fcf |= (frame_type as u16) & 0x07;
+    fcf |= u16::from(frame_type) & 0x07;
     if security {
         fcf |= 0x0008;
     }
@@ -160,9 +169,9 @@ pub fn build_fcf(
         fcf |= 0x0040;
     }
     // bits 7-9 reserved (0)
-    fcf |= ((dest_addr_mode as u16) & 0x03) << 10;
-    fcf |= ((frame_ver as u16) & 0x03) << 12;
-    fcf |= ((src_addr_mode as u16) & 0x03) << 14;
+    fcf |= (u16::from(dest_addr_mode) & 0x03) << 10;
+    fcf |= (u16::from(frame_ver) & 0x03) << 12;
+    fcf |= (u16::from(src_addr_mode) & 0x03) << 14;
     fcf
 }
 
@@ -171,10 +180,11 @@ pub fn build_fcf(
 /// The header consists of:
 /// - 2 bytes FCF
 /// - 1 byte sequence number
-/// - Dest PAN ID (2 bytes if dest_addr_mode != 0)
-/// - Dest Address (2 or 8 bytes based on dest_addr_mode)
-/// - Src PAN ID (2 bytes if src_addr_mode != 0 AND NOT panid_compress)
-/// - Src Address (2 or 8 bytes based on src_addr_mode)
+/// - Dest PAN ID (2 bytes if `dest_addr_mode` != 0)
+/// - Dest Address (2 or 8 bytes based on `dest_addr_mode`)
+/// - Src PAN ID (2 bytes if `src_addr_mode` != 0 AND NOT `panid_compress`)
+/// - Src Address (2 or 8 bytes based on `src_addr_mode`)
+#[must_use]
 pub fn compute_header_len(fcf: u16) -> usize {
     let mut len = DOT15D4_MIN_HEADER_LEN; // FCF (2) + seqnum (1)
     let dest_mode = fcf_dest_addr_mode(fcf);
@@ -218,7 +228,8 @@ pub struct Dot15d4Layer {
 }
 
 impl Dot15d4Layer {
-    /// Create a new Dot15d4Layer from start/end offsets.
+    /// Create a new `Dot15d4Layer` from start/end offsets.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Dot15d4, start, end),
@@ -323,7 +334,7 @@ impl Dot15d4Layer {
     // ========================================================================
 
     /// Compute the offset of the destination PAN ID field.
-    /// Returns None if dest_addr_mode == 0.
+    /// Returns None if `dest_addr_mode` == 0.
     fn dest_panid_offset(&self, buf: &[u8]) -> Result<Option<usize>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         let dest_mode = fcf_dest_addr_mode(fcf);
@@ -334,7 +345,7 @@ impl Dot15d4Layer {
     }
 
     /// Compute the offset of the destination address field.
-    /// Returns None if dest_addr_mode == 0.
+    /// Returns None if `dest_addr_mode` == 0.
     fn dest_addr_offset(&self, buf: &[u8]) -> Result<Option<usize>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         let dest_mode = fcf_dest_addr_mode(fcf);
@@ -346,7 +357,7 @@ impl Dot15d4Layer {
     }
 
     /// Compute the offset of the source PAN ID field.
-    /// Returns None if src_addr_mode == 0 or PAN ID compressed.
+    /// Returns None if `src_addr_mode` == 0 or PAN ID compressed.
     fn src_panid_offset(&self, buf: &[u8]) -> Result<Option<usize>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         let dest_mode = fcf_dest_addr_mode(fcf);
@@ -365,7 +376,7 @@ impl Dot15d4Layer {
     }
 
     /// Compute the offset of the source address field.
-    /// Returns None if src_addr_mode == 0.
+    /// Returns None if `src_addr_mode` == 0.
     fn src_addr_offset(&self, buf: &[u8]) -> Result<Option<usize>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         let dest_mode = fcf_dest_addr_mode(fcf);
@@ -393,7 +404,7 @@ impl Dot15d4Layer {
     // ========================================================================
 
     /// Destination PAN ID (2 bytes, LE).
-    /// Returns None if dest_addr_mode == 0.
+    /// Returns None if `dest_addr_mode` == 0.
     pub fn dest_panid(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         match self.dest_panid_offset(buf)? {
             Some(off) => read_u16_le(buf, off).map(Some),
@@ -402,7 +413,7 @@ impl Dot15d4Layer {
     }
 
     /// Destination short address (2 bytes, LE).
-    /// Returns None if dest_addr_mode != SHORT.
+    /// Returns None if `dest_addr_mode` != SHORT.
     pub fn dest_addr_short(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         if fcf_dest_addr_mode(fcf) != types::addr_mode::SHORT {
@@ -415,7 +426,7 @@ impl Dot15d4Layer {
     }
 
     /// Destination long address (8 bytes, LE).
-    /// Returns None if dest_addr_mode != LONG.
+    /// Returns None if `dest_addr_mode` != LONG.
     pub fn dest_addr_long(&self, buf: &[u8]) -> Result<Option<u64>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         if fcf_dest_addr_mode(fcf) != types::addr_mode::LONG {
@@ -428,7 +439,7 @@ impl Dot15d4Layer {
     }
 
     /// Source PAN ID (2 bytes, LE).
-    /// Returns None if src_addr_mode == 0 or PAN ID compressed.
+    /// Returns None if `src_addr_mode` == 0 or PAN ID compressed.
     pub fn src_panid(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         match self.src_panid_offset(buf)? {
             Some(off) => read_u16_le(buf, off).map(Some),
@@ -437,7 +448,7 @@ impl Dot15d4Layer {
     }
 
     /// Source short address (2 bytes, LE).
-    /// Returns None if src_addr_mode != SHORT.
+    /// Returns None if `src_addr_mode` != SHORT.
     pub fn src_addr_short(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         if fcf_src_addr_mode(fcf) != types::addr_mode::SHORT {
@@ -450,7 +461,7 @@ impl Dot15d4Layer {
     }
 
     /// Source long address (8 bytes, LE).
-    /// Returns None if src_addr_mode != LONG.
+    /// Returns None if `src_addr_mode` != LONG.
     pub fn src_addr_long(&self, buf: &[u8]) -> Result<Option<u64>, FieldError> {
         let fcf = self.fcf_raw(buf)?;
         if fcf_src_addr_mode(fcf) != types::addr_mode::LONG {
@@ -469,7 +480,7 @@ impl Dot15d4Layer {
     /// Set the frame type in the FCF.
     pub fn set_fcf_frametype(&self, buf: &mut [u8], val: u8) -> Result<(), FieldError> {
         let mut fcf = self.fcf_raw(buf)?;
-        fcf = (fcf & !0x0007) | ((val as u16) & 0x07);
+        fcf = (fcf & !0x0007) | (u16::from(val) & 0x07);
         write_fcf(buf, self.index.start, fcf)
     }
 
@@ -520,21 +531,21 @@ impl Dot15d4Layer {
     /// Set the destination address mode in the FCF.
     pub fn set_fcf_destaddrmode(&self, buf: &mut [u8], val: u8) -> Result<(), FieldError> {
         let mut fcf = self.fcf_raw(buf)?;
-        fcf = (fcf & !0x0C00) | (((val as u16) & 0x03) << 10);
+        fcf = (fcf & !0x0C00) | ((u16::from(val) & 0x03) << 10);
         write_fcf(buf, self.index.start, fcf)
     }
 
     /// Set the frame version in the FCF.
     pub fn set_fcf_framever(&self, buf: &mut [u8], val: u8) -> Result<(), FieldError> {
         let mut fcf = self.fcf_raw(buf)?;
-        fcf = (fcf & !0x3000) | (((val as u16) & 0x03) << 12);
+        fcf = (fcf & !0x3000) | ((u16::from(val) & 0x03) << 12);
         write_fcf(buf, self.index.start, fcf)
     }
 
     /// Set the source address mode in the FCF.
     pub fn set_fcf_srcaddrmode(&self, buf: &mut [u8], val: u8) -> Result<(), FieldError> {
         let mut fcf = self.fcf_raw(buf)?;
-        fcf = (fcf & !0xC000) | (((val as u16) & 0x03) << 14);
+        fcf = (fcf & !0xC000) | ((u16::from(val) & 0x03) << 14);
         write_fcf(buf, self.index.start, fcf)
     }
 
@@ -634,27 +645,27 @@ impl Dot15d4Layer {
             "seqnum" => Some(self.seqnum(buf).map(FieldValue::U8)),
             "dest_panid" => Some(
                 self.dest_panid(buf)
-                    .map(|opt| opt.map(FieldValue::U16).unwrap_or(FieldValue::U16(0))),
+                    .map(|opt| opt.map_or(FieldValue::U16(0), FieldValue::U16)),
             ),
             "dest_addr_short" => Some(
                 self.dest_addr_short(buf)
-                    .map(|opt| opt.map(FieldValue::U16).unwrap_or(FieldValue::U16(0))),
+                    .map(|opt| opt.map_or(FieldValue::U16(0), FieldValue::U16)),
             ),
             "dest_addr_long" => Some(
                 self.dest_addr_long(buf)
-                    .map(|opt| opt.map(FieldValue::U64).unwrap_or(FieldValue::U64(0))),
+                    .map(|opt| opt.map_or(FieldValue::U64(0), FieldValue::U64)),
             ),
             "src_panid" => Some(
                 self.src_panid(buf)
-                    .map(|opt| opt.map(FieldValue::U16).unwrap_or(FieldValue::U16(0))),
+                    .map(|opt| opt.map_or(FieldValue::U16(0), FieldValue::U16)),
             ),
             "src_addr_short" => Some(
                 self.src_addr_short(buf)
-                    .map(|opt| opt.map(FieldValue::U16).unwrap_or(FieldValue::U16(0))),
+                    .map(|opt| opt.map_or(FieldValue::U16(0), FieldValue::U16)),
             ),
             "src_addr_long" => Some(
                 self.src_addr_long(buf)
-                    .map(|opt| opt.map(FieldValue::U64).unwrap_or(FieldValue::U64(0))),
+                    .map(|opt| opt.map_or(FieldValue::U64(0), FieldValue::U64)),
             ),
             _ => None,
         }
@@ -761,11 +772,13 @@ impl Dot15d4Layer {
     }
 
     /// Get the list of field names.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         DOT15D4_FIELDS
     }
 
     /// Determine the next layer kind based on frame type.
+    #[must_use]
     pub fn next_layer(&self, buf: &[u8]) -> Option<LayerKind> {
         self.fcf_frametype(buf).ok().and_then(|ft| match ft {
             types::frame_type::BEACON => None,
@@ -777,6 +790,7 @@ impl Dot15d4Layer {
     }
 
     /// Format a long address as a colon-separated hex string.
+    #[must_use]
     pub fn format_long_addr(addr: u64) -> String {
         let bytes = addr.to_be_bytes();
         format!(
@@ -786,6 +800,7 @@ impl Dot15d4Layer {
     }
 
     /// Compute hash for packet matching (based on sequence number).
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         self.seqnum(buf).map(|s| vec![s]).unwrap_or_default()
     }
@@ -838,10 +853,11 @@ impl Layer for Dot15d4Layer {
             self.seqnum(buf),
             other.seqnum(other_buf),
             other.fcf_ackreq(other_buf),
-        ) {
-            if ft == types::frame_type::ACK && seq == other_seq && other_ackreq {
-                return true;
-            }
+        ) && ft == types::frame_type::ACK
+            && seq == other_seq
+            && other_ackreq
+        {
+            return true;
         }
         false
     }
@@ -866,14 +882,15 @@ pub struct Dot15d4FcsLayer {
 }
 
 impl Dot15d4FcsLayer {
-    /// Create a new Dot15d4FcsLayer from start/end offsets.
+    /// Create a new `Dot15d4FcsLayer` from start/end offsets.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Dot15d4Fcs, start, end),
         }
     }
 
-    /// Create the inner Dot15d4Layer view (excluding FCS bytes).
+    /// Create the inner `Dot15d4Layer` view (excluding FCS bytes).
     fn inner(&self) -> Dot15d4Layer {
         Dot15d4Layer::new(self.index.start, self.index.end.saturating_sub(FCS_LEN))
     }
@@ -1001,11 +1018,13 @@ impl Dot15d4FcsLayer {
     }
 
     /// Get the list of field names.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         DOT15D4_FCS_FIELDS
     }
 
     /// Compute hash for packet matching.
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         self.inner().hashret(buf)
     }
@@ -1020,9 +1039,9 @@ impl Layer for Dot15d4FcsLayer {
         let inner_summary = self.inner().summary(buf);
         let fcs_str = self
             .fcs(buf)
-            .map(|f| format!(" FCS={:#06x}", f))
+            .map(|f| format!(" FCS={f:#06x}"))
             .unwrap_or_default();
-        format!("{}{}", inner_summary, fcs_str)
+        format!("{inner_summary}{fcs_str}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {

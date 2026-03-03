@@ -1,4 +1,4 @@
-//! TLS ClientHello message parsing and building.
+//! TLS `ClientHello` message parsing and building.
 //!
 //! ```text
 //! ProtocolVersion client_version;     // 2 bytes
@@ -11,7 +11,7 @@
 
 use super::super::extensions::{Extension, build_extensions, parse_extensions};
 
-/// Parsed TLS ClientHello message.
+/// Parsed TLS `ClientHello` message.
 #[derive(Debug, Clone)]
 pub struct ClientHello {
     /// Client's supported version (legacy for TLS 1.3).
@@ -29,7 +29,8 @@ pub struct ClientHello {
 }
 
 impl ClientHello {
-    /// Parse ClientHello from the handshake body (after type+length header).
+    /// Parse `ClientHello` from the handshake body (after type+length header).
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         if data.len() < 38 {
             return None; // Minimum: 2 (version) + 32 (random) + 1 (sid_len) + 2 (cs_len) + 1 (comp_len)
@@ -110,7 +111,8 @@ impl ClientHello {
         })
     }
 
-    /// Build ClientHello body bytes.
+    /// Build `ClientHello` body bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = Vec::new();
 
@@ -146,11 +148,13 @@ impl ClientHello {
     }
 
     /// Get a specific extension by type.
+    #[must_use]
     pub fn get_extension(&self, ext_type: u16) -> Option<&Extension> {
         self.extensions.iter().find(|e| e.ext_type == ext_type)
     }
 
     /// Get the SNI hostname if present.
+    #[must_use]
     pub fn sni(&self) -> Option<String> {
         self.get_extension(0x0000).and_then(|ext| {
             // SNI format: 2 bytes list len, 1 byte type (0=hostname), 2 bytes name len, name
@@ -168,6 +172,7 @@ impl ClientHello {
     }
 
     /// Get supported versions from the extension (TLS 1.3).
+    #[must_use]
     pub fn supported_versions(&self) -> Vec<u16> {
         match self.get_extension(0x002B) {
             Some(ext) => {
@@ -188,6 +193,7 @@ impl ClientHello {
     }
 
     /// Summary string.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "ClientHello version=0x{:04x} ciphers={} exts={}",

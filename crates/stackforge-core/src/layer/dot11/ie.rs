@@ -32,6 +32,7 @@ pub struct Dot11Elt {
 
 impl Dot11Elt {
     /// Create a new IE with the given ID and data.
+    #[must_use]
     pub fn new(id: u8, info: Vec<u8>) -> Self {
         Self {
             id,
@@ -72,6 +73,7 @@ impl Dot11Elt {
 
     /// Parse all IEs from a buffer starting at the given offset.
     /// Stops on error (truncated IE) and returns what was parsed so far.
+    #[must_use]
     pub fn parse_all(buf: &[u8], mut offset: usize) -> Vec<Self> {
         let mut elements = Vec::new();
         while offset < buf.len() {
@@ -87,6 +89,7 @@ impl Dot11Elt {
     }
 
     /// Build this IE to wire format (ID + Length + Info).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(2 + self.info.len());
         buf.push(self.id);
@@ -96,6 +99,7 @@ impl Dot11Elt {
     }
 
     /// Build a chain of IEs to wire format.
+    #[must_use]
     pub fn build_chain(elements: &[Dot11Elt]) -> Vec<u8> {
         let total: usize = elements.iter().map(|e| 2 + e.info.len()).sum();
         let mut buf = Vec::with_capacity(total);
@@ -106,21 +110,25 @@ impl Dot11Elt {
     }
 
     /// Create an SSID element (ID=0).
+    #[must_use]
     pub fn ssid(name: &str) -> Self {
         Self::new(types::ie_id::SSID, name.as_bytes().to_vec())
     }
 
     /// Create a hidden/broadcast SSID element (empty SSID).
+    #[must_use]
     pub fn ssid_hidden() -> Self {
         Self::new(types::ie_id::SSID, Vec::new())
     }
 
     /// Check if this is an SSID element.
+    #[must_use]
     pub fn is_ssid(&self) -> bool {
         self.id == types::ie_id::SSID
     }
 
     /// Get SSID as string (if this is an SSID element).
+    #[must_use]
     pub fn ssid_str(&self) -> Option<String> {
         if self.id == types::ie_id::SSID {
             Some(String::from_utf8_lossy(&self.info).into_owned())
@@ -130,11 +138,13 @@ impl Dot11Elt {
     }
 
     /// Get the IE name from the types module.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         types::ie_id::name(self.id)
     }
 
     /// Total wire length of this IE (2 + data length).
+    #[must_use]
     pub fn wire_len(&self) -> usize {
         2 + self.info.len()
     }
@@ -153,13 +163,15 @@ pub struct Dot11EltSSID {
 
 impl Dot11EltSSID {
     /// Create a new SSID IE.
+    #[must_use]
     pub fn new(ssid: &str) -> Self {
         Self {
             ssid: ssid.to_string(),
         }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::SSID {
             return None;
@@ -169,12 +181,14 @@ impl Dot11EltSSID {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         Dot11Elt::new(types::ie_id::SSID, self.ssid.as_bytes().to_vec())
     }
 
     /// Check if this is a hidden/broadcast SSID.
+    #[must_use]
     pub fn is_hidden(&self) -> bool {
         self.ssid.is_empty()
     }
@@ -195,11 +209,13 @@ pub struct Dot11EltRates {
 
 impl Dot11EltRates {
     /// Create a new Rates IE.
+    #[must_use]
     pub fn new(rates: Vec<u8>) -> Self {
         Self { rates }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::RATES {
             return None;
@@ -209,22 +225,26 @@ impl Dot11EltRates {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         Dot11Elt::new(types::ie_id::RATES, self.rates.clone())
     }
 
     /// Get the rate in Mbps for a given rate byte.
+    #[must_use]
     pub fn rate_mbps(rate_byte: u8) -> f32 {
-        (rate_byte & 0x7F) as f32 * 0.5
+        f32::from(rate_byte & 0x7F) * 0.5
     }
 
     /// Check if a rate byte indicates a basic rate.
+    #[must_use]
     pub fn is_basic(rate_byte: u8) -> bool {
         rate_byte & 0x80 != 0
     }
 
     /// Get all rates in Mbps.
+    #[must_use]
     pub fn rates_mbps(&self) -> Vec<f32> {
         self.rates.iter().map(|&r| Self::rate_mbps(r)).collect()
     }
@@ -245,11 +265,13 @@ pub struct Dot11EltDSSSet {
 
 impl Dot11EltDSSSet {
     /// Create a new DS Parameter Set IE.
+    #[must_use]
     pub fn new(channel: u8) -> Self {
         Self { channel }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::DS_PARAMETER_SET || elt.info.is_empty() {
             return None;
@@ -259,7 +281,8 @@ impl Dot11EltDSSSet {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         Dot11Elt::new(types::ie_id::DS_PARAMETER_SET, vec![self.channel])
     }
@@ -284,6 +307,7 @@ pub struct Dot11EltTIM {
 
 impl Dot11EltTIM {
     /// Create a new TIM IE.
+    #[must_use]
     pub fn new(dtim_count: u8, dtim_period: u8, bitmap_control: u8, bitmap: Vec<u8>) -> Self {
         Self {
             dtim_count,
@@ -293,7 +317,8 @@ impl Dot11EltTIM {
         }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::TIM || elt.info.len() < 3 {
             return None;
@@ -306,7 +331,8 @@ impl Dot11EltTIM {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(3 + self.bitmap.len());
         info.push(self.dtim_count);
@@ -343,11 +369,13 @@ pub struct Dot11EltCountry {
 
 impl Dot11EltCountry {
     /// Create a new Country IE.
+    #[must_use]
     pub fn new(country: [u8; 3], triplets: Vec<CountryTriplet>) -> Self {
         Self { country, triplets }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::COUNTRY || elt.info.len() < 3 {
             return None;
@@ -369,7 +397,8 @@ impl Dot11EltCountry {
         Some(Self { country, triplets })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(3 + self.triplets.len() * 3);
         info.extend_from_slice(&self.country);
@@ -382,6 +411,7 @@ impl Dot11EltCountry {
     }
 
     /// Get the country code as a string.
+    #[must_use]
     pub fn country_str(&self) -> String {
         String::from_utf8_lossy(&self.country).into_owned()
     }
@@ -404,6 +434,7 @@ pub struct Dot11EltCSA {
 
 impl Dot11EltCSA {
     /// Create a new CSA IE.
+    #[must_use]
     pub fn new(mode: u8, new_channel: u8, count: u8) -> Self {
         Self {
             mode,
@@ -412,7 +443,8 @@ impl Dot11EltCSA {
         }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::CHANNEL_SWITCH_ANNOUNCEMENT || elt.info.len() < 3 {
             return None;
@@ -424,7 +456,8 @@ impl Dot11EltCSA {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         Dot11Elt::new(
             types::ie_id::CHANNEL_SWITCH_ANNOUNCEMENT,
@@ -460,7 +493,8 @@ pub struct Dot11EltHTCapabilities {
 pub const HT_CAP_LEN: usize = 26;
 
 impl Dot11EltHTCapabilities {
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::HT_CAPABILITIES || elt.info.len() < HT_CAP_LEN {
             return None;
@@ -484,7 +518,8 @@ impl Dot11EltHTCapabilities {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(HT_CAP_LEN);
         info.extend_from_slice(&self.ht_cap_info.to_le_bytes());
@@ -497,21 +532,25 @@ impl Dot11EltHTCapabilities {
     }
 
     /// Check LDPC Coding Capability (bit 0 of HT Cap Info).
+    #[must_use]
     pub fn ldpc(&self) -> bool {
         self.ht_cap_info & 0x0001 != 0
     }
 
     /// Channel Width Set (bit 1): 0 = 20 MHz only, 1 = 20/40 MHz.
+    #[must_use]
     pub fn channel_width_set(&self) -> bool {
         self.ht_cap_info & 0x0002 != 0
     }
 
     /// Short GI for 20 MHz (bit 5).
+    #[must_use]
     pub fn short_gi_20(&self) -> bool {
         self.ht_cap_info & 0x0020 != 0
     }
 
     /// Short GI for 40 MHz (bit 6).
+    #[must_use]
     pub fn short_gi_40(&self) -> bool {
         self.ht_cap_info & 0x0040 != 0
     }
@@ -536,7 +575,8 @@ pub struct Dot11EltHTInfo {
 pub const HT_INFO_LEN: usize = 22;
 
 impl Dot11EltHTInfo {
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::HT_INFORMATION || elt.info.len() < HT_INFO_LEN {
             return None;
@@ -555,7 +595,8 @@ impl Dot11EltHTInfo {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(HT_INFO_LEN);
         info.push(self.primary_channel);
@@ -564,13 +605,15 @@ impl Dot11EltHTInfo {
         Dot11Elt::new(types::ie_id::HT_INFORMATION, info)
     }
 
-    /// Secondary channel offset (bits 0-1 of ht_info byte 0).
+    /// Secondary channel offset (bits 0-1 of `ht_info` byte 0).
     /// 0 = no secondary, 1 = above, 3 = below.
+    #[must_use]
     pub fn secondary_channel_offset(&self) -> u8 {
         self.ht_info[0] & 0x03
     }
 
-    /// STA Channel Width (bit 2 of ht_info byte 0).
+    /// STA Channel Width (bit 2 of `ht_info` byte 0).
+    #[must_use]
     pub fn sta_channel_width(&self) -> bool {
         self.ht_info[0] & 0x04 != 0
     }
@@ -595,7 +638,8 @@ pub struct Dot11EltVHTCapabilities {
 pub const VHT_CAP_LEN: usize = 12;
 
 impl Dot11EltVHTCapabilities {
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::VHT_CAPABILITIES || elt.info.len() < VHT_CAP_LEN {
             return None;
@@ -611,7 +655,8 @@ impl Dot11EltVHTCapabilities {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(VHT_CAP_LEN);
         info.extend_from_slice(&self.vht_cap_info.to_le_bytes());
@@ -621,21 +666,25 @@ impl Dot11EltVHTCapabilities {
 
     /// Max MPDU Length (bits 0-1 of VHT Cap Info).
     /// 0 = 3895, 1 = 7991, 2 = 11454.
+    #[must_use]
     pub fn max_mpdu_length(&self) -> u8 {
         (self.vht_cap_info & 0x03) as u8
     }
 
     /// Supported Channel Width Set (bits 2-3).
+    #[must_use]
     pub fn supported_channel_width(&self) -> u8 {
         ((self.vht_cap_info >> 2) & 0x03) as u8
     }
 
     /// Short GI for 80 MHz (bit 5).
+    #[must_use]
     pub fn short_gi_80(&self) -> bool {
         self.vht_cap_info & 0x0020 != 0
     }
 
     /// Short GI for 160/80+80 MHz (bit 6).
+    #[must_use]
     pub fn short_gi_160(&self) -> bool {
         self.vht_cap_info & 0x0040 != 0
     }
@@ -662,7 +711,8 @@ pub struct Dot11EltVHTOperation {
 pub const VHT_OP_LEN: usize = 5;
 
 impl Dot11EltVHTOperation {
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::VHT_OPERATION || elt.info.len() < VHT_OP_LEN {
             return None;
@@ -676,7 +726,8 @@ impl Dot11EltVHTOperation {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(VHT_OP_LEN);
         info.push(self.channel_width);
@@ -702,6 +753,7 @@ pub struct CipherSuite {
 
 impl CipherSuite {
     /// Create from raw 4-byte data.
+    #[must_use]
     pub fn from_bytes(data: &[u8; 4]) -> Self {
         Self {
             oui: [data[0], data[1], data[2]],
@@ -710,11 +762,13 @@ impl CipherSuite {
     }
 
     /// Convert to raw 4-byte data.
+    #[must_use]
     pub fn to_bytes(&self) -> [u8; 4] {
         [self.oui[0], self.oui[1], self.oui[2], self.suite_type]
     }
 
     /// Get the cipher suite name.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         if self.oui == [0x00, 0x0F, 0xAC] {
             types::cipher_suite::name(self.suite_type)
@@ -735,6 +789,7 @@ pub struct AkmSuite {
 
 impl AkmSuite {
     /// Create from raw 4-byte data.
+    #[must_use]
     pub fn from_bytes(data: &[u8; 4]) -> Self {
         Self {
             oui: [data[0], data[1], data[2]],
@@ -743,11 +798,13 @@ impl AkmSuite {
     }
 
     /// Convert to raw 4-byte data.
+    #[must_use]
     pub fn to_bytes(&self) -> [u8; 4] {
         [self.oui[0], self.oui[1], self.oui[2], self.suite_type]
     }
 
     /// Get the AKM suite name.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         if self.oui == [0x00, 0x0F, 0xAC] {
             types::akm_suite::name(self.suite_type)
@@ -786,7 +843,8 @@ pub struct Dot11EltRSN {
 }
 
 impl Dot11EltRSN {
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::RSN || elt.info.len() < 2 {
             return None;
@@ -905,7 +963,8 @@ impl Dot11EltRSN {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let rsn = &self.info;
         let mut data = Vec::new();
@@ -952,31 +1011,37 @@ impl Dot11EltRSN {
     }
 
     /// Check if pre-authentication is supported (bit 0 of RSN capabilities).
+    #[must_use]
     pub fn pre_auth(&self) -> bool {
         self.info.rsn_capabilities & 0x0001 != 0
     }
 
     /// Check if no pairwise is set (bit 1 of RSN capabilities).
+    #[must_use]
     pub fn no_pairwise(&self) -> bool {
         self.info.rsn_capabilities & 0x0002 != 0
     }
 
     /// PTKSA Replay Counter (bits 2-3 of RSN capabilities).
+    #[must_use]
     pub fn ptksa_replay_counter(&self) -> u8 {
         ((self.info.rsn_capabilities >> 2) & 0x03) as u8
     }
 
     /// GTKSA Replay Counter (bits 4-5 of RSN capabilities).
+    #[must_use]
     pub fn gtksa_replay_counter(&self) -> u8 {
         ((self.info.rsn_capabilities >> 4) & 0x03) as u8
     }
 
     /// Management Frame Protection Required (bit 6).
+    #[must_use]
     pub fn mfp_required(&self) -> bool {
         self.info.rsn_capabilities & 0x0040 != 0
     }
 
     /// Management Frame Protection Capable (bit 7).
+    #[must_use]
     pub fn mfp_capable(&self) -> bool {
         self.info.rsn_capabilities & 0x0080 != 0
     }
@@ -997,11 +1062,13 @@ pub struct Dot11EltVendorSpecific {
 
 impl Dot11EltVendorSpecific {
     /// Create a new Vendor Specific IE.
+    #[must_use]
     pub fn new(oui: [u8; 3], data: Vec<u8>) -> Self {
         Self { oui, data }
     }
 
-    /// Parse from a generic Dot11Elt.
+    /// Parse from a generic `Dot11Elt`.
+    #[must_use]
     pub fn parse(elt: &Dot11Elt) -> Option<Self> {
         if elt.id != types::ie_id::VENDOR_SPECIFIC || elt.info.len() < 3 {
             return None;
@@ -1014,7 +1081,8 @@ impl Dot11EltVendorSpecific {
         })
     }
 
-    /// Build as a Dot11Elt.
+    /// Build as a `Dot11Elt`.
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut info = Vec::with_capacity(3 + self.data.len());
         info.extend_from_slice(&self.oui);
@@ -1023,6 +1091,7 @@ impl Dot11EltVendorSpecific {
     }
 
     /// Check if this is a Microsoft WPA IE.
+    #[must_use]
     pub fn is_wpa(&self) -> bool {
         self.oui == types::MICROSOFT_WPA_OUI
             && !self.data.is_empty()
@@ -1030,6 +1099,7 @@ impl Dot11EltVendorSpecific {
     }
 
     /// Check if this is a WMM/WME IE (Microsoft OUI, type 2).
+    #[must_use]
     pub fn is_wmm(&self) -> bool {
         self.oui == types::MICROSOFT_WPA_OUI && !self.data.is_empty() && self.data[0] == 0x02
     }
@@ -1057,6 +1127,7 @@ pub struct Dot11EltMicrosoftWPA {
 
 impl Dot11EltMicrosoftWPA {
     /// Parse from a Vendor Specific IE.
+    #[must_use]
     pub fn parse(vs: &Dot11EltVendorSpecific) -> Option<Self> {
         if !vs.is_wpa() {
             return None;
@@ -1128,7 +1199,8 @@ impl Dot11EltMicrosoftWPA {
         })
     }
 
-    /// Build as a Dot11Elt (Vendor Specific).
+    /// Build as a `Dot11Elt` (Vendor Specific).
+    #[must_use]
     pub fn build(&self) -> Dot11Elt {
         let mut data = Vec::new();
 
@@ -1163,24 +1235,28 @@ impl Dot11EltMicrosoftWPA {
 // ============================================================================
 
 /// Find the first IE with the given ID in a list of IEs.
+#[must_use]
 pub fn find_ie(elements: &[Dot11Elt], id: u8) -> Option<&Dot11Elt> {
     elements.iter().find(|e| e.id == id)
 }
 
 /// Find all IEs with the given ID in a list of IEs.
+#[must_use]
 pub fn find_all_ies(elements: &[Dot11Elt], id: u8) -> Vec<&Dot11Elt> {
     elements.iter().filter(|e| e.id == id).collect()
 }
 
 /// Extract the SSID from a list of IEs.
+#[must_use]
 pub fn extract_ssid(elements: &[Dot11Elt]) -> Option<String> {
-    find_ie(elements, types::ie_id::SSID).and_then(|e| e.ssid_str())
+    find_ie(elements, types::ie_id::SSID).and_then(Dot11Elt::ssid_str)
 }
 
 /// Extract the channel from DS Parameter Set IE.
+#[must_use]
 pub fn extract_channel(elements: &[Dot11Elt]) -> Option<u8> {
     find_ie(elements, types::ie_id::DS_PARAMETER_SET)
-        .and_then(|e| Dot11EltDSSSet::parse(e))
+        .and_then(Dot11EltDSSSet::parse)
         .map(|ds| ds.channel)
 }
 

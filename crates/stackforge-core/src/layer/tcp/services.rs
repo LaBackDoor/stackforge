@@ -1,7 +1,7 @@
 //! TCP services (port to name mapping).
 //!
 //! This module provides mappings between well-known TCP port numbers
-//! and their service names, similar to Scapy's TCP_SERVICES.
+//! and their service names, similar to Scapy's `TCP_SERVICES`.
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -715,18 +715,21 @@ pub fn service_port(name: &str) -> Option<u16> {
 
 /// Check if a port is a well-known port (< 1024).
 #[inline]
+#[must_use]
 pub fn is_well_known_port(port: u16) -> bool {
     port < 1024
 }
 
 /// Check if a port is a registered port (1024-49151).
 #[inline]
+#[must_use]
 pub fn is_registered_port(port: u16) -> bool {
     (1024..49152).contains(&port)
 }
 
 /// Check if a port is a dynamic/private port (49152-65535).
 #[inline]
+#[must_use]
 pub fn is_dynamic_port(port: u16) -> bool {
     port >= 49152
 }

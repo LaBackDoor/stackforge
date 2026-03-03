@@ -42,6 +42,7 @@ pub struct DnsResourceRecord {
 
 impl DnsResourceRecord {
     /// Create a new resource record with default class IN and TTL 0.
+    #[must_use]
     pub fn new(rrname: DnsName, rtype: u16, rdata: DnsRData) -> Self {
         Self {
             rrname,
@@ -110,6 +111,7 @@ impl DnsResourceRecord {
     }
 
     /// Build the resource record to wire format without compression.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let rdata_bytes = self.rdata.build();
         let rdlength = rdata_bytes.len() as u16;
@@ -148,11 +150,13 @@ impl DnsResourceRecord {
     }
 
     /// Whether the mDNS cache-flush bit (bit 15 of rclass) is set.
+    #[must_use]
     pub fn cache_flush(&self) -> bool {
         self.rclass & 0x8000 != 0
     }
 
     /// Get the actual class without the mDNS cache-flush bit.
+    #[must_use]
     pub fn actual_class(&self) -> u16 {
         self.rclass & 0x7FFF
     }
@@ -167,6 +171,7 @@ impl DnsResourceRecord {
     }
 
     /// Human-readable summary of this resource record.
+    #[must_use]
     pub fn summary(&self) -> String {
         let type_name = types::dns_type_name(self.rtype);
         let class_name = types::dns_class_name(self.actual_class());
@@ -178,6 +183,7 @@ impl DnsResourceRecord {
     }
 
     /// Whether this is an OPT pseudo-record (EDNS0, RFC 6891).
+    #[must_use]
     pub fn is_opt(&self) -> bool {
         self.rtype == types::rr_type::OPT
     }
@@ -187,21 +193,25 @@ impl DnsResourceRecord {
     // ========================================================================
 
     /// For OPT records, the class field encodes the requestor's UDP payload size.
+    #[must_use]
     pub fn opt_udp_size(&self) -> u16 {
         self.rclass
     }
 
     /// For OPT records, the upper 8 bits of the TTL encode the extended RCODE.
+    #[must_use]
     pub fn opt_extended_rcode(&self) -> u8 {
         ((self.ttl >> 24) & 0xFF) as u8
     }
 
     /// For OPT records, bits 16-23 of the TTL encode the EDNS version.
+    #[must_use]
     pub fn opt_version(&self) -> u8 {
         ((self.ttl >> 16) & 0xFF) as u8
     }
 
     /// For OPT records, the DNSSEC OK (DO) flag is bit 15 of the lower 16 bits of the TTL.
+    #[must_use]
     pub fn opt_do_flag(&self) -> bool {
         self.ttl & 0x8000 != 0
     }

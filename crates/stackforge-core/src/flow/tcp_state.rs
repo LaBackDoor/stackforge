@@ -23,6 +23,7 @@ pub enum TcpConnectionState {
 
 impl TcpConnectionState {
     /// Human-readable state name.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Listen => "LISTEN",
@@ -40,11 +41,13 @@ impl TcpConnectionState {
     }
 
     /// Whether this is a terminal/closed state.
+    #[must_use]
     pub fn is_closed(&self) -> bool {
         matches!(self, Self::Closed | Self::TimeWait)
     }
 
     /// Whether this is a half-open state (not yet established).
+    #[must_use]
     pub fn is_half_open(&self) -> bool {
         matches!(self, Self::Listen | Self::SynSent | Self::SynRcvd)
     }
@@ -70,6 +73,7 @@ pub struct TcpEndpointState {
 }
 
 impl TcpEndpointState {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             next_expected_seq: 0,
@@ -92,9 +96,9 @@ impl Default for TcpEndpointState {
 pub struct TcpConversationState {
     /// Current connection state (RFC 793 state machine).
     pub conn_state: TcpConnectionState,
-    /// Sequence tracking for the forward direction (addr_a → addr_b).
+    /// Sequence tracking for the forward direction (`addr_a` → `addr_b`).
     pub forward_endpoint: TcpEndpointState,
-    /// Sequence tracking for the reverse direction (addr_b → addr_a).
+    /// Sequence tracking for the reverse direction (`addr_b` → `addr_a`).
     pub reverse_endpoint: TcpEndpointState,
     /// Stream reassembly for forward direction.
     pub reassembler_fwd: TcpReassembler,
@@ -103,6 +107,7 @@ pub struct TcpConversationState {
 }
 
 impl TcpConversationState {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             conn_state: TcpConnectionState::Listen,
@@ -115,8 +120,8 @@ impl TcpConversationState {
 
     /// Process a TCP packet, updating connection state and reassembly buffers.
     ///
-    /// `direction` indicates whether this packet is Forward (addr_a → addr_b)
-    /// or Reverse (addr_b → addr_a) relative to the canonical key.
+    /// `direction` indicates whether this packet is Forward (`addr_a` → `addr_b`)
+    /// or Reverse (`addr_b` → `addr_a`) relative to the canonical key.
     /// `tcp` is the TCP layer view, `buf` is the full packet buffer.
     pub fn process_packet(
         &mut self,
@@ -197,15 +202,15 @@ impl TcpConversationState {
                     sender.last_ack = ack;
                     self.conn_state = TcpConnectionState::Established;
                     // Initialize reassemblers with ISN+1 (after SYN)
-                    if !self.reassembler_fwd.is_initialized() {
-                        if let Some(isn) = self.forward_endpoint.initial_seq {
-                            self.reassembler_fwd.initialize(isn.wrapping_add(1));
-                        }
+                    if !self.reassembler_fwd.is_initialized()
+                        && let Some(isn) = self.forward_endpoint.initial_seq
+                    {
+                        self.reassembler_fwd.initialize(isn.wrapping_add(1));
                     }
-                    if !self.reassembler_rev.is_initialized() {
-                        if let Some(isn) = self.reverse_endpoint.initial_seq {
-                            self.reassembler_rev.initialize(isn.wrapping_add(1));
-                        }
+                    if !self.reassembler_rev.is_initialized()
+                        && let Some(isn) = self.reverse_endpoint.initial_seq
+                    {
+                        self.reassembler_rev.initialize(isn.wrapping_add(1));
                     }
                 }
             },

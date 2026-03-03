@@ -108,6 +108,7 @@ pub struct IcmpLayer {
 
 impl IcmpLayer {
     /// Create a new ICMP layer from a layer index.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
@@ -592,6 +593,7 @@ impl IcmpLayer {
     }
 
     /// Generate a summary string for display.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         if let (Ok(icmp_type), Ok(code)) = (self.icmp_type(buf), self.code(buf)) {
             let type_str = type_name(icmp_type);
@@ -601,7 +603,7 @@ impl IcmpLayer {
             let details = match icmp_type {
                 types::types::REDIRECT => {
                     if let Ok(Some(gw)) = self.gateway(buf) {
-                        format!(" gw={}", gw)
+                        format!(" gw={gw}")
                     } else {
                         String::new()
                     }
@@ -609,14 +611,14 @@ impl IcmpLayer {
                 types::types::DEST_UNREACH if code == 4 => {
                     // Fragmentation needed
                     if let Ok(Some(mtu)) = self.next_hop_mtu(buf) {
-                        format!(" mtu={}", mtu)
+                        format!(" mtu={mtu}")
                     } else {
                         String::new()
                     }
                 },
                 types::types::PARAM_PROBLEM => {
                     if let Ok(Some(ptr)) = self.ptr(buf) {
-                        format!(" ptr={}", ptr)
+                        format!(" ptr={ptr}")
                     } else {
                         String::new()
                     }
@@ -626,26 +628,27 @@ impl IcmpLayer {
                         .id(buf)
                         .ok()
                         .flatten()
-                        .map(|id| format!(" id={}", id))
+                        .map(|id| format!(" id={id}"))
                         .unwrap_or_default();
                     let seq_str = self
                         .seq(buf)
                         .ok()
                         .flatten()
-                        .map(|seq| format!(" seq={}", seq))
+                        .map(|seq| format!(" seq={seq}"))
                         .unwrap_or_default();
-                    format!("{}{}", id_str, seq_str)
+                    format!("{id_str}{seq_str}")
                 },
                 _ => String::new(),
             };
 
-            format!("ICMP {} {}{}", type_str, code_str, details)
+            format!("ICMP {type_str} {code_str}{details}")
         } else {
             "ICMP".to_string()
         }
     }
 
     /// Get the ICMP header length (variable based on type).
+    #[must_use]
     pub fn header_len(&self, buf: &[u8]) -> usize {
         // Most ICMP types have 8-byte header
         // Timestamp has 20-byte header (8 base + 12 for timestamps)
@@ -660,6 +663,7 @@ impl IcmpLayer {
     }
 
     /// Get field names for this layer.
+    #[must_use]
     pub fn field_names(&self) -> &'static [&'static str] {
         &[
             "type",
@@ -708,7 +712,7 @@ impl IcmpLayer {
                             "gw field not available for this ICMP type".into(),
                         ))
                     })
-                    .map(|addr| FieldValue::Ipv4(addr)),
+                    .map(FieldValue::Ipv4),
             ),
             "ptr" => Some(
                 self.ptr(buf)
@@ -762,7 +766,7 @@ impl IcmpLayer {
                             "addr_mask field not available for this ICMP type".into(),
                         ))
                     })
-                    .map(|addr| FieldValue::Ipv4(addr)),
+                    .map(FieldValue::Ipv4),
             ),
             _ => None,
         }
@@ -781,8 +785,7 @@ impl IcmpLayer {
                     Some(self.set_type(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "type: expected U8, got {:?}",
-                        value
+                        "type: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -791,8 +794,7 @@ impl IcmpLayer {
                     Some(self.set_code(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "code: expected U8, got {:?}",
-                        value
+                        "code: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -801,8 +803,7 @@ impl IcmpLayer {
                     Some(self.set_checksum(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "chksum: expected U16, got {:?}",
-                        value
+                        "chksum: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -811,8 +812,7 @@ impl IcmpLayer {
                     Some(self.set_id(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "id: expected U16, got {:?}",
-                        value
+                        "id: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -821,8 +821,7 @@ impl IcmpLayer {
                     Some(self.set_seq(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "seq: expected U16, got {:?}",
-                        value
+                        "seq: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -831,8 +830,7 @@ impl IcmpLayer {
                     Some(self.set_gateway(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "gw: expected Ipv4, got {:?}",
-                        value
+                        "gw: expected Ipv4, got {value:?}"
                     ))))
                 }
             },
@@ -841,8 +839,7 @@ impl IcmpLayer {
                     Some(self.set_ptr(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "ptr: expected U8, got {:?}",
-                        value
+                        "ptr: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -851,8 +848,7 @@ impl IcmpLayer {
                     Some(self.set_next_hop_mtu(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "mtu: expected U16, got {:?}",
-                        value
+                        "mtu: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -861,8 +857,7 @@ impl IcmpLayer {
                     Some(self.set_ts_ori(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "ts_ori: expected U32, got {:?}",
-                        value
+                        "ts_ori: expected U32, got {value:?}"
                     ))))
                 }
             },
@@ -871,8 +866,7 @@ impl IcmpLayer {
                     Some(self.set_ts_rx(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "ts_rx: expected U32, got {:?}",
-                        value
+                        "ts_rx: expected U32, got {value:?}"
                     ))))
                 }
             },
@@ -881,8 +875,7 @@ impl IcmpLayer {
                     Some(self.set_ts_tx(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "ts_tx: expected U32, got {:?}",
-                        value
+                        "ts_tx: expected U32, got {value:?}"
                     ))))
                 }
             },
@@ -891,8 +884,7 @@ impl IcmpLayer {
                     Some(self.set_addr_mask(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "addr_mask: expected Ipv4, got {:?}",
-                        value
+                        "addr_mask: expected Ipv4, got {value:?}"
                     ))))
                 }
             },

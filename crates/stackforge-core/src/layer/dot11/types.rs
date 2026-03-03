@@ -16,6 +16,7 @@ pub mod frame_type {
     pub const EXTENSION: u8 = 3;
 
     /// Get the name for a frame type value.
+    #[must_use]
     pub fn name(t: u8) -> &'static str {
         match t {
             MANAGEMENT => "Management",
@@ -49,6 +50,7 @@ pub mod mgmt_subtype {
     pub const ACTION_NOACK: u8 = 14;
 
     /// Get the name for a management frame subtype value.
+    #[must_use]
     pub fn name(s: u8) -> &'static str {
         match s {
             ASSOC_REQ => "Association Request",
@@ -92,6 +94,7 @@ pub mod ctrl_subtype {
     pub const CF_END_ACK: u8 = 15;
 
     /// Get the name for a control frame subtype value.
+    #[must_use]
     pub fn name(s: u8) -> &'static str {
         match s {
             TRIGGER => "Trigger",
@@ -136,6 +139,7 @@ pub mod data_subtype {
     pub const QOS_CF_ACK_POLL: u8 = 15;
 
     /// Get the name for a data frame subtype value.
+    #[must_use]
     pub fn name(s: u8) -> &'static str {
         match s {
             DATA => "Data",
@@ -157,8 +161,9 @@ pub mod data_subtype {
         }
     }
 
-    /// Check if this data subtype includes QoS.
+    /// Check if this data subtype includes `QoS`.
     #[inline]
+    #[must_use]
     pub fn is_qos(subtype: u8) -> bool {
         subtype >= QOS_DATA
     }
@@ -174,6 +179,7 @@ pub mod ext_subtype {
     pub const S1G_BEACON: u8 = 1;
 
     /// Get the name for an extension frame subtype value.
+    #[must_use]
     pub fn name(s: u8) -> &'static str {
         match s {
             DMG_BEACON => "DMG Beacon",
@@ -184,6 +190,7 @@ pub mod ext_subtype {
 }
 
 /// Get the name for a given frame type and subtype combination.
+#[must_use]
 pub fn subtype_name(frame_type: u8, subtype: u8) -> &'static str {
     match frame_type {
         frame_type::MANAGEMENT => mgmt_subtype::name(subtype),
@@ -210,6 +217,7 @@ pub mod fc_flags {
     pub const HTC_ORDER: u8 = 0x80;
 
     /// Get a string representation of the flags byte.
+    #[must_use]
     pub fn flags_string(flags: u8) -> String {
         let mut parts = Vec::new();
         if flags & TO_DS != 0 {
@@ -314,6 +322,7 @@ pub mod reason_code {
     pub const POOR_RSSI_CONDITIONS: u16 = 71;
 
     /// Get the name for a reason code.
+    #[must_use]
     pub fn name(code: u16) -> &'static str {
         match code {
             RESERVED => "reserved",
@@ -435,6 +444,7 @@ pub mod status_code {
     pub const SAE_HASH_TO_ELEMENT: u16 = 126;
 
     /// Get the name for a status code.
+    #[must_use]
     pub fn name(code: u16) -> &'static str {
         match code {
             SUCCESS => "success",
@@ -529,6 +539,7 @@ pub mod capability {
     ];
 
     /// Get a string representation of the capability bits.
+    #[must_use]
     pub fn flags_string(cap: u16) -> String {
         let mut parts = Vec::new();
         for (i, name) in FLAG_NAMES.iter().enumerate() {
@@ -652,6 +663,7 @@ pub mod ie_id {
     pub const HT_INFORMATION: u8 = HT_OPERATION;
 
     /// Get the name for an Information Element ID.
+    #[must_use]
     pub fn name(id: u8) -> &'static str {
         match id {
             SSID => "SSID",
@@ -716,6 +728,7 @@ pub mod cipher_suite {
     pub const BIP_CMAC_256: u8 = 0x0D;
 
     /// Get the name for a cipher suite type byte.
+    #[must_use]
     pub fn name(cipher: u8) -> &'static str {
         match cipher {
             USE_GROUP => "Use group cipher suite",
@@ -767,6 +780,7 @@ pub mod akm_suite {
     pub const OWE: u8 = 0x12;
 
     /// Get the name for an AKM suite type byte.
+    #[must_use]
     pub fn name(suite: u8) -> &'static str {
         match suite {
             RESERVED => "Reserved",
@@ -824,6 +838,7 @@ pub mod action_category {
     pub const VENDOR_SPECIFIC: u8 = 0x7F;
 
     /// Get the name for an action category code.
+    #[must_use]
     pub fn name(cat: u8) -> &'static str {
         match cat {
             SPECTRUM_MANAGEMENT => "Spectrum Management",
@@ -870,6 +885,7 @@ pub mod auth_algo {
     pub const VENDOR_SPECIFIC: u16 = 65535;
 
     /// Get the name for an authentication algorithm number.
+    #[must_use]
     pub fn name(algo: u16) -> &'static str {
         match algo {
             OPEN => "open",
@@ -889,7 +905,7 @@ pub mod auth_algo {
 // RadioTap Present Field Bit Definitions
 // ============================================================================
 
-/// RadioTap present field bit positions.
+/// `RadioTap` present field bit positions.
 pub mod radiotap_present {
     pub const TSFT: u32 = 0;
     pub const FLAGS: u32 = 1;
@@ -959,7 +975,7 @@ pub mod radiotap_present {
     ];
 }
 
-/// RadioTap Flags field bit definitions.
+/// `RadioTap` Flags field bit definitions.
 pub mod radiotap_flags {
     pub const CFP: u8 = 0x01;
     pub const SHORT_PREAMBLE: u8 = 0x02;

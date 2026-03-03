@@ -16,6 +16,7 @@ pub enum TlsContentType {
 }
 
 impl TlsContentType {
+    #[must_use]
     pub fn from_u8(v: u8) -> Self {
         match v {
             20 => Self::ChangeCipherSpec,
@@ -27,6 +28,7 @@ impl TlsContentType {
         }
     }
 
+    #[must_use]
     pub fn as_u8(&self) -> u8 {
         match self {
             Self::ChangeCipherSpec => 20,
@@ -38,6 +40,7 @@ impl TlsContentType {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::ChangeCipherSpec => "change_cipher_spec",
@@ -73,6 +76,7 @@ impl TlsVersion {
     pub const TLS13_DRAFT19: Self = Self(0x7f13);
     pub const TLS13: Self = Self(0x0304);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0x0002 => "SSLv2",
@@ -88,17 +92,20 @@ impl TlsVersion {
         }
     }
 
-    /// Check if this version is SSLv2.
+    /// Check if this version is `SSLv2`.
+    #[must_use]
     pub fn is_sslv2(&self) -> bool {
         self.0 == 0x0002 || self.0 == 0x0200
     }
 
     /// Check if this version is TLS 1.3 or a draft.
+    #[must_use]
     pub fn is_tls13(&self) -> bool {
         self.0 == 0x0304 || (self.0 & 0xff00) == 0x7f00
     }
 
     /// For TLS 1.3, the record layer uses legacy version 0x0301 (TLS 1.0).
+    #[must_use]
     pub fn record_version(&self) -> u16 {
         if self.is_tls13() { 0x0301 } else { self.0 }
     }
@@ -120,6 +127,7 @@ pub enum TlsAlertLevel {
 }
 
 impl TlsAlertLevel {
+    #[must_use]
     pub fn from_u8(v: u8) -> Self {
         match v {
             1 => Self::Warning,
@@ -128,6 +136,7 @@ impl TlsAlertLevel {
         }
     }
 
+    #[must_use]
     pub fn as_u8(&self) -> u8 {
         match self {
             Self::Warning => 1,
@@ -136,6 +145,7 @@ impl TlsAlertLevel {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Warning => "warning",
@@ -182,6 +192,7 @@ impl TlsAlertDescription {
     pub const CERTIFICATE_REQUIRED: Self = Self(116);
     pub const NO_APPLICATION_PROTOCOL: Self = Self(120);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0 => "close_notify",
@@ -246,6 +257,7 @@ impl HandshakeType {
     pub const COMPRESSED_CERTIFICATE: Self = Self(25);
     pub const MESSAGE_HASH: Self = Self(254);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0 => "HelloRequest",
@@ -312,6 +324,7 @@ impl ExtensionType {
     pub const KEY_SHARE: Self = Self(51);
     pub const RENEGOTIATION_INFO: Self = Self(0xff01);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0 => "server_name",
@@ -385,6 +398,7 @@ pub mod cipher_suite_ids {
     pub const SSL_CK_DES_192_EDE3_CBC_WITH_MD5: u32 = 0x0700c0;
 
     /// Get human-readable name for a cipher suite.
+    #[must_use]
     pub fn name(id: u16) -> &'static str {
         match id {
             0x1301 => "TLS_AES_128_GCM_SHA256",
@@ -425,6 +439,7 @@ impl NamedGroup {
     pub const FFDHE6144: Self = Self(0x0103);
     pub const FFDHE8192: Self = Self(0x0104);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0x0017 => "secp256r1",
@@ -461,6 +476,7 @@ impl SignatureScheme {
     pub const RSA_PKCS1_SHA1: Self = Self(0x0201);
     pub const ECDSA_SHA1: Self = Self(0x0203);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0x0401 => "rsa_pkcs1_sha256",

@@ -1,10 +1,10 @@
-//! TLS Key Exchange messages (ServerKeyExchange, ClientKeyExchange).
+//! TLS Key Exchange messages (`ServerKeyExchange`, `ClientKeyExchange`).
 
-/// ServerKeyExchange message (type 12).
+/// `ServerKeyExchange` message (type 12).
 ///
 /// Content depends on the key exchange algorithm:
-/// - DHE: dh_p, dh_g, dh_Ys, signature
-/// - ECDHE: curve_type, named_curve, point, signature
+/// - DHE: `dh_p`, `dh_g`, `dh_Ys`, signature
+/// - ECDHE: `curve_type`, `named_curve`, point, signature
 #[derive(Debug, Clone)]
 pub struct ServerKeyExchange {
     /// Raw key exchange parameters.
@@ -34,6 +34,7 @@ pub enum ServerKxParams {
 
 impl ServerKeyExchange {
     /// Parse from raw body bytes.
+    #[must_use]
     pub fn parse(data: &[u8]) -> Self {
         // Try to parse as ECDHE first (curve_type=3 for named_curve)
         let parsed = if data.len() >= 4 && data[0] == 0x03 {
@@ -120,12 +121,13 @@ impl ServerKeyExchange {
         })
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         self.params.clone()
     }
 }
 
-/// ClientKeyExchange message (type 16).
+/// `ClientKeyExchange` message (type 16).
 #[derive(Debug, Clone)]
 pub struct ClientKeyExchange {
     /// Raw exchange key data.
@@ -133,12 +135,14 @@ pub struct ClientKeyExchange {
 }
 
 impl ClientKeyExchange {
+    #[must_use]
     pub fn parse(data: &[u8]) -> Self {
         Self {
             data: data.to_vec(),
         }
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         self.data.clone()
     }

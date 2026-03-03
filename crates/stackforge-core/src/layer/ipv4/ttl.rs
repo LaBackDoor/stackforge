@@ -14,6 +14,7 @@ const INITIAL_TTLS: [u8; 4] = [32, 64, 128, 255];
 ///
 /// This finds the smallest standard initial TTL that is greater than
 /// or equal to the current TTL.
+#[must_use]
 pub fn estimate_original(current_ttl: u8) -> u8 {
     for &initial in &INITIAL_TTLS {
         if current_ttl <= initial {
@@ -27,6 +28,7 @@ pub fn estimate_original(current_ttl: u8) -> u8 {
 /// Estimate the number of hops the packet has traveled.
 ///
 /// Calculated as `original_ttl - current_ttl`.
+#[must_use]
 pub fn estimate_hops(current_ttl: u8) -> u8 {
     let original = estimate_original(current_ttl);
     original.saturating_sub(current_ttl)

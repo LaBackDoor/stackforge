@@ -1,0 +1,113 @@
+% Z-Wave layer test campaign
+
++ Syntax check
+= Import the Z-Wave layer
+from scapy.contrib.zwave import *
+
++ Z-Wave protocol test
+
+= Z-Wave ACK frame
+# ACK: home_id=0x12345678, src=1, frameCtrl=0x40 (ackreq), beamSeqn=0x00, length=10, dst=2, crc=0xbe
+b = b'\x12\x34\x56\x78\x01\x40\x00\x0a\x02\xbe'
+p = ZWave(b)
+assert p.home_id == 0x12345678
+assert p.src == 1
+assert p.dst == 2
+assert p.ackreq == True
+assert p.routed == False
+assert p.lowpower == False
+assert p.length == 10
+
+= Z-Wave REQ frame with SWITCH_BINARY
+# REQ: home_id=0xDEADBEEF, src=3, frameCtrl=0x40, beamSeqn=0x00, length=13, dst=5,
+#   cmd_class=0x25 (SWITCH_BINARY), cmd=0x01 (SET), data=0xFF, crc=0x4d
+b = b'\xde\xad\xbe\xef\x03\x40\x00\x0d\x05\x25\x01\xff\x4d'
+p = ZWave(b)
+assert p.home_id == 0xDEADBEEF
+assert p.src == 3
+assert p.dst == 5
+assert p.cmd_class == 0x25
+assert p.cmd == 0x01
+assert p.length == 13
+
+= Z-Wave REQ frame with BASIC SET
+# REQ: home_id=0x01020304, src=10, frameCtrl=0x40, beamSeqn=0x00, length=13, dst=20,
+#   cmd_class=0x20 (BASIC), cmd=0x01 (SET), data=0xFF (turn on), crc=0x76
+b = b'\x01\x02\x03\x04\x0a\x40\x00\x0d\x14\x20\x01\xff\x76'
+p = ZWave(b)
+assert p.home_id == 0x01020304
+assert p.src == 10
+assert p.dst == 20
+assert p.cmd_class == 0x20
+assert p.cmd == 0x01
+assert p.length == 13
+
+= Z-Wave BASIC GET (no data)
+# REQ: home_id=0x01020304, src=10, frameCtrl=0x40, beamSeqn=0x00, length=12, dst=20,
+#   cmd_class=0x20 (BASIC), cmd=0x02 (GET), crc=0x8b
+b = b'\x01\x02\x03\x04\x0a\x40\x00\x0c\x14\x20\x02\x8b'
+p = ZWave(b)
+assert p.home_id == 0x01020304
+assert p.src == 10
+assert p.dst == 20
+assert p.cmd_class == 0x20
+assert p.cmd == 0x02
+assert p.length == 12
+
+= Z-Wave routed frame
+# REQ with routed+ackreq: home_id=0xAABBCCDD, src=5, frameCtrl=0xC0 (routed+ackreq),
+#   beamSeqn=0x03 (seqn=3), length=13, dst=10, cmd_class=0x25, cmd=0x01, data=0x00, crc=0x1a
+b = b'\xaa\xbb\xcc\xdd\x05\xc0\x03\x0d\x0a\x25\x01\x00\x1a'
+p = ZWave(b)
+assert p.home_id == 0xAABBCCDD
+assert p.src == 5
+assert p.dst == 10
+assert p.routed == True
+assert p.ackreq == True
+assert p.seqn == 3
+assert p.cmd_class == 0x25
+assert p.cmd == 0x01
+
+= Z-Wave default ACK (home_id=0)
+# ACK: home_id=0x00000000, src=1, frameCtrl=0x40 (ackreq), beamSeqn=0x00, length=10, dst=2, crc=0xb6
+b = b'\x00\x00\x00\x00\x01\x40\x00\x0a\x02\xb6'
+p = ZWave(b)
+assert p.home_id == 0
+assert p.src == 1
+assert p.dst == 2
+assert p.length == 10
+
+= Z-Wave CRC verification
+# Verify CRC is correct (XOR checksum starting from 0xFF)
+b = b'\x12\x34\x56\x78\x01\x40\x00\x0a\x02\xbe'
+crc = 0xFF
+for byte in b[:-1]:
+    crc ^= byte
+assert crc == b[-1]
+
+= Z-Wave frame control flags
+# Test all frame control flags: routed=1, ackreq=1, lowpower=1, speedmodified=1, headertype=0x03
+# frameCtrl = 0x80 | 0x40 | 0x20 | 0x10 | 0x03 = 0xF3
+b = b'\x00\x00\x00\x00\x01\xf3\x00\x0a\x02'
+# compute crc
+crc = 0xFF
+for byte in b:
+    crc ^= byte
+b = b + bytes([crc])
+p = ZWave(b)
+assert p.routed == True
+assert p.ackreq == True
+assert p.lowpower == True
+assert p.speedmodified == True
+assert p.headertype == 0x03
+
+= Z-Wave beam control and sequence
+# beam_control=2, seqn=0x0A -> beamSeqn = (2 << 5) | 0x0A = 0x4A
+b = b'\x00\x00\x00\x00\x01\x40\x4a\x0a\x02'
+crc = 0xFF
+for byte in b:
+    crc ^= byte
+b = b + bytes([crc])
+p = ZWave(b)
+assert p.beam_control == 2
+assert p.seqn == 0x0A

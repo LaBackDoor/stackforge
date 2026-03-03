@@ -93,7 +93,7 @@ pub fn read_opcode(buf: &[u8], base: usize) -> Result<u8, FieldError> {
 pub fn write_opcode(buf: &mut [u8], base: usize, opcode: u8) -> Result<(), FieldError> {
     let mut flags = read_flags(buf, base)?;
     flags &= !FLAG_OPCODE_MASK;
-    flags |= ((opcode as u16) << FLAG_OPCODE_SHIFT) & FLAG_OPCODE_MASK;
+    flags |= (u16::from(opcode) << FLAG_OPCODE_SHIFT) & FLAG_OPCODE_MASK;
     write_flags(buf, base, flags)
 }
 
@@ -219,7 +219,7 @@ pub fn read_rcode(buf: &[u8], base: usize) -> Result<u8, FieldError> {
 pub fn write_rcode(buf: &mut [u8], base: usize, rcode: u8) -> Result<(), FieldError> {
     let mut flags = read_flags(buf, base)?;
     flags &= !FLAG_RCODE_MASK;
-    flags |= (rcode as u16) & FLAG_RCODE_MASK;
+    flags |= u16::from(rcode) & FLAG_RCODE_MASK;
     write_flags(buf, base, flags)
 }
 
@@ -268,6 +268,7 @@ pub fn write_arcount(buf: &mut [u8], base: usize, count: u16) -> Result<(), Fiel
 }
 
 /// Build a raw 16-bit flags value from individual components.
+#[must_use]
 pub fn build_flags(
     qr: bool,
     opcode: u8,
@@ -284,7 +285,7 @@ pub fn build_flags(
     if qr {
         flags |= FLAG_QR;
     }
-    flags |= ((opcode as u16) << FLAG_OPCODE_SHIFT) & FLAG_OPCODE_MASK;
+    flags |= (u16::from(opcode) << FLAG_OPCODE_SHIFT) & FLAG_OPCODE_MASK;
     if aa {
         flags |= FLAG_AA;
     }
@@ -306,7 +307,7 @@ pub fn build_flags(
     if cd {
         flags |= FLAG_CD;
     }
-    flags |= (rcode as u16) & FLAG_RCODE_MASK;
+    flags |= u16::from(rcode) & FLAG_RCODE_MASK;
     flags
 }
 

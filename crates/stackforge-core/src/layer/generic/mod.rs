@@ -1,7 +1,7 @@
 //! Generic / custom protocol layer for user-defined protocols.
 //!
 //! [`GenericLayer`] allows a protocol to be defined entirely at runtime
-//! (e.g. from Python via PyO3 bindings) as a flat list of named, typed
+//! (e.g. from Python via `PyO3` bindings) as a flat list of named, typed
 //! fields.  Field descriptors ([`GenericFieldDesc`]) are shared between all
 //! packet instances using `Arc`, so the definition overhead is paid only once.
 //!
@@ -85,6 +85,7 @@ pub struct GenericLayer {
 
 impl GenericLayer {
     /// Create a new `GenericLayer`.
+    #[must_use]
     pub fn new(index: LayerIndex, name: Arc<str>, field_descs: Arc<Vec<GenericFieldDesc>>) -> Self {
         Self {
             index,
@@ -94,17 +95,20 @@ impl GenericLayer {
     }
 
     /// Human-readable summary: `"<name> (<N> fields)"`.
+    #[must_use]
     pub fn summary(&self, _buf: &[u8]) -> String {
         format!("{} ({} fields)", self.name, self.field_descs.len())
     }
 
     /// Header length = sum of all field sizes.
+    #[must_use]
     pub fn header_len(&self, _buf: &[u8]) -> usize {
         self.field_descs.iter().map(|f| f.size).sum()
     }
 
     /// Dynamic list of field names (not `&'static str` because names come from
     /// user-defined strings at runtime).
+    #[must_use]
     pub fn field_names_dynamic(&self) -> Vec<String> {
         self.field_descs.iter().map(|f| f.name.clone()).collect()
     }
@@ -115,6 +119,7 @@ impl GenericLayer {
     /// - `Some(Ok(value))` if the field was found and the buffer is long enough.
     /// - `Some(Err(e))` if the field was found but the buffer is too short.
     /// - `None` if no field with this name exists in this layer.
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         let desc = self.field_descs.iter().find(|f| f.name == name)?;
         let layer_slice = self.index.slice(buf);
@@ -250,7 +255,7 @@ impl GenericLayer {
                 Ok(())
             },
             (FieldType::Bool, FieldValue::Bool(v)) => {
-                dest[0] = if *v { 1 } else { 0 };
+                dest[0] = u8::from(*v);
                 Ok(())
             },
             (_, FieldValue::Bytes(bytes)) => {

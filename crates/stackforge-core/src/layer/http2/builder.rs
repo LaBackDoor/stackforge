@@ -14,7 +14,8 @@ use super::hpack::HpackEncoder;
 
 /// Build raw bytes for an HTTP/2 frame.
 ///
-/// Format: 3 bytes length (big-endian) | 1 byte type | 1 byte flags | 4 bytes stream_id | payload
+/// Format: 3 bytes length (big-endian) | 1 byte type | 1 byte flags | 4 bytes `stream_id` | payload
+#[must_use]
 pub fn build_frame(frame_type: u8, flags: u8, stream_id: u32, payload: &[u8]) -> Vec<u8> {
     let len = payload.len() as u32;
     let mut out = Vec::with_capacity(9 + payload.len());
@@ -52,6 +53,7 @@ pub struct Http2FrameBuilder {
 
 impl Http2FrameBuilder {
     /// Create a new frame builder for the given frame type.
+    #[must_use]
     pub fn new(frame_type: Http2FrameType) -> Self {
         Http2FrameBuilder {
             frame_type,
@@ -62,46 +64,53 @@ impl Http2FrameBuilder {
     }
 
     /// Set the flags byte.
+    #[must_use]
     pub fn flags(mut self, flags: u8) -> Self {
         self.flags = flags;
         self
     }
 
     /// Set an additional flag bit (OR with existing flags).
+    #[must_use]
     pub fn add_flag(mut self, flag: u8) -> Self {
         self.flags |= flag;
         self
     }
 
     /// Set the stream ID.
+    #[must_use]
     pub fn stream_id(mut self, id: u32) -> Self {
         self.stream_id = id;
         self
     }
 
     /// Set the frame payload.
+    #[must_use]
     pub fn payload(mut self, data: Vec<u8>) -> Self {
         self.payload = data;
         self
     }
 
-    /// Set the END_STREAM flag (0x1).
+    /// Set the `END_STREAM` flag (0x1).
     ///
     /// Used with DATA and HEADERS frames.
+    #[must_use]
     pub fn end_stream(mut self) -> Self {
         self.flags |= 0x01;
         self
     }
 
-    /// Set the END_HEADERS flag (0x4).
+    /// Set the `END_HEADERS` flag (0x4).
     ///
-    /// Used with HEADERS, PUSH_PROMISE, and CONTINUATION frames.
+    /// Used with HEADERS, `PUSH_PROMISE`, and CONTINUATION frames.
+    #[must_use]
     pub fn end_headers(mut self) -> Self {
         self.flags |= 0x04;
         self
     }
 
     /// Build the frame into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         build_frame(
             self.frame_type.as_u8(),
@@ -116,6 +125,7 @@ impl Http2FrameBuilder {
     // -------------------------------------------------------------------------
 
     /// Create an empty SETTINGS frame (stream 0).
+    #[must_use]
     pub fn settings() -> Self {
         Http2FrameBuilder::new(Http2FrameType::Settings)
             .stream_id(0)
@@ -123,6 +133,7 @@ impl Http2FrameBuilder {
     }
 
     /// Create a SETTINGS ACK frame (stream 0, ACK flag set).
+    #[must_use]
     pub fn settings_ack() -> Self {
         Http2FrameBuilder::new(Http2FrameType::Settings)
             .stream_id(0)
@@ -131,7 +142,8 @@ impl Http2FrameBuilder {
 
     /// Create a SETTINGS frame with parameters.
     ///
-    /// Each entry is (settings_id, value). The payload is 6 bytes per entry.
+    /// Each entry is (`settings_id`, value). The payload is 6 bytes per entry.
+    #[must_use]
     pub fn settings_with_params(params: &[(u16, u32)]) -> Self {
         let mut payload = Vec::with_capacity(params.len() * 6);
         for &(id, val) in params {
@@ -144,6 +156,7 @@ impl Http2FrameBuilder {
     }
 
     /// Create a PING frame with 8 bytes of opaque data.
+    #[must_use]
     pub fn ping(data: [u8; 8]) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Ping)
             .stream_id(0)
@@ -151,6 +164,7 @@ impl Http2FrameBuilder {
     }
 
     /// Create a PING ACK frame (response to a PING).
+    #[must_use]
     pub fn ping_ack(data: [u8; 8]) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Ping)
             .stream_id(0)
@@ -163,6 +177,7 @@ impl Http2FrameBuilder {
     /// # Arguments
     /// - `last_stream`: the last stream ID processed
     /// - `error_code`: the error code (see `frames::error_codes`)
+    #[must_use]
     pub fn goaway(last_stream: u32, error_code: u32) -> Self {
         let mut payload = Vec::with_capacity(8);
         payload.extend_from_slice(&(last_stream & 0x7FFFFFFF).to_be_bytes());
@@ -172,11 +187,12 @@ impl Http2FrameBuilder {
             .payload(payload)
     }
 
-    /// Create a WINDOW_UPDATE frame.
+    /// Create a `WINDOW_UPDATE` frame.
     ///
     /// # Arguments
     /// - `increment`: window size increment (1-2^31-1)
     /// - `stream_id`: stream ID (0 for connection-level)
+    #[must_use]
     pub fn window_update(increment: u32, stream_id: u32) -> Self {
         let mut payload = Vec::with_capacity(4);
         payload.extend_from_slice(&(increment & 0x7FFFFFFF).to_be_bytes());
@@ -185,11 +201,12 @@ impl Http2FrameBuilder {
             .payload(payload)
     }
 
-    /// Create a RST_STREAM frame.
+    /// Create a `RST_STREAM` frame.
     ///
     /// # Arguments
     /// - `stream_id`: the stream to reset
     /// - `error_code`: the error code
+    #[must_use]
     pub fn rst_stream(stream_id: u32, error_code: u32) -> Self {
         let mut payload = Vec::with_capacity(4);
         payload.extend_from_slice(&error_code.to_be_bytes());
@@ -200,7 +217,8 @@ impl Http2FrameBuilder {
 
     /// Create a HEADERS frame carrying HPACK-encoded header data.
     ///
-    /// Sets END_HEADERS by default. Use `.flags()` to override.
+    /// Sets `END_HEADERS` by default. Use `.flags()` to override.
+    #[must_use]
     pub fn headers_frame(stream_id: u32, hpack_data: Vec<u8>) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Headers)
             .stream_id(stream_id)
@@ -208,7 +226,8 @@ impl Http2FrameBuilder {
             .payload(hpack_data)
     }
 
-    /// Create a HEADERS frame with END_STREAM + END_HEADERS flags set.
+    /// Create a HEADERS frame with `END_STREAM` + `END_HEADERS` flags set.
+    #[must_use]
     pub fn headers_frame_final(stream_id: u32, hpack_data: Vec<u8>) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Headers)
             .stream_id(stream_id)
@@ -217,13 +236,15 @@ impl Http2FrameBuilder {
     }
 
     /// Create a DATA frame.
+    #[must_use]
     pub fn data_frame(stream_id: u32, data: Vec<u8>) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Data)
             .stream_id(stream_id)
             .payload(data)
     }
 
-    /// Create a DATA frame with END_STREAM set.
+    /// Create a DATA frame with `END_STREAM` set.
+    #[must_use]
     pub fn data_frame_final(stream_id: u32, data: Vec<u8>) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Data)
             .stream_id(stream_id)
@@ -232,13 +253,15 @@ impl Http2FrameBuilder {
     }
 
     /// Create a CONTINUATION frame.
+    #[must_use]
     pub fn continuation(stream_id: u32, hpack_data: Vec<u8>) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Continuation)
             .stream_id(stream_id)
             .payload(hpack_data)
     }
 
-    /// Create a CONTINUATION frame with END_HEADERS set.
+    /// Create a CONTINUATION frame with `END_HEADERS` set.
+    #[must_use]
     pub fn continuation_final(stream_id: u32, hpack_data: Vec<u8>) -> Self {
         Http2FrameBuilder::new(Http2FrameType::Continuation)
             .stream_id(stream_id)
@@ -253,6 +276,7 @@ impl Http2FrameBuilder {
     /// - `exclusive`: exclusive dependency flag
     /// - `stream_dep`: stream dependency
     /// - `weight`: priority weight (0-255, actual weight = weight + 1)
+    #[must_use]
     pub fn priority_frame(stream_id: u32, exclusive: bool, stream_dep: u32, weight: u8) -> Self {
         let dep = if exclusive {
             stream_dep | 0x80000000
@@ -267,12 +291,13 @@ impl Http2FrameBuilder {
             .payload(payload)
     }
 
-    /// Create a PUSH_PROMISE frame.
+    /// Create a `PUSH_PROMISE` frame.
     ///
     /// # Arguments
     /// - `stream_id`: the associated stream
     /// - `promised_stream_id`: the stream ID being promised
     /// - `hpack_data`: HPACK-encoded headers for the promised request
+    #[must_use]
     pub fn push_promise(stream_id: u32, promised_stream_id: u32, hpack_data: Vec<u8>) -> Self {
         let mut payload = Vec::with_capacity(4 + hpack_data.len());
         payload.extend_from_slice(&(promised_stream_id & 0x7FFFFFFF).to_be_bytes());
@@ -318,6 +343,7 @@ impl Default for Http2Builder {
 
 impl Http2Builder {
     /// Create a builder that includes the HTTP/2 client connection preface.
+    #[must_use]
     pub fn new() -> Self {
         Http2Builder {
             include_preface: true,
@@ -326,6 +352,7 @@ impl Http2Builder {
     }
 
     /// Create a builder without the connection preface.
+    #[must_use]
     pub fn without_preface() -> Self {
         Http2Builder {
             include_preface: false,
@@ -334,12 +361,14 @@ impl Http2Builder {
     }
 
     /// Add a frame to the sequence.
+    #[must_use]
     pub fn frame(mut self, f: Http2FrameBuilder) -> Self {
         self.frames.push(f);
         self
     }
 
     /// Get the total byte size of the built output.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         let preface_len = if self.include_preface { 24 } else { 0 };
         let frames_len: usize = self.frames.iter().map(|f| 9 + f.payload.len()).sum();
@@ -347,6 +376,7 @@ impl Http2Builder {
     }
 
     /// Build the complete HTTP/2 connection sequence into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.header_size());
 
@@ -374,6 +404,7 @@ impl Http2Builder {
 /// - `host`: the `:authority` (Host) header value
 /// - `path`: the `:path` value (e.g., "/")
 /// - `stream_id`: stream identifier (must be odd for client-initiated, typically 1)
+#[must_use]
 pub fn build_get_request(host: &str, path: &str, stream_id: u32) -> Vec<u8> {
     let encoder = HpackEncoder::new();
     let headers = vec![
@@ -399,7 +430,8 @@ pub fn build_get_request(host: &str, path: &str, stream_id: u32) -> Vec<u8> {
 ///
 /// # Arguments
 /// - `stream_id`: the stream ID to respond on
-/// - `body`: optional response body; if `Some`, a DATA frame with END_STREAM is appended
+/// - `body`: optional response body; if `Some`, a DATA frame with `END_STREAM` is appended
+#[must_use]
 pub fn build_response_200(stream_id: u32, body: Option<&[u8]>) -> Vec<u8> {
     let encoder = HpackEncoder::new();
     let headers = vec![(":status", "200"), ("content-type", "application/json")];

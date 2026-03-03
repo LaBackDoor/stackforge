@@ -12,11 +12,13 @@ pub struct TlsCertificate {
 
 impl TlsCertificate {
     /// Create from DER-encoded bytes.
+    #[must_use]
     pub fn from_der(der: Vec<u8>) -> Self {
         Self { der }
     }
 
     /// Create from PEM-encoded string.
+    #[must_use]
     pub fn from_pem(pem: &str) -> Option<Self> {
         let lines: Vec<&str> = pem
             .lines()
@@ -28,16 +30,19 @@ impl TlsCertificate {
     }
 
     /// Get the DER-encoded data.
+    #[must_use]
     pub fn as_der(&self) -> &[u8] {
         &self.der
     }
 
     /// Get the certificate length.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.der.len()
     }
 
     /// Check if empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.der.is_empty()
     }
@@ -47,6 +52,7 @@ impl TlsCertificate {
     /// This is a basic ASN.1 parser that looks for the CN OID (2.5.4.3).
     /// In X.509, issuer comes before subject, so subject CN is the second occurrence.
     /// For self-signed certs (only one CN), falls back to the first occurrence.
+    #[must_use]
     pub fn subject_cn(&self) -> Option<String> {
         let cn_oid = [0x55, 0x04, 0x03];
         find_nth_string_after_oid(&self.der, &cn_oid, 1)
@@ -54,6 +60,7 @@ impl TlsCertificate {
     }
 
     /// Extract the issuer common name from the certificate.
+    #[must_use]
     pub fn issuer_cn(&self) -> Option<String> {
         let cn_oid = [0x55, 0x04, 0x03];
         find_nth_string_after_oid(&self.der, &cn_oid, 0)
@@ -61,6 +68,7 @@ impl TlsCertificate {
 }
 
 /// Parse a certificate chain from multiple PEM blocks.
+#[must_use]
 pub fn parse_pem_chain(pem: &str) -> Vec<TlsCertificate> {
     let mut certs = Vec::new();
     let mut in_cert = false;

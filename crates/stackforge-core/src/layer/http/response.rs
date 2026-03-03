@@ -36,6 +36,7 @@ impl<'a> HttpResponse<'a> {
     /// - the buffer does not start with `"HTTP/"`, or
     /// - the status line is malformed, or
     /// - the header section is not terminated by `\r\n\r\n` within `buf`.
+    #[must_use]
     pub fn parse(buf: &'a [u8]) -> Option<Self> {
         // Quick rejection — must start with "HTTP/".
         if !is_http_response(buf) {
@@ -73,11 +74,7 @@ impl<'a> HttpResponse<'a> {
         // We search within text[header_block_start - 2..] (backing up 2 bytes
         // so we catch the \r\n at the end of the status line when there are no
         // headers) and compute the absolute offset.
-        let search_start = if header_block_start >= 2 {
-            header_block_start - 2
-        } else {
-            0
-        };
+        let search_start = header_block_start.saturating_sub(2);
         let headers_end_offset = text[search_start..]
             .find(end_marker)
             .map(|rel| search_start + rel)?;
@@ -105,7 +102,7 @@ impl<'a> HttpResponse<'a> {
 ///
 /// Lines that do not contain a `:` are silently skipped, as are leading /
 /// trailing whitespace around header values.
-fn parse_headers<'a>(header_text: &'a str) -> Vec<(&'a str, &'a str)> {
+fn parse_headers(header_text: &str) -> Vec<(&str, &str)> {
     header_text
         .split("\r\n")
         .filter_map(|line| {

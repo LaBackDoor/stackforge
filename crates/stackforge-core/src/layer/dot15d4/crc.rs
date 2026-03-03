@@ -11,10 +11,11 @@
 /// Initial value: 0x0000
 ///
 /// Returns the CRC as a u16 in native byte order.
+#[must_use]
 pub fn crc_ccitt_kermit(data: &[u8]) -> u16 {
     let mut crc: u16 = 0;
     for &byte in data {
-        let c = byte as u16;
+        let c = u16::from(byte);
         // Process low-order 4 bits
         let q = (crc ^ c) & 0x0F;
         crc = (crc >> 4) ^ (q * 4225);
@@ -26,6 +27,7 @@ pub fn crc_ccitt_kermit(data: &[u8]) -> u16 {
 }
 
 /// Compute the FCS bytes (2 bytes, little-endian) for the given data.
+#[must_use]
 pub fn compute_fcs(data: &[u8]) -> [u8; 2] {
     crc_ccitt_kermit(data).to_le_bytes()
 }
@@ -34,6 +36,7 @@ pub fn compute_fcs(data: &[u8]) -> [u8; 2] {
 ///
 /// `data` is the frame data (without FCS), and `expected_fcs` is the
 /// 2-byte FCS value read from the frame (already in native u16 order).
+#[must_use]
 pub fn verify_fcs(data: &[u8], expected_fcs: u16) -> bool {
     crc_ccitt_kermit(data) == expected_fcs
 }

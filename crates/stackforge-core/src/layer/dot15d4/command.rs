@@ -224,6 +224,7 @@ impl CommandFrame {
     }
 
     /// Build the command frame bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.push(self.cmd_id);
@@ -287,6 +288,7 @@ impl CommandFrame {
     }
 
     /// Get a human-readable summary of this command.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!("802.15.4 Command {}", types::cmd_id_name(self.cmd_id))
     }

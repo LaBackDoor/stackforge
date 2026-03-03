@@ -29,6 +29,7 @@ use crate::utils::internet_checksum;
 /// let checksum = ipv4_checksum(&header);
 /// ```
 #[inline]
+#[must_use]
 pub fn ipv4_checksum(data: &[u8]) -> u16 {
     internet_checksum(data)
 }
@@ -41,6 +42,7 @@ pub fn ipv4_checksum(data: &[u8]) -> u16 {
 /// When computed over data that includes a valid checksum, the result
 /// should be 0x0000 or 0xFFFF.
 #[inline]
+#[must_use]
 pub fn verify_ipv4_checksum(data: &[u8]) -> bool {
     let sum = internet_checksum(data);
     sum == 0 || sum == 0xFFFF
@@ -61,11 +63,12 @@ pub fn verify_ipv4_checksum(data: &[u8]) -> bool {
 ///
 /// The updated checksum value.
 #[inline]
+#[must_use]
 pub fn incremental_update_checksum(old_checksum: u16, old_value: u16, new_value: u16) -> u16 {
     // RFC 1624: HC' = ~(~HC + ~m + m')
-    let hc = !old_checksum as u32;
-    let m = !old_value as u32;
-    let m_prime = new_value as u32;
+    let hc = u32::from(!old_checksum);
+    let m = u32::from(!old_value);
+    let m_prime = u32::from(new_value);
 
     let mut sum = hc + m + m_prime;
 
@@ -81,6 +84,7 @@ pub fn incremental_update_checksum(old_checksum: u16, old_value: u16, new_value:
 ///
 /// Useful for updating checksum after IP address changes.
 #[inline]
+#[must_use]
 pub fn incremental_update_checksum_32(old_checksum: u16, old_value: u32, new_value: u32) -> u16 {
     // Update for high 16 bits, then low 16 bits
     let old_high = (old_value >> 16) as u16;
@@ -111,6 +115,7 @@ pub fn incremental_update_checksum_32(old_checksum: u16, old_value: u32, new_val
 /// # Returns
 ///
 /// The partial checksum from the pseudo-header.
+#[must_use]
 pub fn pseudo_header_checksum(
     src_ip: &[u8; 4],
     dst_ip: &[u8; 4],
@@ -120,18 +125,18 @@ pub fn pseudo_header_checksum(
     let mut sum: u32 = 0;
 
     // Source IP
-    sum += u16::from_be_bytes([src_ip[0], src_ip[1]]) as u32;
-    sum += u16::from_be_bytes([src_ip[2], src_ip[3]]) as u32;
+    sum += u32::from(u16::from_be_bytes([src_ip[0], src_ip[1]]));
+    sum += u32::from(u16::from_be_bytes([src_ip[2], src_ip[3]]));
 
     // Destination IP
-    sum += u16::from_be_bytes([dst_ip[0], dst_ip[1]]) as u32;
-    sum += u16::from_be_bytes([dst_ip[2], dst_ip[3]]) as u32;
+    sum += u32::from(u16::from_be_bytes([dst_ip[0], dst_ip[1]]));
+    sum += u32::from(u16::from_be_bytes([dst_ip[2], dst_ip[3]]));
 
     // Zero + Protocol
-    sum += protocol as u32;
+    sum += u32::from(protocol);
 
     // Transport length
-    sum += transport_len as u32;
+    sum += u32::from(transport_len);
 
     sum
 }
@@ -148,6 +153,7 @@ pub fn pseudo_header_checksum(
 /// # Returns
 ///
 /// The computed checksum value.
+#[must_use]
 pub fn transport_checksum(
     src_ip: &[u8; 4],
     dst_ip: &[u8; 4],
@@ -160,12 +166,12 @@ pub fn transport_checksum(
     // Add transport data
     let mut chunks = transport_data.chunks_exact(2);
     for chunk in chunks.by_ref() {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Handle odd byte
     if let Some(&last) = chunks.remainder().first() {
-        sum += (last as u32) << 8;
+        sum += u32::from(last) << 8;
     }
 
     // Fold and complement
@@ -207,6 +213,7 @@ pub fn write_checksum(buf: &mut [u8], offset: usize, checksum: u16) {
 
 /// Read checksum from buffer at the specified offset.
 #[inline]
+#[must_use]
 pub fn read_checksum(buf: &[u8], offset: usize) -> Option<u16> {
     if buf.len() >= offset + 2 {
         Some(u16::from_be_bytes([buf[offset], buf[offset + 1]]))

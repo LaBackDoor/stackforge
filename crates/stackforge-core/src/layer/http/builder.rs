@@ -64,23 +64,27 @@ impl Default for HttpRequestBuilder {
 
 impl HttpRequestBuilder {
     /// Create a new builder with default values (`GET / HTTP/1.1`).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the HTTP method (e.g. `"GET"`, `"POST"`).
+    #[must_use]
     pub fn method(mut self, method: &str) -> Self {
         self.method = method.to_owned();
         self
     }
 
     /// Set the request-URI.
+    #[must_use]
     pub fn uri(mut self, uri: &str) -> Self {
         self.uri = uri.to_owned();
         self
     }
 
     /// Set the HTTP version string (e.g. `"HTTP/1.0"` or `"HTTP/1.1"`).
+    #[must_use]
     pub fn version(mut self, version: &str) -> Self {
         self.version = version.to_owned();
         self
@@ -90,6 +94,7 @@ impl HttpRequestBuilder {
     ///
     /// Headers are written in the order they are added.  No deduplication is
     /// performed.
+    #[must_use]
     pub fn header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
         self
@@ -99,6 +104,7 @@ impl HttpRequestBuilder {
     ///
     /// Note: this method does **not** automatically add a `Content-Length`
     /// header; callers should add it explicitly if required.
+    #[must_use]
     pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = body;
         self
@@ -116,6 +122,7 @@ impl HttpRequestBuilder {
     /// \r\n
     /// [body]
     /// ```
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::new();
 
@@ -180,11 +187,13 @@ impl Default for HttpResponseBuilder {
 
 impl HttpResponseBuilder {
     /// Create a new builder with default values (`HTTP/1.1 200 OK`).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the HTTP version string.
+    #[must_use]
     pub fn version(mut self, version: &str) -> Self {
         self.version = version.to_owned();
         self
@@ -203,6 +212,7 @@ impl HttpResponseBuilder {
     ///
     /// assert!(bytes.starts_with(b"HTTP/1.1 404 Not Found\r\n"));
     /// ```
+    #[must_use]
     pub fn status(mut self, code: u16, reason: &str) -> Self {
         self.status_code = code;
         self.reason = reason.to_owned();
@@ -213,6 +223,7 @@ impl HttpResponseBuilder {
     ///
     /// Headers are written in the order they are added.  No deduplication is
     /// performed.
+    #[must_use]
     pub fn header(mut self, name: &str, value: &str) -> Self {
         self.headers.push((name.to_owned(), value.to_owned()));
         self
@@ -222,6 +233,7 @@ impl HttpResponseBuilder {
     ///
     /// Note: this method does **not** automatically add a `Content-Length`
     /// header; callers should add it explicitly if required.
+    #[must_use]
     pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = body;
         self
@@ -239,6 +251,7 @@ impl HttpResponseBuilder {
     /// \r\n
     /// [body]
     /// ```
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::new();
 

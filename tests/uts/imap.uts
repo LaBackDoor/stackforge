@@ -1,0 +1,147 @@
+# IMAP layer unit tests
+# Tests for the Internet Message Access Protocol (RFC 3501) layer.
+# IMAP operates over TCP port 143 (993 for IMAPS).
+
++ Syntax check
+= Import the IMAP layer
+from scapy.contrib.imap import *
+
+
++ IMAP server response builder tests
+
+= IMAP server greeting (untagged OK)
+p = IMAP(status="OK", tag="*", text="IMAP4rev1 Service Ready")
+assert bytes(p) == b"* OK IMAP4rev1 Service Ready\r\n"
+
+= IMAP tagged OK response
+p = IMAP(status="OK", tag="A001", text="LOGIN completed")
+assert bytes(p) == b"A001 OK LOGIN completed\r\n"
+
+= IMAP tagged NO response
+p = IMAP(status="NO", tag="A002", text="login failed")
+assert bytes(p) == b"A002 NO login failed\r\n"
+
+= IMAP tagged BAD response
+p = IMAP(status="BAD", tag="A003", text="unknown command")
+assert bytes(p) == b"A003 BAD unknown command\r\n"
+
+= IMAP untagged BYE
+p = IMAP(status="BYE", tag="*", text="Server logging out")
+assert bytes(p) == b"* BYE Server logging out\r\n"
+
+= IMAP untagged CAPABILITY
+p = IMAP(command="CAPABILITY", tag="*", args="IMAP4rev1 AUTH=PLAIN STARTTLS")
+assert bytes(p) == b"* CAPABILITY IMAP4rev1 AUTH=PLAIN STARTTLS\r\n"
+
+= IMAP untagged EXISTS
+p = IMAP(command="3", tag="*", args="EXISTS")
+assert bytes(p) == b"* 3 EXISTS\r\n"
+
+= IMAP untagged RECENT
+p = IMAP(command="2", tag="*", args="RECENT")
+assert bytes(p) == b"* 2 RECENT\r\n"
+
+
++ IMAP client command builder tests
+
+= IMAP LOGIN command
+p = IMAP(command="LOGIN", tag="A001", args="alice password123")
+assert bytes(p) == b"A001 LOGIN alice password123\r\n"
+
+= IMAP SELECT command
+p = IMAP(command="SELECT", tag="A002", args="INBOX")
+assert bytes(p) == b"A002 SELECT INBOX\r\n"
+
+= IMAP FETCH command
+p = IMAP(command="FETCH", tag="A003", args="1:* FLAGS")
+assert bytes(p) == b"A003 FETCH 1:* FLAGS\r\n"
+
+= IMAP LOGOUT command
+p = IMAP(command="LOGOUT", tag="A004")
+assert bytes(p) == b"A004 LOGOUT\r\n"
+
+= IMAP NOOP command
+p = IMAP(command="NOOP", tag="A005")
+assert bytes(p) == b"A005 NOOP\r\n"
+
+= IMAP SEARCH command
+p = IMAP(command="SEARCH", tag="A006", args="UNSEEN")
+assert bytes(p) == b"A006 SEARCH UNSEEN\r\n"
+
+= IMAP EXPUNGE command
+p = IMAP(command="EXPUNGE", tag="A007")
+assert bytes(p) == b"A007 EXPUNGE\r\n"
+
+
++ IMAP packet dissection tests
+
+= IMAP server greeting dissection
+s = b"* OK IMAP4rev1 Service Ready\r\n"
+p = IMAP(s)
+assert p.is_untagged is True
+assert p.tag == "*"
+assert p.command == "OK"
+assert p.is_continuation is False
+
+= IMAP tagged OK response dissection
+s = b"A001 OK LOGIN completed\r\n"
+p = IMAP(s)
+assert p.is_tagged_response is True
+assert p.tag == "A001"
+assert p.command == "OK"
+assert p.status == "OK"
+assert p.args == "LOGIN completed"
+assert p.is_client_command is False
+
+= IMAP tagged NO response dissection
+s = b"A002 NO login failed\r\n"
+p = IMAP(s)
+assert p.is_tagged_response is True
+assert p.tag == "A002"
+assert p.status == "NO"
+
+= IMAP tagged BAD response dissection
+s = b"A003 BAD unknown command\r\n"
+p = IMAP(s)
+assert p.is_tagged_response is True
+assert p.status == "BAD"
+
+= IMAP client LOGIN dissection
+s = b"A001 LOGIN alice password123\r\n"
+p = IMAP(s)
+assert p.is_client_command is True
+assert p.tag == "A001"
+assert p.command == "LOGIN"
+assert p.args == "alice password123"
+
+= IMAP client SELECT dissection
+s = b"A002 SELECT INBOX\r\n"
+p = IMAP(s)
+assert p.is_client_command is True
+assert p.command == "SELECT"
+assert p.args == "INBOX"
+
+= IMAP client FETCH dissection
+s = b"A003 FETCH 1:* (FLAGS BODY[HEADER])\r\n"
+p = IMAP(s)
+assert p.is_client_command is True
+assert p.command == "FETCH"
+
+= IMAP continuation request dissection
+s = b"+ go ahead\r\n"
+p = IMAP(s)
+assert p.is_continuation is True
+assert p.tag == "+"
+
+= IMAP untagged EXISTS dissection
+s = b"* 3 EXISTS\r\n"
+p = IMAP(s)
+assert p.is_untagged is True
+assert p.tag == "*"
+
+= IMAP BYE untagged dissection
+s = b"* BYE Server closing\r\n"
+p = IMAP(s)
+assert p.is_untagged is True
+assert p.command == "BYE"
+assert p.status == "BYE"

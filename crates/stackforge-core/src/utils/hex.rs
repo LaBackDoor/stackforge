@@ -10,20 +10,21 @@ use std::fmt::Write;
 /// let data = b"Hello, World!";
 /// println!("{}", hexdump(data));
 /// ```
+#[must_use]
 pub fn hexdump(data: &[u8]) -> String {
     let mut output = String::new();
     let mut offset = 0;
 
     for chunk in data.chunks(16) {
         // Offset
-        write!(output, "{:08x}  ", offset).unwrap();
+        write!(output, "{offset:08x}  ").unwrap();
 
         // Hex bytes
         for (i, byte) in chunk.iter().enumerate() {
             if i == 8 {
                 output.push(' ');
             }
-            write!(output, "{:02x} ", byte).unwrap();
+            write!(output, "{byte:02x} ").unwrap();
         }
 
         // Padding for incomplete lines
@@ -56,27 +57,29 @@ pub fn hexdump(data: &[u8]) -> String {
 }
 
 /// Generate a compact hex string representation.
+#[must_use]
 pub fn hexstr(data: &[u8]) -> String {
     let mut output = String::with_capacity(data.len() * 2);
     for byte in data {
-        write!(output, "{:02x}", byte).unwrap();
+        write!(output, "{byte:02x}").unwrap();
     }
     output
 }
 
 /// Generate hex string with separator.
+#[must_use]
 pub fn hexstr_sep(data: &[u8], sep: &str) -> String {
     data.iter()
-        .map(|b| format!("{:02x}", b))
+        .map(|b| format!("{b:02x}"))
         .collect::<Vec<_>>()
         .join(sep)
 }
 
 /// Parse a hex string into bytes.
 pub fn parse_hex(s: &str) -> Result<Vec<u8>, String> {
-    let s = s.trim().replace(" ", "").replace(":", "").replace("-", "");
+    let s = s.trim().replace([' ', ':', '-'], "");
 
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("hex string must have even length".to_string());
     }
 
@@ -84,12 +87,13 @@ pub fn parse_hex(s: &str) -> Result<Vec<u8>, String> {
         .step_by(2)
         .map(|i| {
             u8::from_str_radix(&s[i..i + 2], 16)
-                .map_err(|e| format!("invalid hex at position {}: {}", i, e))
+                .map_err(|e| format!("invalid hex at position {i}: {e}"))
         })
         .collect()
 }
 
-/// Convert bytes to a pretty-printed representation (like Scapy's show()).
+/// Convert bytes to a pretty-printed representation (like Scapy's `show()`).
+#[must_use]
 pub fn pretty_bytes(data: &[u8], indent: usize) -> String {
     let indent_str = " ".repeat(indent);
     let mut output = String::new();
@@ -101,7 +105,7 @@ pub fn pretty_bytes(data: &[u8], indent: usize) -> String {
         output.push_str(&indent_str);
 
         for byte in chunk {
-            write!(output, "{:02x} ", byte).unwrap();
+            write!(output, "{byte:02x} ").unwrap();
         }
     }
 

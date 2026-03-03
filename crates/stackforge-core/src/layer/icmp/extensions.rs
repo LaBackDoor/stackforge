@@ -21,6 +21,7 @@ pub mod class_nums {
 }
 
 /// Get human-readable name for extension class number
+#[must_use]
 pub fn class_name(classnum: u8) -> &'static str {
     match classnum {
         class_nums::MPLS => "MPLS",
@@ -59,6 +60,7 @@ pub struct InterfaceInfoFlags {
 
 impl InterfaceInfoFlags {
     /// Parse flags from the classtype byte
+    #[must_use]
     pub fn from_byte(byte: u8) -> Self {
         Self {
             has_ifindex: (byte & 0b0001_0000) != 0,
@@ -69,6 +71,7 @@ impl InterfaceInfoFlags {
     }
 
     /// Convert flags to byte representation
+    #[must_use]
     pub fn to_byte(&self) -> u8 {
         let mut byte = 0u8;
         if self.has_ifindex {
@@ -116,6 +119,7 @@ pub enum IpAddr {
 /// RFC 4884 specifies that extensions are indicated by a length field in the
 /// ICMP header being non-zero. For error messages, the original datagram
 /// is padded to 128 bytes minimum, and extensions follow.
+#[must_use]
 pub fn has_extensions(icmp_type: u8, payload_len: usize) -> bool {
     use crate::layer::icmp::error;
 
@@ -138,6 +142,7 @@ pub fn has_extensions(icmp_type: u8, payload_len: usize) -> bool {
 /// Get the offset where ICMP extensions begin in an error message.
 ///
 /// Returns None if extensions are not present.
+#[must_use]
 pub fn extension_offset(icmp_header_start: usize, icmp_payload: &[u8]) -> Option<usize> {
     // Extensions start after the padded original datagram (128 bytes minimum)
     // RFC 4884 Section 4.1: The original datagram is padded to 128 bytes
@@ -149,6 +154,7 @@ pub fn extension_offset(icmp_header_start: usize, icmp_payload: &[u8]) -> Option
 }
 
 /// Parse the ICMP Extension Header
+#[must_use]
 pub fn parse_extension_header(buf: &[u8], offset: usize) -> Option<(u8, u16)> {
     if offset + EXTENSION_HEADER_LEN > buf.len() {
         return None;
@@ -167,6 +173,7 @@ pub fn parse_extension_header(buf: &[u8], offset: usize) -> Option<(u8, u16)> {
 }
 
 /// Verify the extension header checksum
+#[must_use]
 pub fn verify_extension_checksum(buf: &[u8], ext_start: usize, ext_len: usize) -> bool {
     if ext_start + ext_len > buf.len() || ext_len < EXTENSION_HEADER_LEN {
         return false;
@@ -185,6 +192,7 @@ pub fn verify_extension_checksum(buf: &[u8], ext_start: usize, ext_len: usize) -
 }
 
 /// Parse an Extension Object header
+#[must_use]
 pub fn parse_extension_object(buf: &[u8], offset: usize) -> Option<(u16, u8, u8, usize)> {
     if offset + EXTENSION_OBJECT_MIN_LEN > buf.len() {
         return None;
@@ -195,7 +203,7 @@ pub fn parse_extension_object(buf: &[u8], offset: usize) -> Option<(u16, u8, u8,
     let classtype = buf[offset + 3];
 
     // Length must be at least 4 bytes and a multiple of 4 (RFC 4884)
-    if len < 4 || len % 4 != 0 {
+    if len < 4 || !len.is_multiple_of(4) {
         return None;
     }
 
@@ -205,6 +213,7 @@ pub fn parse_extension_object(buf: &[u8], offset: usize) -> Option<(u16, u8, u8,
 }
 
 /// Parse Interface Information extension object (RFC 5837)
+#[must_use]
 pub fn parse_interface_information(
     buf: &[u8],
     data_offset: usize,

@@ -22,6 +22,7 @@ pub struct LayerBinding {
 }
 
 impl LayerBinding {
+    #[must_use]
     pub const fn new(
         lower: LayerKind,
         upper: LayerKind,
@@ -39,7 +40,7 @@ impl LayerBinding {
 
 /// Static table of layer bindings.
 ///
-/// Format: (lower_layer, upper_layer, field_name, field_value)
+/// Format: (`lower_layer`, `upper_layer`, `field_name`, `field_value`)
 pub static LAYER_BINDINGS: &[LayerBinding] = &[
     // Ethernet -> *
     LayerBinding::new(LayerKind::Ethernet, LayerKind::Arp, "type", ethertype::ARP),
@@ -134,11 +135,14 @@ pub static LAYER_BINDINGS: &[LayerBinding] = &[
     LayerBinding::new(LayerKind::Tcp, LayerKind::Http, "dport", 8000),
     LayerBinding::new(LayerKind::Tcp, LayerKind::Http, "dport", 8008),
     LayerBinding::new(LayerKind::Tcp, LayerKind::Http, "dport", 8888),
+    LayerBinding::new(LayerKind::Tcp, LayerKind::Modbus, "dport", 502),
+    LayerBinding::new(LayerKind::Tcp, LayerKind::Mqtt, "dport", 1883),
     // UDP -> * (port-based, dport field)
     LayerBinding::new(LayerKind::Udp, LayerKind::Dns, "dport", 53),
     LayerBinding::new(LayerKind::Udp, LayerKind::Quic, "dport", 443),
     LayerBinding::new(LayerKind::Udp, LayerKind::Quic, "dport", 4433),
     LayerBinding::new(LayerKind::Udp, LayerKind::L2tp, "dport", 1701),
+    LayerBinding::new(LayerKind::Udp, LayerKind::MqttSn, "dport", 1883),
     // IPv6 -> *
     LayerBinding::new(
         LayerKind::Ipv6,
@@ -161,6 +165,7 @@ pub static LAYER_BINDINGS: &[LayerBinding] = &[
 ];
 
 /// Find the binding for a given layer pair.
+#[must_use]
 pub fn find_binding(lower: LayerKind, upper: LayerKind) -> Option<&'static LayerBinding> {
     LAYER_BINDINGS
         .iter()
@@ -179,8 +184,9 @@ pub fn find_bindings_to(upper: LayerKind) -> impl Iterator<Item = &'static Layer
 
 /// Determine the upper layer kind based on field value.
 ///
-/// For example, if lower=Ethernet and field_name="type" and value=0x0806,
-/// returns Some(LayerKind::Arp).
+/// For example, if lower=Ethernet and `field_name="type`" and value=0x0806,
+/// returns `Some(LayerKind::Arp)`.
+#[must_use]
 pub fn infer_upper_layer(lower: LayerKind, field_name: &str, value: u16) -> Option<LayerKind> {
     LAYER_BINDINGS
         .iter()
@@ -189,6 +195,7 @@ pub fn infer_upper_layer(lower: LayerKind, field_name: &str, value: u16) -> Opti
 }
 
 /// Get the expected upper layer kinds for a given lower layer.
+#[must_use]
 pub fn expected_upper_layers(lower: LayerKind) -> Vec<LayerKind> {
     find_bindings_from(lower).map(|b| b.upper).collect()
 }
@@ -200,11 +207,13 @@ pub struct BindingRegistry {
 }
 
 impl BindingRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create a registry pre-populated with static bindings.
+    #[must_use]
     pub fn with_defaults() -> Self {
         Self {
             bindings: LAYER_BINDINGS.to_vec(),
@@ -227,6 +236,7 @@ impl BindingRegistry {
     }
 
     /// Find a binding in this registry.
+    #[must_use]
     pub fn find(&self, lower: LayerKind, upper: LayerKind) -> Option<&LayerBinding> {
         self.bindings
             .iter()
@@ -239,6 +249,7 @@ impl BindingRegistry {
     }
 
     /// Infer upper layer from field value.
+    #[must_use]
     pub fn infer_upper(&self, lower: LayerKind, field_name: &str, value: u16) -> Option<LayerKind> {
         self.bindings
             .iter()
@@ -250,6 +261,7 @@ impl BindingRegistry {
 /// Apply binding to set the appropriate field when stacking layers.
 ///
 /// Returns the field name and value that should be set, if a binding exists.
+#[must_use]
 pub fn apply_binding(lower: LayerKind, upper: LayerKind) -> Option<(&'static str, u16)> {
     find_binding(lower, upper).map(|b| (b.field_name, b.field_value))
 }

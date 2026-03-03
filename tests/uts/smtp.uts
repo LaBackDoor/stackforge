@@ -1,0 +1,128 @@
+# SMTP layer unit tests
+# Tests for the Simple Mail Transfer Protocol (RFC 5321) layer.
+# SMTP operates over TCP port 25 (relay), 587 (submission), 465 (SMTPS).
+
++ Syntax check
+= Import the SMTP layer
+from scapy.contrib.smtp import *
+
+
++ SMTP server reply builder tests
+
+= SMTP 220 Service Ready
+p = SMTP(reply_code=220, reply_text="mail.example.com ESMTP")
+assert bytes(p) == b"220 mail.example.com ESMTP\r\n"
+
+= SMTP 221 Closing
+p = SMTP(reply_code=221, reply_text="Bye")
+assert bytes(p) == b"221 Bye\r\n"
+
+= SMTP 235 Authentication successful
+p = SMTP(reply_code=235, reply_text="Authentication successful")
+assert bytes(p) == b"235 Authentication successful\r\n"
+
+= SMTP 250 OK
+p = SMTP(reply_code=250, reply_text="OK")
+assert bytes(p) == b"250 OK\r\n"
+
+= SMTP 354 Start mail input
+p = SMTP(reply_code=354, reply_text="Start mail input; end with <CRLF>.<CRLF>")
+assert bytes(p) == b"354 Start mail input; end with <CRLF>.<CRLF>\r\n"
+
+= SMTP 421 Service unavailable
+p = SMTP(reply_code=421, reply_text="Service not available")
+assert bytes(p) == b"421 Service not available\r\n"
+
+= SMTP 535 Authentication failed
+p = SMTP(reply_code=535, reply_text="Authentication credentials invalid")
+assert bytes(p) == b"535 Authentication credentials invalid\r\n"
+
+= SMTP 550 Mailbox not found
+p = SMTP(reply_code=550, reply_text="User not found")
+assert bytes(p) == b"550 User not found\r\n"
+
+
++ SMTP client command builder tests
+
+= SMTP EHLO command
+p = SMTP(command="EHLO", args="client.example.com")
+assert bytes(p) == b"EHLO client.example.com\r\n"
+
+= SMTP HELO command
+p = SMTP(command="HELO", args="client.example.com")
+assert bytes(p) == b"HELO client.example.com\r\n"
+
+= SMTP MAIL FROM command
+p = SMTP(command="MAIL", args="FROM:<user@example.com>")
+assert bytes(p) == b"MAIL FROM:<user@example.com>\r\n"
+
+= SMTP RCPT TO command
+p = SMTP(command="RCPT", args="TO:<dest@example.com>")
+assert bytes(p) == b"RCPT TO:<dest@example.com>\r\n"
+
+= SMTP DATA command
+p = SMTP(command="DATA")
+assert bytes(p) == b"DATA\r\n"
+
+= SMTP QUIT command
+p = SMTP(command="QUIT")
+assert bytes(p) == b"QUIT\r\n"
+
+= SMTP STARTTLS command
+p = SMTP(command="STARTTLS")
+assert bytes(p) == b"STARTTLS\r\n"
+
+= SMTP AUTH command
+p = SMTP(command="AUTH", args="LOGIN")
+assert bytes(p) == b"AUTH LOGIN\r\n"
+
+= SMTP RSET command
+p = SMTP(command="RSET")
+assert bytes(p) == b"RSET\r\n"
+
+
++ SMTP packet dissection tests
+
+= SMTP 220 dissection
+s = b"220 mail.example.com ESMTP Postfix\r\n"
+p = SMTP(s)
+assert p.reply_code == 220
+assert p.is_response is True
+assert p.is_multiline is False
+
+= SMTP EHLO dissection
+s = b"EHLO client.example.com\r\n"
+p = SMTP(s)
+assert p.command == "EHLO"
+assert p.args == "client.example.com"
+assert p.is_response is False
+
+= SMTP 250 OK dissection
+s = b"250 OK\r\n"
+p = SMTP(s)
+assert p.reply_code == 250
+assert p.is_response is True
+
+= SMTP MAIL FROM dissection with mailfrom extraction
+s = b"MAIL FROM:<sender@example.com>\r\n"
+p = SMTP(s)
+assert p.command == "MAIL"
+assert p.mailfrom == "sender@example.com"
+
+= SMTP RCPT TO dissection with rcptto extraction
+s = b"RCPT TO:<recipient@example.com>\r\n"
+p = SMTP(s)
+assert p.command == "RCPT"
+assert p.rcptto == "recipient@example.com"
+
+= SMTP multiline EHLO response
+s = b"250-mail.example.com\r\n250-PIPELINING\r\n250 OK\r\n"
+p = SMTP(s)
+assert p.reply_code == 250
+assert p.is_multiline is True
+
+= SMTP 535 dissection
+s = b"535 Authentication credentials invalid\r\n"
+p = SMTP(s)
+assert p.reply_code == 535
+assert p.is_response is True

@@ -81,6 +81,7 @@ impl Default for UdpBuilder {
 
 impl UdpBuilder {
     /// Create a new UDP builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -121,23 +122,27 @@ impl UdpBuilder {
     // ========== Header Field Setters ==========
 
     /// Set the source port.
+    #[must_use]
     pub fn src_port(mut self, port: u16) -> Self {
         self.src_port = port;
         self
     }
 
-    /// Alias for src_port (Scapy compatibility).
+    /// Alias for `src_port` (Scapy compatibility).
+    #[must_use]
     pub fn sport(self, port: u16) -> Self {
         self.src_port(port)
     }
 
     /// Set the destination port.
+    #[must_use]
     pub fn dst_port(mut self, port: u16) -> Self {
         self.dst_port = port;
         self
     }
 
-    /// Alias for dst_port (Scapy compatibility).
+    /// Alias for `dst_port` (Scapy compatibility).
+    #[must_use]
     pub fn dport(self, port: u16) -> Self {
         self.dst_port(port)
     }
@@ -145,6 +150,7 @@ impl UdpBuilder {
     /// Set the UDP length manually.
     ///
     /// If not set, the length will be calculated automatically (8 + payload length).
+    #[must_use]
     pub fn length(mut self, len: u16) -> Self {
         self.length = Some(len);
         self.auto_length = false;
@@ -152,6 +158,7 @@ impl UdpBuilder {
     }
 
     /// Alias for length (Scapy compatibility).
+    #[must_use]
     pub fn len(self, len: u16) -> Self {
         self.length(len)
     }
@@ -159,6 +166,7 @@ impl UdpBuilder {
     /// Set the checksum manually.
     ///
     /// If not set, the checksum will be calculated automatically if IP addresses are provided.
+    #[must_use]
     pub fn checksum(mut self, csum: u16) -> Self {
         self.checksum = Some(csum);
         self.auto_checksum = false;
@@ -166,11 +174,13 @@ impl UdpBuilder {
     }
 
     /// Alias for checksum (Scapy compatibility).
+    #[must_use]
     pub fn chksum(self, csum: u16) -> Self {
         self.checksum(csum)
     }
 
     /// Enable automatic length calculation (default).
+    #[must_use]
     pub fn enable_auto_length(mut self) -> Self {
         self.auto_length = true;
         self.length = None;
@@ -178,12 +188,14 @@ impl UdpBuilder {
     }
 
     /// Disable automatic length calculation.
+    #[must_use]
     pub fn disable_auto_length(mut self) -> Self {
         self.auto_length = false;
         self
     }
 
     /// Enable automatic checksum calculation (default).
+    #[must_use]
     pub fn enable_auto_checksum(mut self) -> Self {
         self.auto_checksum = true;
         self.checksum = None;
@@ -191,6 +203,7 @@ impl UdpBuilder {
     }
 
     /// Disable automatic checksum calculation.
+    #[must_use]
     pub fn disable_auto_checksum(mut self) -> Self {
         self.auto_checksum = false;
         self
@@ -199,35 +212,41 @@ impl UdpBuilder {
     // ========== IP Address Setters ==========
 
     /// Set source IPv4 address for checksum calculation.
+    #[must_use]
     pub fn src_ipv4(mut self, addr: Ipv4Addr) -> Self {
         self.src_ip = Some(IpAddr::V4(addr));
         self
     }
 
     /// Set destination IPv4 address for checksum calculation.
+    #[must_use]
     pub fn dst_ipv4(mut self, addr: Ipv4Addr) -> Self {
         self.dst_ip = Some(IpAddr::V4(addr));
         self
     }
 
     /// Set source IPv6 address for checksum calculation.
+    #[must_use]
     pub fn src_ipv6(mut self, addr: Ipv6Addr) -> Self {
         self.src_ip = Some(IpAddr::V6(addr));
         self
     }
 
     /// Set destination IPv6 address for checksum calculation.
+    #[must_use]
     pub fn dst_ipv6(mut self, addr: Ipv6Addr) -> Self {
         self.dst_ip = Some(IpAddr::V6(addr));
         self
     }
 
     /// Set both source and destination IPv4 addresses.
+    #[must_use]
     pub fn ipv4_addrs(self, src: Ipv4Addr, dst: Ipv4Addr) -> Self {
         self.src_ipv4(src).dst_ipv4(dst)
     }
 
     /// Set both source and destination IPv6 addresses.
+    #[must_use]
     pub fn ipv6_addrs(self, src: Ipv6Addr, dst: Ipv6Addr) -> Self {
         self.src_ipv6(src).dst_ipv6(dst)
     }
@@ -249,11 +268,13 @@ impl UdpBuilder {
     // ========== Size Calculation ==========
 
     /// Get the total packet size (header + payload).
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         UDP_HEADER_LEN + self.payload.len()
     }
 
     /// Get the header size (always 8 bytes for UDP).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         UDP_HEADER_LEN
     }
@@ -261,6 +282,7 @@ impl UdpBuilder {
     // ========== Build Methods ==========
 
     /// Build the UDP packet into a new buffer.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total_size = self.packet_size();
         let mut buf = vec![0u8; total_size];
@@ -322,6 +344,7 @@ impl UdpBuilder {
     }
 
     /// Build just the UDP header (without payload).
+    #[must_use]
     pub fn build_header(&self) -> Vec<u8> {
         let mut buf = vec![0u8; UDP_HEADER_LEN];
 
@@ -355,21 +378,25 @@ impl UdpBuilder {
 
 impl UdpBuilder {
     /// Create a DNS query packet builder (port 53).
+    #[must_use]
     pub fn dns_query() -> Self {
         Self::new().src_port(53).dst_port(53)
     }
 
     /// Create a DHCP client packet builder (ports 68 -> 67).
+    #[must_use]
     pub fn dhcp_client() -> Self {
         Self::new().src_port(68).dst_port(67)
     }
 
     /// Create a DHCP server packet builder (ports 67 -> 68).
+    #[must_use]
     pub fn dhcp_server() -> Self {
         Self::new().src_port(67).dst_port(68)
     }
 
     /// Create a NTP packet builder (port 123).
+    #[must_use]
     pub fn ntp() -> Self {
         Self::new().src_port(123).dst_port(123)
     }

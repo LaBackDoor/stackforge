@@ -41,17 +41,17 @@ pub enum Http2FrameType {
     Headers,
     /// PRIORITY frame (type=0x2).
     Priority,
-    /// RST_STREAM frame (type=0x3).
+    /// `RST_STREAM` frame (type=0x3).
     RstStream,
     /// SETTINGS frame (type=0x4).
     Settings,
-    /// PUSH_PROMISE frame (type=0x5).
+    /// `PUSH_PROMISE` frame (type=0x5).
     PushPromise,
     /// PING frame (type=0x6).
     Ping,
     /// GOAWAY frame (type=0x7).
     GoAway,
-    /// WINDOW_UPDATE frame (type=0x8).
+    /// `WINDOW_UPDATE` frame (type=0x8).
     WindowUpdate,
     /// CONTINUATION frame (type=0x9).
     Continuation,
@@ -61,6 +61,7 @@ pub enum Http2FrameType {
 
 impl Http2FrameType {
     /// Convert a raw u8 byte to an `Http2FrameType`.
+    #[must_use]
     pub fn from_u8(t: u8) -> Self {
         match t {
             0 => Self::Data,
@@ -78,6 +79,7 @@ impl Http2FrameType {
     }
 
     /// Get the human-readable name of this frame type.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Data => "DATA",
@@ -95,6 +97,7 @@ impl Http2FrameType {
     }
 
     /// Convert to raw u8 byte value.
+    #[must_use]
     pub fn as_u8(&self) -> u8 {
         match self {
             Self::Data => 0,
@@ -124,14 +127,14 @@ impl std::fmt::Display for Http2FrameType {
 
 /// Flag constants for HTTP/2 frame types (RFC 7540 Section 6).
 pub mod flags {
-    /// DATA frame: END_STREAM flag (0x1) - indicates the last DATA frame for a stream.
+    /// DATA frame: `END_STREAM` flag (0x1) - indicates the last DATA frame for a stream.
     pub const DATA_END_STREAM: u8 = 0x01;
     /// DATA frame: PADDED flag (0x8) - indicates padding is present.
     pub const DATA_PADDED: u8 = 0x08;
 
-    /// HEADERS frame: END_STREAM flag (0x1) - last HEADERS/CONTINUATION for this stream.
+    /// HEADERS frame: `END_STREAM` flag (0x1) - last HEADERS/CONTINUATION for this stream.
     pub const HEADERS_END_STREAM: u8 = 0x01;
-    /// HEADERS frame: END_HEADERS flag (0x4) - the frame contains a complete header block.
+    /// HEADERS frame: `END_HEADERS` flag (0x4) - the frame contains a complete header block.
     pub const HEADERS_END_HEADERS: u8 = 0x04;
     /// HEADERS frame: PADDED flag (0x8) - padding is present.
     pub const HEADERS_PADDED: u8 = 0x08;
@@ -144,12 +147,12 @@ pub mod flags {
     /// PING frame: ACK flag (0x1) - this is a PING response.
     pub const PING_ACK: u8 = 0x01;
 
-    /// PUSH_PROMISE frame: END_HEADERS flag (0x4) - complete header block.
+    /// `PUSH_PROMISE` frame: `END_HEADERS` flag (0x4) - complete header block.
     pub const PUSH_PROMISE_END_HEADERS: u8 = 0x04;
-    /// PUSH_PROMISE frame: PADDED flag (0x8) - padding is present.
+    /// `PUSH_PROMISE` frame: PADDED flag (0x8) - padding is present.
     pub const PUSH_PROMISE_PADDED: u8 = 0x08;
 
-    /// CONTINUATION frame: END_HEADERS flag (0x4) - complete header block.
+    /// CONTINUATION frame: `END_HEADERS` flag (0x4) - complete header block.
     pub const CONTINUATION_END_HEADERS: u8 = 0x04;
 }
 
@@ -159,20 +162,21 @@ pub mod flags {
 
 /// SETTINGS parameter identifiers (RFC 7540 Section 6.5.2).
 pub mod settings_id {
-    /// SETTINGS_HEADER_TABLE_SIZE (0x1): initial value 4096.
+    /// `SETTINGS_HEADER_TABLE_SIZE` (0x1): initial value 4096.
     pub const HEADER_TABLE_SIZE: u16 = 0x0001;
-    /// SETTINGS_ENABLE_PUSH (0x2): initial value 1.
+    /// `SETTINGS_ENABLE_PUSH` (0x2): initial value 1.
     pub const ENABLE_PUSH: u16 = 0x0002;
-    /// SETTINGS_MAX_CONCURRENT_STREAMS (0x3): initially unlimited.
+    /// `SETTINGS_MAX_CONCURRENT_STREAMS` (0x3): initially unlimited.
     pub const MAX_CONCURRENT_STREAMS: u16 = 0x0003;
-    /// SETTINGS_INITIAL_WINDOW_SIZE (0x4): initial value 65535.
+    /// `SETTINGS_INITIAL_WINDOW_SIZE` (0x4): initial value 65535.
     pub const INITIAL_WINDOW_SIZE: u16 = 0x0004;
-    /// SETTINGS_MAX_FRAME_SIZE (0x5): initial value 16384.
+    /// `SETTINGS_MAX_FRAME_SIZE` (0x5): initial value 16384.
     pub const MAX_FRAME_SIZE: u16 = 0x0005;
-    /// SETTINGS_MAX_HEADER_LIST_SIZE (0x6): initially unlimited.
+    /// `SETTINGS_MAX_HEADER_LIST_SIZE` (0x6): initially unlimited.
     pub const MAX_HEADER_LIST_SIZE: u16 = 0x0006;
 
     /// Get the human-readable name of a settings ID.
+    #[must_use]
     pub fn name(id: u16) -> &'static str {
         match id {
             HEADER_TABLE_SIZE => "HEADER_TABLE_SIZE",
@@ -208,6 +212,7 @@ pub mod error_codes {
     pub const HTTP_1_1_REQUIRED: u32 = 0xd;
 
     /// Get the human-readable name for an error code.
+    #[must_use]
     pub fn name(code: u32) -> &'static str {
         match code {
             NO_ERROR => "NO_ERROR",
@@ -256,6 +261,7 @@ impl Http2Frame {
     ///
     /// Returns `None` if there are not enough bytes for the frame header
     /// or if the payload extends beyond the buffer.
+    #[must_use]
     pub fn parse_at(buf: &[u8], offset: usize) -> Option<Self> {
         if offset + HTTP2_FRAME_HEADER_LEN > buf.len() {
             return None;
@@ -264,7 +270,8 @@ impl Http2Frame {
         let header = &buf[offset..offset + HTTP2_FRAME_HEADER_LEN];
 
         // Length is 3 bytes big-endian
-        let length = ((header[0] as u32) << 16) | ((header[1] as u32) << 8) | (header[2] as u32);
+        let length =
+            (u32::from(header[0]) << 16) | (u32::from(header[1]) << 8) | u32::from(header[2]);
 
         let frame_type = Http2FrameType::from_u8(header[3]);
         let flags = header[4];
@@ -291,6 +298,7 @@ impl Http2Frame {
     }
 
     /// Get the payload bytes from the original buffer.
+    #[must_use]
     pub fn payload<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         let end = self.payload_offset + self.length as usize;
         if end <= buf.len() {
@@ -300,16 +308,18 @@ impl Http2Frame {
         }
     }
 
-    /// Returns true if the END_STREAM flag is set.
+    /// Returns true if the `END_STREAM` flag is set.
     ///
     /// Valid for DATA and HEADERS frames.
+    #[must_use]
     pub fn is_end_stream(&self) -> bool {
         (self.flags & 0x01) != 0
     }
 
-    /// Returns true if the END_HEADERS flag is set.
+    /// Returns true if the `END_HEADERS` flag is set.
     ///
-    /// Valid for HEADERS, PUSH_PROMISE, and CONTINUATION frames.
+    /// Valid for HEADERS, `PUSH_PROMISE`, and CONTINUATION frames.
+    #[must_use]
     pub fn is_end_headers(&self) -> bool {
         (self.flags & 0x04) != 0
     }
@@ -317,13 +327,15 @@ impl Http2Frame {
     /// Returns true if the ACK flag is set.
     ///
     /// Valid for SETTINGS and PING frames.
+    #[must_use]
     pub fn is_ack(&self) -> bool {
         (self.flags & 0x01) != 0
     }
 
     /// Returns true if the PADDED flag is set.
     ///
-    /// Valid for DATA, HEADERS, and PUSH_PROMISE frames.
+    /// Valid for DATA, HEADERS, and `PUSH_PROMISE` frames.
+    #[must_use]
     pub fn is_padded(&self) -> bool {
         (self.flags & 0x08) != 0
     }
@@ -331,11 +343,13 @@ impl Http2Frame {
     /// Returns true if the PRIORITY flag is set.
     ///
     /// Valid for HEADERS frames.
+    #[must_use]
     pub fn has_priority(&self) -> bool {
         (self.flags & 0x20) != 0
     }
 
     /// Get a human-readable summary of this frame.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "{} stream={} length={} flags={:#04x}",
@@ -358,6 +372,7 @@ impl Http2Frame {
 ///
 /// Returns a list of successfully parsed frames. Stops at the first truncated
 /// or malformed frame.
+#[must_use]
 pub fn parse_all_frames(buf: &[u8]) -> Vec<Http2Frame> {
     let mut frames = Vec::new();
     let start = if buf.starts_with(HTTP2_PREFACE) {
@@ -389,6 +404,7 @@ pub fn parse_all_frames(buf: &[u8]) -> Vec<Http2Frame> {
 /// Parse a SETTINGS frame payload into a list of (id, value) pairs.
 ///
 /// Each settings entry is 6 bytes: 2-byte identifier + 4-byte value.
+#[must_use]
 pub fn parse_settings(payload: &[u8]) -> Vec<(u16, u32)> {
     let mut settings = Vec::new();
     let mut pos = 0;
@@ -411,6 +427,7 @@ pub fn parse_settings(payload: &[u8]) -> Vec<(u16, u32)> {
 /// Parse a GOAWAY frame payload.
 ///
 /// Returns `Some((last_stream_id, error_code))` or `None` if the payload is too short.
+#[must_use]
 pub fn parse_goaway(payload: &[u8]) -> Option<(u32, u32)> {
     if payload.len() < 8 {
         return None;
@@ -421,9 +438,10 @@ pub fn parse_goaway(payload: &[u8]) -> Option<(u32, u32)> {
     Some((last_stream_id, error_code))
 }
 
-/// Parse a WINDOW_UPDATE frame payload.
+/// Parse a `WINDOW_UPDATE` frame payload.
 ///
 /// Returns `Some(window_size_increment)` or `None` if the payload is too short.
+#[must_use]
 pub fn parse_window_update(payload: &[u8]) -> Option<u32> {
     if payload.len() < 4 {
         return None;
@@ -434,9 +452,10 @@ pub fn parse_window_update(payload: &[u8]) -> Option<u32> {
     Some(increment)
 }
 
-/// Parse a RST_STREAM frame payload.
+/// Parse a `RST_STREAM` frame payload.
 ///
 /// Returns `Some(error_code)` or `None` if the payload is too short.
+#[must_use]
 pub fn parse_rst_stream(payload: &[u8]) -> Option<u32> {
     if payload.len() < 4 {
         return None;
@@ -448,6 +467,7 @@ pub fn parse_rst_stream(payload: &[u8]) -> Option<u32> {
 /// Parse a PRIORITY frame payload.
 ///
 /// Returns `Some((exclusive, stream_dependency, weight))` or `None` if too short.
+#[must_use]
 pub fn parse_priority(payload: &[u8]) -> Option<(bool, u32, u8)> {
     if payload.len() < 5 {
         return None;
@@ -463,6 +483,7 @@ pub fn parse_priority(payload: &[u8]) -> Option<(bool, u32, u8)> {
 ///
 /// Strips padding and priority fields if the corresponding flags are set.
 /// Returns the HPACK-encoded header block fragment slice.
+#[must_use]
 pub fn headers_fragment<'a>(frame: &Http2Frame, buf: &'a [u8]) -> Option<&'a [u8]> {
     if frame.frame_type != Http2FrameType::Headers {
         return None;

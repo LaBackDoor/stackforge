@@ -36,6 +36,7 @@ impl<'a> HttpRequest<'a> {
     /// - the buffer does not start with a known HTTP method, or
     /// - the request line is malformed (missing method / URI / version), or
     /// - the header section is not terminated by `\r\n\r\n` within `buf`.
+    #[must_use]
     pub fn parse(buf: &'a [u8]) -> Option<Self> {
         // Quick rejection — must start with a known method token.
         if !is_http_request(buf) {
@@ -65,11 +66,7 @@ impl<'a> HttpRequest<'a> {
         // follows the request line's \r\n).
         let header_block_start = first_crlf + 2; // skip past the first \r\n
         let end_marker = "\r\n\r\n";
-        let search_start = if header_block_start >= 2 {
-            header_block_start - 2
-        } else {
-            0
-        };
+        let search_start = header_block_start.saturating_sub(2);
         let headers_end_offset = text[search_start..]
             .find(end_marker)
             .map(|rel| search_start + rel)?;
@@ -97,7 +94,7 @@ impl<'a> HttpRequest<'a> {
 ///
 /// Lines that do not contain a `:` are silently skipped, as are any trailing
 /// whitespace around header values.
-fn parse_headers<'a>(header_text: &'a str) -> Vec<(&'a str, &'a str)> {
+fn parse_headers(header_text: &str) -> Vec<(&str, &str)> {
     header_text
         .split("\r\n")
         .filter_map(|line| {

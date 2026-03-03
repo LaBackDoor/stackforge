@@ -45,7 +45,7 @@ pub struct BeaconPayload {
     pub gts_permit: bool,
 
     // GTS Directions (0 or 1 byte)
-    /// GTS direction mask (7 bits), present if gts_desc_count > 0.
+    /// GTS direction mask (7 bits), present if `gts_desc_count` > 0.
     pub gts_dir_mask: u8,
 
     // GTS Descriptor List
@@ -226,14 +226,15 @@ impl BeaconPayload {
     }
 
     /// Build the beacon payload bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::new();
 
         // Superframe Specification (2 bytes, LE)
         let mut sf_spec: u16 = 0;
-        sf_spec |= (self.beacon_order as u16) & 0x0F;
-        sf_spec |= ((self.superframe_order as u16) & 0x0F) << 4;
-        sf_spec |= ((self.final_cap_slot as u16) & 0x0F) << 8;
+        sf_spec |= u16::from(self.beacon_order) & 0x0F;
+        sf_spec |= (u16::from(self.superframe_order) & 0x0F) << 4;
+        sf_spec |= (u16::from(self.final_cap_slot) & 0x0F) << 8;
         if self.battery_life_ext {
             sf_spec |= 0x1000;
         }
@@ -285,6 +286,7 @@ impl BeaconPayload {
     }
 
     /// Get a human-readable summary of this beacon.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "802.15.4 Beacon assocPermit({}) panCoord({}) beaconOrder={} sfOrder={}",

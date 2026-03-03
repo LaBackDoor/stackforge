@@ -40,12 +40,13 @@ pub trait BlockCipher: Send + Sync {
 }
 
 /// Add TLS CBC padding.
+#[must_use]
 pub fn add_tls_padding(data: &[u8], block_size: usize) -> Vec<u8> {
     let padding_len = block_size - (data.len() % block_size);
     let pad_byte = (padding_len - 1) as u8;
     let mut result = Vec::with_capacity(data.len() + padding_len);
     result.extend_from_slice(data);
-    result.extend(std::iter::repeat(pad_byte).take(padding_len));
+    result.extend(std::iter::repeat_n(pad_byte, padding_len));
     result
 }
 
@@ -67,7 +68,7 @@ pub fn remove_tls_padding(data: &[u8]) -> Result<&[u8], BlockCipherError> {
     Ok(&data[..data.len() - pad_len])
 }
 
-/// Generic CBC encrypt using the cbc crate with NoPadding.
+/// Generic CBC encrypt using the cbc crate with `NoPadding`.
 fn cbc_encrypt<C>(key: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>, BlockCipherError>
 where
     C: cbc::cipher::BlockEncrypt + cbc::cipher::BlockCipher + cbc::cipher::KeyInit,
@@ -83,7 +84,7 @@ where
     Ok(result.to_vec())
 }
 
-/// Generic CBC decrypt using the cbc crate with NoPadding.
+/// Generic CBC decrypt using the cbc crate with `NoPadding`.
 fn cbc_decrypt<C>(key: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>, BlockCipherError>
 where
     C: cbc::cipher::BlockDecrypt + cbc::cipher::BlockCipher + cbc::cipher::KeyInit,
@@ -125,7 +126,7 @@ impl BlockCipher for CipherAes128Cbc {
         if iv.len() != 16 {
             return Err(BlockCipherError::InvalidKeyOrIv);
         }
-        if data.len() % 16 != 0 {
+        if !data.len().is_multiple_of(16) {
             return Err(BlockCipherError::BufferTooShort);
         }
         cbc_decrypt::<aes::Aes128>(&self.key, iv, data)
@@ -172,7 +173,7 @@ impl BlockCipher for CipherAes256Cbc {
         if iv.len() != 16 {
             return Err(BlockCipherError::InvalidKeyOrIv);
         }
-        if data.len() % 16 != 0 {
+        if !data.len().is_multiple_of(16) {
             return Err(BlockCipherError::BufferTooShort);
         }
         cbc_decrypt::<aes::Aes256>(&self.key, iv, data)

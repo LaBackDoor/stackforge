@@ -5,6 +5,7 @@
 use super::Extension;
 
 /// Parse signature algorithms from extension data.
+#[must_use]
 pub fn parse_signature_algorithms(data: &[u8]) -> Vec<u16> {
     if data.len() < 2 {
         return Vec::new();
@@ -22,7 +23,8 @@ pub fn parse_signature_algorithms(data: &[u8]) -> Vec<u16> {
     algs
 }
 
-/// Build signature_algorithms extension.
+/// Build `signature_algorithms` extension.
+#[must_use]
 pub fn build_signature_algorithms(algorithms: &[u16]) -> Extension {
     let list_len = (algorithms.len() * 2) as u16;
     let mut data = Vec::with_capacity(2 + algorithms.len() * 2);

@@ -1,6 +1,6 @@
-//! SSLv2 handshake message parsing and building.
+//! `SSLv2` handshake message parsing and building.
 
-/// SSLv2 message types.
+/// `SSLv2` message types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sslv2MessageType(pub u8);
 
@@ -15,6 +15,7 @@ impl Sslv2MessageType {
     pub const REQUEST_CERTIFICATE: Self = Self(7);
     pub const CLIENT_CERTIFICATE: Self = Self(8);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0 => "ERROR",
@@ -31,7 +32,7 @@ impl Sslv2MessageType {
     }
 }
 
-/// SSLv2 ClientHello message.
+/// `SSLv2` `ClientHello` message.
 ///
 /// ```text
 /// msg_type:1, version:2, cipher_specs_len:2, session_id_len:2,
@@ -39,7 +40,7 @@ impl Sslv2MessageType {
 /// ```
 #[derive(Debug, Clone)]
 pub struct Sslv2ClientHello {
-    /// SSLv2 version (typically 0x0002).
+    /// `SSLv2` version (typically 0x0002).
     pub version: u16,
     /// 3-byte cipher suite IDs.
     pub cipher_specs: Vec<u32>,
@@ -50,7 +51,8 @@ pub struct Sslv2ClientHello {
 }
 
 impl Sslv2ClientHello {
-    /// Parse from record data (after msg_type byte).
+    /// Parse from record data (after `msg_type` byte).
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         // Skip msg_type byte if present
         let data = if !data.is_empty() && data[0] == 0x01 {
@@ -106,7 +108,8 @@ impl Sslv2ClientHello {
         })
     }
 
-    /// Build SSLv2 ClientHello record data (including msg_type byte).
+    /// Build `SSLv2` `ClientHello` record data (including `msg_type` byte).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let cipher_len = self.cipher_specs.len() * 3;
         let mut buf = Vec::new();
@@ -128,7 +131,7 @@ impl Sslv2ClientHello {
     }
 }
 
-/// SSLv2 ServerHello message.
+/// `SSLv2` `ServerHello` message.
 #[derive(Debug, Clone)]
 pub struct Sslv2ServerHello {
     /// 0 = new session, 1 = resumed.
@@ -146,7 +149,8 @@ pub struct Sslv2ServerHello {
 }
 
 impl Sslv2ServerHello {
-    /// Parse from record data (after msg_type byte).
+    /// Parse from record data (after `msg_type` byte).
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         let data = if !data.is_empty() && data[0] == 0x04 {
             &data[1..]
@@ -203,7 +207,7 @@ impl Sslv2ServerHello {
     }
 }
 
-/// SSLv2 ClientMasterKey message.
+/// `SSLv2` `ClientMasterKey` message.
 #[derive(Debug, Clone)]
 pub struct Sslv2ClientMasterKey {
     /// Selected 3-byte cipher suite.
@@ -217,7 +221,8 @@ pub struct Sslv2ClientMasterKey {
 }
 
 impl Sslv2ClientMasterKey {
-    /// Parse from record data (after msg_type byte).
+    /// Parse from record data (after `msg_type` byte).
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         let data = if !data.is_empty() && data[0] == 0x02 {
             &data[1..]

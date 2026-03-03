@@ -14,6 +14,7 @@ pub struct X25519Kx {
 
 impl X25519Kx {
     /// Create a new X25519 key exchange instance.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             secret_key: None,
@@ -22,6 +23,7 @@ impl X25519Kx {
     }
 
     /// Create from an existing secret key (for testing/replay).
+    #[must_use]
     pub fn from_secret(secret_bytes: [u8; 32]) -> Self {
         let secret = x25519_dalek::StaticSecret::from(secret_bytes);
         let public = x25519_dalek::PublicKey::from(&secret);
@@ -85,6 +87,7 @@ pub struct P256Kx {
 
 impl P256Kx {
     /// Create a new P-256 key exchange instance.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             secret_key: None,
@@ -128,6 +131,7 @@ impl KeyExchange for P256Kx {
 }
 
 /// Create a key exchange instance for the given named group ID.
+#[must_use]
 pub fn kx_for_group(group_id: u16) -> Option<Box<dyn KeyExchange>> {
     match group_id {
         0x001D => Some(Box::new(X25519Kx::new())),
@@ -136,7 +140,8 @@ pub fn kx_for_group(group_id: u16) -> Option<Box<dyn KeyExchange>> {
     }
 }
 
-/// Build a TLS 1.3 KeyShareEntry (group:2 + length:2 + key_exchange).
+/// Build a TLS 1.3 `KeyShareEntry` (group:2 + length:2 + `key_exchange`).
+#[must_use]
 pub fn build_key_share_entry(group_id: u16, public_key: &[u8]) -> Vec<u8> {
     let mut buf = Vec::with_capacity(4 + public_key.len());
     buf.extend_from_slice(&group_id.to_be_bytes());
@@ -145,7 +150,8 @@ pub fn build_key_share_entry(group_id: u16, public_key: &[u8]) -> Vec<u8> {
     buf
 }
 
-/// Parse a TLS 1.3 KeyShareEntry, returning (group_id, key_exchange_bytes).
+/// Parse a TLS 1.3 `KeyShareEntry`, returning (`group_id`, `key_exchange_bytes`).
+#[must_use]
 pub fn parse_key_share_entry(data: &[u8]) -> Option<(u16, Vec<u8>)> {
     if data.len() < 4 {
         return None;

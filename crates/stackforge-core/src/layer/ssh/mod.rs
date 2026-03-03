@@ -20,7 +20,7 @@ pub use builder::SshBuilder;
 use crate::layer::field::{FieldError, FieldValue};
 use crate::layer::{Layer, LayerIndex, LayerKind};
 
-/// Minimum SSH binary packet header: 4 (packet_length) + 1 (padding_length).
+/// Minimum SSH binary packet header: 4 (`packet_length`) + 1 (`padding_length`).
 pub const SSH_BINARY_HEADER_LEN: usize = 5;
 
 /// Standard SSH port.
@@ -64,6 +64,7 @@ pub mod msg_types {
     pub const REQUEST_FAILURE: u8 = 82;
 
     /// Get a human-readable name for an SSH message type.
+    #[must_use]
     pub fn name(msg_type: u8) -> &'static str {
         match msg_type {
             DISCONNECT => "DISCONNECT",
@@ -117,6 +118,7 @@ pub static SSH_FIELDS: &[&str] = &[
 
 impl SshLayer {
     /// Check if this SSH data is a version exchange (starts with "SSH-").
+    #[must_use]
     pub fn is_version_exchange(&self, buf: &[u8]) -> bool {
         let slice = self.index.slice(buf);
         slice.len() >= 4 && &slice[..4] == b"SSH-"
@@ -125,6 +127,7 @@ impl SshLayer {
     /// Extract the version string from a version exchange message.
     ///
     /// Returns the version string without the trailing CRLF.
+    #[must_use]
     pub fn version_string<'a>(&self, buf: &'a [u8]) -> Option<&'a str> {
         let slice = self.index.slice(buf);
         if slice.len() < 4 || &slice[..4] != b"SSH-" {
@@ -138,7 +141,7 @@ impl SshLayer {
         std::str::from_utf8(&slice[..end]).ok()
     }
 
-    /// Read the packet_length field (first 4 bytes of binary packet).
+    /// Read the `packet_length` field (first 4 bytes of binary packet).
     pub fn packet_length(&self, buf: &[u8]) -> Result<u32, FieldError> {
         let slice = self.index.slice(buf);
         if self.is_version_exchange(buf) {
@@ -158,7 +161,7 @@ impl SshLayer {
         Ok(u32::from_be_bytes([slice[0], slice[1], slice[2], slice[3]]))
     }
 
-    /// Read the padding_length field (byte at offset 4 of binary packet).
+    /// Read the `padding_length` field (byte at offset 4 of binary packet).
     pub fn padding_length(&self, buf: &[u8]) -> Result<u8, FieldError> {
         let slice = self.index.slice(buf);
         if self.is_version_exchange(buf) {
@@ -190,7 +193,8 @@ impl SshLayer {
         Ok(Some(slice[5]))
     }
 
-    /// Get the payload data (after padding_length byte, before random_padding).
+    /// Get the payload data (after `padding_length` byte, before `random_padding`).
+    #[must_use]
     pub fn payload_data<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         let slice = self.index.slice(buf);
         if self.is_version_exchange(buf) {
@@ -250,6 +254,7 @@ impl SshLayer {
     }
 
     /// Get field names.
+    #[must_use]
     pub fn field_names(&self) -> &'static [&'static str] {
         SSH_FIELDS
     }
@@ -264,14 +269,14 @@ impl Layer for SshLayer {
         let buf = self.index.slice(data);
         if self.is_version_exchange(data) {
             if let Some(vs) = self.version_string(data) {
-                return format!("SSH Version Exchange {}", vs);
+                return format!("SSH Version Exchange {vs}");
             }
             return "SSH Version Exchange".to_string();
         }
         if buf.len() >= 6 {
             let msg_type = buf[5];
             let name = msg_types::name(msg_type);
-            format!("SSH {}", name)
+            format!("SSH {name}")
         } else {
             "SSH".to_string()
         }
@@ -304,6 +309,7 @@ impl Layer for SshLayer {
 ///
 /// Returns true if the data starts with "SSH-" (version exchange)
 /// or looks like a valid SSH binary packet.
+#[must_use]
 pub fn is_ssh_payload(data: &[u8]) -> bool {
     if data.len() >= 4 && &data[..4] == b"SSH-" {
         return true;
@@ -312,7 +318,7 @@ pub fn is_ssh_payload(data: &[u8]) -> bool {
         let pkt_len = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
         let padding_len = data[4] as usize;
         // Sanity checks for SSH binary packet
-        pkt_len >= 12 && pkt_len <= 35000 && padding_len < pkt_len && padding_len >= 4
+        (12..=35000).contains(&pkt_len) && padding_len < pkt_len && padding_len >= 4
     } else {
         false
     }
