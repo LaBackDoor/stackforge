@@ -73,8 +73,21 @@ pub enum ProtocolState {
     Tcp(TcpConversationState),
     /// UDP pseudo-conversation with timeout tracking.
     Udp(UdpFlowState),
+    /// Z-Wave wireless conversation with home ID and node tracking.
+    ZWave(ZWaveFlowState),
     /// Other protocols (ICMP, etc.) — no specific state tracking.
     Other,
+}
+
+/// Z-Wave conversation state tracking.
+#[derive(Debug, Clone)]
+pub struct ZWaveFlowState {
+    /// Z-Wave network home ID.
+    pub home_id: u32,
+    /// Number of command messages (non-ACK frames) seen.
+    pub command_count: u64,
+    /// Number of ACK frames seen.
+    pub ack_count: u64,
 }
 
 /// Complete state for a single bidirectional conversation.
@@ -120,6 +133,41 @@ impl ConversationState {
             reverse: DirectionStats::new(timestamp),
             packet_indices: Vec::new(),
             protocol_state,
+        }
+    }
+
+    /// Create a new Z-Wave conversation state.
+    ///
+    /// Z-Wave conversations use a dummy canonical key since they are
+    /// keyed by home ID and node pair rather than IP 5-tuple.
+    pub fn new_zwave(zwave_key: super::key::ZWaveKey, timestamp: Duration) -> Self {
+        use std::net::{IpAddr, Ipv4Addr};
+
+        // Create a placeholder canonical key — the real key is the ZWaveKey
+        // stored in the ProtocolState. We encode node IDs in the port fields
+        // for display purposes.
+        let (key, _) = CanonicalKey::new(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            u16::from(zwave_key.node_a),
+            u16::from(zwave_key.node_b),
+            TransportProtocol::Other(0),
+            None,
+        );
+
+        Self {
+            key,
+            status: ConversationStatus::Active,
+            start_time: timestamp,
+            last_seen: timestamp,
+            forward: DirectionStats::new(timestamp),
+            reverse: DirectionStats::new(timestamp),
+            packet_indices: Vec::new(),
+            protocol_state: ProtocolState::ZWave(ZWaveFlowState {
+                home_id: zwave_key.home_id,
+                command_count: 0,
+                ack_count: 0,
+            }),
         }
     }
 
@@ -175,6 +223,7 @@ impl ConversationState {
             ProtocolState::Udp(udp) => {
                 self.status = udp.status;
             },
+            ProtocolState::ZWave(_) => {},
             ProtocolState::Other => {},
         }
     }
@@ -193,6 +242,7 @@ impl ConversationState {
                 }
             },
             ProtocolState::Udp(_) => elapsed > config.udp_timeout,
+            ProtocolState::ZWave(_) => elapsed > config.udp_timeout,
             ProtocolState::Other => elapsed > config.udp_timeout,
         }
     }

@@ -22,14 +22,18 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use stackforge_core::{
     ArpBuilder as RustArpBuilder, EthernetBuilder as RustEthernetBuilder, FieldValue,
-    Http2Builder as RustHttp2Builder, Http2FrameBuilder as RustHttp2FrameBuilder,
-    HttpRequestBuilder as RustHttpRequestBuilder, HttpResponseBuilder as RustHttpResponseBuilder,
-    IcmpBuilder as RustIcmpBuilder, Icmpv6Builder as RustIcmpv6Builder,
+    FtpBuilder as RustFtpBuilder, Http2Builder as RustHttp2Builder,
+    Http2FrameBuilder as RustHttp2FrameBuilder, HttpRequestBuilder as RustHttpRequestBuilder,
+    HttpResponseBuilder as RustHttpResponseBuilder, IcmpBuilder as RustIcmpBuilder,
+    Icmpv6Builder as RustIcmpv6Builder, ImapBuilder as RustImapBuilder,
     Ipv4Builder as RustIpv4Builder, Ipv6Builder as RustIpv6Builder, L2tpBuilder as RustL2tpBuilder,
     LayerKind as RustLayerKind, LayerStack as RustLayerStack,
-    LayerStackEntry as RustLayerStackEntry, MacAddress, Packet as RustPacket, PacketError,
-    QuicBuilder as RustQuicBuilder, SshBuilder as RustSshBuilder, TcpBuilder as RustTcpBuilder,
-    TlsRecordBuilder as RustTlsRecordBuilder, UdpBuilder as RustUdpBuilder,
+    LayerStackEntry as RustLayerStackEntry, MacAddress, ModbusBuilder as RustModbusBuilder,
+    MqttBuilder as RustMqttBuilder, MqttSnBuilder as RustMqttSnBuilder, Packet as RustPacket,
+    PacketError, Pop3Builder as RustPop3Builder, QuicBuilder as RustQuicBuilder,
+    SmtpBuilder as RustSmtpBuilder, SshBuilder as RustSshBuilder, TcpBuilder as RustTcpBuilder,
+    TftpBuilder as RustTftpBuilder, TlsRecordBuilder as RustTlsRecordBuilder,
+    UdpBuilder as RustUdpBuilder, ZWaveBuilder as RustZWaveBuilder,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -81,6 +85,24 @@ pub enum PyLayerKind {
     Http2,
     /// Layer 2 Tunneling Protocol
     L2tp,
+    /// MQTT messaging protocol
+    Mqtt,
+    /// MQTT-SN (Sensor Networks)
+    MqttSn,
+    /// Modbus industrial protocol
+    Modbus,
+    /// Z-Wave smart home protocol
+    ZWave,
+    /// File Transfer Protocol
+    Ftp,
+    /// Trivial File Transfer Protocol
+    Tftp,
+    /// SMTP email protocol
+    Smtp,
+    /// POP3 email retrieval protocol
+    Pop3,
+    /// IMAP email access protocol
+    Imap,
     /// Raw payload data
     Raw,
 }
@@ -134,6 +156,15 @@ impl PyLayerKind {
             PyLayerKind::Generic => RustLayerKind::Generic,
             PyLayerKind::Http2 => RustLayerKind::Http2,
             PyLayerKind::L2tp => RustLayerKind::L2tp,
+            PyLayerKind::Mqtt => RustLayerKind::Mqtt,
+            PyLayerKind::MqttSn => RustLayerKind::MqttSn,
+            PyLayerKind::Modbus => RustLayerKind::Modbus,
+            PyLayerKind::ZWave => RustLayerKind::ZWave,
+            PyLayerKind::Ftp => RustLayerKind::Ftp,
+            PyLayerKind::Tftp => RustLayerKind::Tftp,
+            PyLayerKind::Smtp => RustLayerKind::Smtp,
+            PyLayerKind::Pop3 => RustLayerKind::Pop3,
+            PyLayerKind::Imap => RustLayerKind::Imap,
             PyLayerKind::Raw => RustLayerKind::Raw,
         }
     }
@@ -165,6 +196,15 @@ impl PyLayerKind {
             RustLayerKind::Generic => PyLayerKind::Generic,
             RustLayerKind::Http2 => PyLayerKind::Http2,
             RustLayerKind::L2tp => PyLayerKind::L2tp,
+            RustLayerKind::Mqtt => PyLayerKind::Mqtt,
+            RustLayerKind::MqttSn => PyLayerKind::MqttSn,
+            RustLayerKind::Modbus => PyLayerKind::Modbus,
+            RustLayerKind::ZWave => PyLayerKind::ZWave,
+            RustLayerKind::Ftp => PyLayerKind::Ftp,
+            RustLayerKind::Tftp => PyLayerKind::Tftp,
+            RustLayerKind::Smtp => PyLayerKind::Smtp,
+            RustLayerKind::Pop3 => PyLayerKind::Pop3,
+            RustLayerKind::Imap => PyLayerKind::Imap,
             RustLayerKind::Raw => PyLayerKind::Raw,
         }
     }
@@ -662,24 +702,23 @@ fn python_to_field_value(
         ];
         let names_32 = ["seq", "ack"];
 
-        if names_8.contains(&field_name)
+        if (names_8.contains(&field_name)
             || v <= u8::MAX as u64
                 && names_16.iter().all(|n| *n != field_name)
-                && names_32.iter().all(|n| *n != field_name)
+                && names_32.iter().all(|n| *n != field_name))
+            && let Ok(v8) = u8::try_from(v)
         {
-            if let Ok(v8) = u8::try_from(v) {
-                return Ok(FieldValue::U8(v8));
-            }
+            return Ok(FieldValue::U8(v8));
         }
-        if names_16.contains(&field_name) {
-            if let Ok(v16) = u16::try_from(v) {
-                return Ok(FieldValue::U16(v16));
-            }
+        if names_16.contains(&field_name)
+            && let Ok(v16) = u16::try_from(v)
+        {
+            return Ok(FieldValue::U16(v16));
         }
-        if names_32.contains(&field_name) {
-            if let Ok(v32) = u32::try_from(v) {
-                return Ok(FieldValue::U32(v32));
-            }
+        if names_32.contains(&field_name)
+            && let Ok(v32) = u32::try_from(v)
+        {
+            return Ok(FieldValue::U32(v32));
         }
 
         // Default fallback based on value range
@@ -821,6 +860,24 @@ impl PyLayerStack {
             new_stack.add(RustLayerStackEntry::Raw(http2.inner.build()));
         } else if let Ok(l2tp) = other.extract::<PyL2tp>() {
             new_stack.add(RustLayerStackEntry::L2tp(l2tp.inner));
+        } else if let Ok(mqtt) = other.extract::<PyMqtt>() {
+            new_stack.add(RustLayerStackEntry::Mqtt(mqtt.inner));
+        } else if let Ok(mqttsn) = other.extract::<PyMqttSn>() {
+            new_stack.add(RustLayerStackEntry::MqttSn(mqttsn.inner));
+        } else if let Ok(modbus) = other.extract::<PyModbus>() {
+            new_stack.add(RustLayerStackEntry::Modbus(modbus.inner));
+        } else if let Ok(zwave) = other.extract::<PyZWave>() {
+            new_stack.add(RustLayerStackEntry::ZWave(zwave.inner));
+        } else if let Ok(ftp) = other.extract::<PyFTP>() {
+            new_stack.add(RustLayerStackEntry::Raw(ftp.inner.build()));
+        } else if let Ok(tftp) = other.extract::<PyTFTP>() {
+            new_stack.add(RustLayerStackEntry::Raw(tftp.inner.build()));
+        } else if let Ok(smtp) = other.extract::<PySmtp>() {
+            new_stack.add(RustLayerStackEntry::Raw(smtp.inner.build()));
+        } else if let Ok(pop3) = other.extract::<PyPop3>() {
+            new_stack.add(RustLayerStackEntry::Raw(pop3.inner.build()));
+        } else if let Ok(imap) = other.extract::<PyImap>() {
+            new_stack.add(RustLayerStackEntry::Raw(imap.inner.build()));
         } else if let Ok(raw) = other.extract::<PyRaw>() {
             new_stack.add(RustLayerStackEntry::Raw(raw.data));
         } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
@@ -1776,7 +1833,7 @@ impl PyRaw {
         // Remove common separators (spaces, colons, dashes)
         let clean: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
 
-        if clean.is_empty() || clean.len() % 2 != 0 {
+        if clean.is_empty() || !clean.len().is_multiple_of(2) {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "Invalid hex string: must be non-empty with even number of hex digits",
             ));
@@ -2876,10 +2933,10 @@ impl PyL2tp {
     ) -> PyResult<Self> {
         let mut builder = RustL2tpBuilder::new();
 
-        if let Some(mt) = msg_type {
-            if mt != 0 {
-                builder = builder.control();
-            }
+        if let Some(mt) = msg_type
+            && mt != 0
+        {
+            builder = builder.control();
         }
         if has_length.unwrap_or(false) {
             builder = builder.with_length();
@@ -2956,6 +3013,814 @@ impl PyL2tp {
 
     fn __repr__(&self) -> String {
         "<L2TP>".to_string()
+    }
+}
+
+// ============================================================================
+// MQTT Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "MQTT")]
+#[derive(Clone)]
+pub struct PyMqtt {
+    inner: RustMqttBuilder,
+}
+
+#[pymethods]
+impl PyMqtt {
+    #[new]
+    #[pyo3(signature = (msg_type=None, dup=None, qos=None, retain=None, topic=None, msgid=None, value=None, proto_name=None, proto_level=None, klive=None, client_id=None, clean_session=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        msg_type: Option<u8>,
+        dup: Option<bool>,
+        qos: Option<u8>,
+        retain: Option<bool>,
+        topic: Option<Vec<u8>>,
+        msgid: Option<u16>,
+        value: Option<Vec<u8>>,
+        proto_name: Option<Vec<u8>>,
+        proto_level: Option<u8>,
+        klive: Option<u16>,
+        client_id: Option<Vec<u8>>,
+        clean_session: Option<bool>,
+    ) -> PyResult<Self> {
+        let mut builder = RustMqttBuilder::new();
+
+        if let Some(mt) = msg_type {
+            builder = builder.msg_type(mt);
+        }
+        if let Some(d) = dup {
+            builder = builder.dup(d);
+        }
+        if let Some(q) = qos {
+            builder = builder.qos(q);
+        }
+        if let Some(r) = retain {
+            builder = builder.retain(r);
+        }
+        if let Some(t) = topic {
+            builder = builder.topic(t);
+        }
+        if let Some(m) = msgid {
+            builder = builder.msg_id(m);
+        }
+        if let Some(v) = value {
+            builder = builder.payload(v);
+        }
+        if let Some(n) = proto_name {
+            builder = builder.proto_name(n);
+        }
+        if let Some(l) = proto_level {
+            builder = builder.proto_level(l);
+        }
+        if let Some(k) = klive {
+            builder = builder.keep_alive(k);
+        }
+        if let Some(c) = client_id {
+            builder = builder.client_id(c);
+        }
+        if let Some(cs) = clean_session {
+            builder = builder.clean_session(cs);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Mqtt(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = layer_stack.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Mqtt(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<MQTT>".to_string()
+    }
+}
+
+// ============================================================================
+// MQTT-SN Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "MQTTSN")]
+#[derive(Clone)]
+pub struct PyMqttSn {
+    inner: RustMqttSnBuilder,
+}
+
+#[pymethods]
+impl PyMqttSn {
+    #[new]
+    #[pyo3(signature = (msg_type=None, dup=None, qos=None, retain=None, will=None, clean_session=None, tid_type=None, gw_id=None, duration=None, return_code=None, tid=None, mid=None, data=None, topic_name=None, client_id=None, prot_id=None, radius=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        msg_type: Option<u8>,
+        dup: Option<bool>,
+        qos: Option<u8>,
+        retain: Option<bool>,
+        will: Option<bool>,
+        clean_session: Option<bool>,
+        tid_type: Option<u8>,
+        gw_id: Option<u8>,
+        duration: Option<u16>,
+        return_code: Option<u8>,
+        tid: Option<u16>,
+        mid: Option<u16>,
+        data: Option<Vec<u8>>,
+        topic_name: Option<Vec<u8>>,
+        client_id: Option<Vec<u8>>,
+        prot_id: Option<u8>,
+        radius: Option<u8>,
+    ) -> PyResult<Self> {
+        let mut builder = RustMqttSnBuilder::new();
+
+        if let Some(mt) = msg_type {
+            builder = builder.msg_type(mt);
+        }
+        if let Some(d) = dup {
+            builder = builder.dup(d);
+        }
+        if let Some(q) = qos {
+            builder = builder.qos(q);
+        }
+        if let Some(r) = retain {
+            builder = builder.retain(r);
+        }
+        if let Some(w) = will {
+            builder = builder.will(w);
+        }
+        if let Some(cs) = clean_session {
+            builder = builder.cleansess(cs);
+        }
+        if let Some(tt) = tid_type {
+            builder = builder.tid_type(tt);
+        }
+        if let Some(g) = gw_id {
+            builder = builder.gw_id(g);
+        }
+        if let Some(d) = duration {
+            builder = builder.duration(d);
+        }
+        if let Some(rc) = return_code {
+            builder = builder.return_code(rc);
+        }
+        if let Some(t) = tid {
+            builder = builder.tid(t);
+        }
+        if let Some(m) = mid {
+            builder = builder.mid(m);
+        }
+        if let Some(d) = data {
+            builder = builder.data(&d);
+        }
+        if let Some(tn) = topic_name {
+            builder = builder.topic_name(&tn);
+        }
+        if let Some(c) = client_id {
+            builder = builder.client_id(&c);
+        }
+        if let Some(p) = prot_id {
+            builder = builder.prot_id(p);
+        }
+        if let Some(r) = radius {
+            builder = builder.radius(r);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::MqttSn(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = layer_stack.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::MqttSn(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<MQTTSN>".to_string()
+    }
+}
+
+// ============================================================================
+// Modbus Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "Modbus")]
+#[derive(Clone)]
+pub struct PyModbus {
+    inner: RustModbusBuilder,
+}
+
+#[pymethods]
+impl PyModbus {
+    #[new]
+    #[pyo3(signature = (trans_id=None, proto_id=None, unit_id=None, func_code=None, data=None))]
+    fn new(
+        trans_id: Option<u16>,
+        proto_id: Option<u16>,
+        unit_id: Option<u8>,
+        func_code: Option<u8>,
+        data: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        let mut builder = RustModbusBuilder::new().tcp();
+
+        if let Some(t) = trans_id {
+            builder = builder.trans_id(t);
+        }
+        if let Some(p) = proto_id {
+            builder = builder.proto_id(p);
+        }
+        if let Some(u) = unit_id {
+            builder = builder.unit_id(u);
+        }
+        if let Some(fc) = func_code {
+            builder = builder.func_code(fc);
+        }
+        if let Some(d) = data {
+            builder = builder.pdu_data(d);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Modbus(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = layer_stack.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Modbus(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<Modbus>".to_string()
+    }
+}
+
+// ============================================================================
+// Z-Wave Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "ZWave")]
+#[derive(Clone)]
+pub struct PyZWave {
+    inner: RustZWaveBuilder,
+}
+
+#[pymethods]
+impl PyZWave {
+    #[new]
+    #[pyo3(signature = (home_id=None, src=None, dst=None, routed=None, ackreq=None, lowpower=None, speedmodified=None, headertype=None, beam_control=None, seqn=None, cmd_class=None, cmd=None, cmd_data=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        home_id: Option<u32>,
+        src: Option<u8>,
+        dst: Option<u8>,
+        routed: Option<bool>,
+        ackreq: Option<bool>,
+        lowpower: Option<bool>,
+        speedmodified: Option<bool>,
+        headertype: Option<u8>,
+        beam_control: Option<u8>,
+        seqn: Option<u8>,
+        cmd_class: Option<u8>,
+        cmd: Option<u8>,
+        cmd_data: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        let mut builder = RustZWaveBuilder::new();
+
+        if let Some(h) = home_id {
+            builder = builder.home_id(h);
+        }
+        if let Some(s) = src {
+            builder = builder.src(s);
+        }
+        if let Some(d) = dst {
+            builder = builder.dst(d);
+        }
+        if let Some(r) = routed {
+            builder = builder.routed(r);
+        }
+        if let Some(a) = ackreq {
+            builder = builder.ackreq(a);
+        }
+        if let Some(l) = lowpower {
+            builder = builder.lowpower(l);
+        }
+        if let Some(s) = speedmodified {
+            builder = builder.speedmodified(s);
+        }
+        if let Some(h) = headertype {
+            builder = builder.headertype(h);
+        }
+        if let Some(b) = beam_control {
+            builder = builder.beam_control(b);
+        }
+        if let Some(s) = seqn {
+            builder = builder.seqn(s);
+        }
+        if let Some(c) = cmd_class {
+            builder = builder.cmd_class(c);
+        }
+        if let Some(c) = cmd {
+            builder = builder.cmd(c);
+        }
+        if let Some(d) = cmd_data {
+            builder = builder.cmd_data(d);
+        }
+
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::ZWave(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = layer_stack.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::ZWave(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __repr__(&self) -> String {
+        "<ZWave>".to_string()
+    }
+}
+
+// ============================================================================
+// FTP Layer Builder
+// ============================================================================
+
+/// FTP control-connection message builder.
+///
+/// Example:
+///     >>> ftp = FTP(reply_code=220, reply_text="Welcome")
+///     >>> ftp = FTP(command="USER", args="anonymous")
+#[pyclass(name = "FTP")]
+#[derive(Clone)]
+pub struct PyFTP {
+    inner: RustFtpBuilder,
+}
+
+#[pymethods]
+impl PyFTP {
+    /// Create a new FTP message.
+    ///
+    /// Args:
+    ///     command: FTP command verb (e.g., "USER", "PASS")
+    ///     args: Command arguments
+    ///     reply_code: 3-digit reply code (server side)
+    ///     reply_text: Reply text (server side)
+    #[new]
+    #[pyo3(signature = (command=None, args=None, reply_code=None, reply_text=None))]
+    fn new(
+        command: Option<&str>,
+        args: Option<&str>,
+        reply_code: Option<u16>,
+        reply_text: Option<&str>,
+    ) -> Self {
+        let mut builder = RustFtpBuilder::new();
+        if let Some(code) = reply_code {
+            let text = reply_text.unwrap_or("");
+            builder = builder.reply(code, text);
+        } else if let Some(cmd) = command {
+            let args_str = args.unwrap_or("");
+            builder = builder.command(cmd, args_str);
+        }
+        Self { inner: builder }
+    }
+
+    /// Build the FTP message into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Raw(self.inner.build()));
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __repr__(&self) -> String {
+        "<FTP>".to_string()
+    }
+}
+
+// ============================================================================
+// TFTP Layer Builder
+// ============================================================================
+
+/// TFTP packet builder.
+///
+/// Example:
+///     >>> tftp = TFTP(opcode=1, filename="file.txt", mode="octet")
+///     >>> tftp = TFTP(opcode=4, block=1)
+#[pyclass(name = "TFTP")]
+#[derive(Clone)]
+pub struct PyTFTP {
+    inner: RustTftpBuilder,
+}
+
+#[pymethods]
+impl PyTFTP {
+    /// Create a new TFTP packet.
+    ///
+    /// Args:
+    ///     opcode: Opcode (1=RRQ, 2=WRQ, 3=DATA, 4=ACK, 5=ERROR)
+    ///     filename: Filename (for RRQ/WRQ)
+    ///     mode: Transfer mode (for RRQ/WRQ, e.g. "octet")
+    ///     block: Block number (for DATA/ACK)
+    ///     data: Data payload (for DATA)
+    ///     error_code: Error code (for ERROR)
+    ///     error_msg: Error message (for ERROR)
+    #[new]
+    #[pyo3(signature = (opcode=None, filename=None, mode=None, block=None, data=None, error_code=None, error_msg=None))]
+    fn new(
+        opcode: Option<u16>,
+        filename: Option<&str>,
+        mode: Option<&str>,
+        block: Option<u16>,
+        data: Option<Vec<u8>>,
+        error_code: Option<u16>,
+        error_msg: Option<&str>,
+    ) -> Self {
+        let mut builder = RustTftpBuilder::new();
+        match opcode {
+            Some(1) => {
+                builder = builder.rrq(
+                    filename.unwrap_or("file").as_bytes().to_vec(),
+                    mode.unwrap_or("octet").as_bytes().to_vec(),
+                );
+            },
+            Some(2) => {
+                builder = builder.wrq(
+                    filename.unwrap_or("file").as_bytes().to_vec(),
+                    mode.unwrap_or("octet").as_bytes().to_vec(),
+                );
+            },
+            Some(3) => {
+                builder = builder.data(block.unwrap_or(1), data.unwrap_or_default());
+            },
+            Some(4) => {
+                builder = builder.ack(block.unwrap_or(0));
+            },
+            Some(5) => {
+                builder = builder.error(
+                    error_code.unwrap_or(0),
+                    error_msg.unwrap_or("").as_bytes().to_vec(),
+                );
+            },
+            _ => {},
+        }
+        Self { inner: builder }
+    }
+
+    /// Build the TFTP packet into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Raw(self.inner.build()));
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __repr__(&self) -> String {
+        "<TFTP>".to_string()
+    }
+}
+
+// ============================================================================
+// SMTP Layer Builder
+// ============================================================================
+
+/// SMTP message builder.
+///
+/// Example:
+///     >>> smtp = SMTP(command="EHLO", args="mail.example.com")
+///     >>> smtp = SMTP(reply_code=250, reply_text="OK")
+#[pyclass(name = "SMTP")]
+#[derive(Clone)]
+pub struct PySmtp {
+    inner: RustSmtpBuilder,
+}
+
+#[pymethods]
+impl PySmtp {
+    #[new]
+    #[pyo3(signature = (command=None, args=None, reply_code=None, reply_text=None))]
+    fn new(
+        command: Option<&str>,
+        args: Option<&str>,
+        reply_code: Option<u16>,
+        reply_text: Option<&str>,
+    ) -> Self {
+        let mut builder = RustSmtpBuilder::new();
+        if let Some(code) = reply_code {
+            let text = reply_text.unwrap_or("");
+            builder = builder.reply(code, text);
+        } else if let Some(cmd) = command {
+            let args_str = args.unwrap_or("");
+            builder = builder.command(cmd, args_str);
+        }
+        Self { inner: builder }
+    }
+
+    /// Build the SMTP message into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Raw(self.inner.build()));
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __repr__(&self) -> String {
+        "<SMTP>".to_string()
+    }
+}
+
+// ============================================================================
+// POP3 Layer Builder
+// ============================================================================
+
+/// POP3 message builder.
+///
+/// Example:
+///     >>> pop3 = POP3(ok=True, text="POP3 server ready")
+///     >>> pop3 = POP3(ok=False, text="Permission denied")
+#[pyclass(name = "POP3")]
+#[derive(Clone)]
+pub struct PyPop3 {
+    inner: RustPop3Builder,
+}
+
+#[pymethods]
+impl PyPop3 {
+    #[new]
+    #[pyo3(signature = (ok=None, text=None))]
+    fn new(ok: Option<bool>, text: Option<&str>) -> Self {
+        let mut builder = RustPop3Builder::new();
+        if let Some(is_ok) = ok {
+            let t = text.unwrap_or("");
+            if is_ok {
+                builder = builder.ok(t);
+            } else {
+                builder = builder.err(t);
+            }
+        }
+        Self { inner: builder }
+    }
+
+    /// Build the POP3 message into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Raw(self.inner.build()));
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __repr__(&self) -> String {
+        "<POP3>".to_string()
+    }
+}
+
+// ============================================================================
+// IMAP Layer Builder
+// ============================================================================
+
+/// IMAP message builder.
+///
+/// Example:
+///     >>> imap = IMAP(status="OK", tag="A001", text="LOGIN completed")
+///     >>> imap = IMAP(command="LOGIN", tag="A001", args="alice password")
+#[pyclass(name = "IMAP")]
+#[derive(Clone)]
+pub struct PyImap {
+    inner: RustImapBuilder,
+}
+
+#[pymethods]
+impl PyImap {
+    #[new]
+    #[pyo3(signature = (tag=None, command=None, args=None, status=None, text=None))]
+    fn new(
+        tag: Option<&str>,
+        command: Option<&str>,
+        args: Option<&str>,
+        status: Option<&str>,
+        text: Option<&str>,
+    ) -> Self {
+        let mut builder = RustImapBuilder::new();
+        if let Some(s) = status {
+            let t = tag.unwrap_or("*");
+            let tx = text.unwrap_or("");
+            match s.to_ascii_uppercase().as_str() {
+                "OK" => builder = builder.ok(t, tx),
+                "NO" => builder = builder.no(t, tx),
+                "BAD" => builder = builder.bad(t, tx),
+                _ => builder = builder.untagged(s, tx),
+            }
+        } else if let Some(cmd) = command {
+            let t = tag.unwrap_or("A001");
+            let a = args.unwrap_or("");
+            builder = builder.tagged_response(t, cmd, a);
+        }
+        Self { inner: builder }
+    }
+
+    /// Build the IMAP message into raw bytes.
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Raw(self.inner.build()));
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __repr__(&self) -> String {
+        "<IMAP>".to_string()
     }
 }
 
@@ -3303,6 +4168,33 @@ impl PyConversation {
         }
     }
 
+    /// Z-Wave home ID, or None for non-Z-Wave flows.
+    #[getter]
+    fn zwave_home_id(&self) -> Option<u32> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::ZWave(zw) => Some(zw.home_id),
+            _ => None,
+        }
+    }
+
+    /// Z-Wave command count (non-ACK frames), or None for non-Z-Wave flows.
+    #[getter]
+    fn zwave_command_count(&self) -> Option<u64> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::ZWave(zw) => Some(zw.command_count),
+            _ => None,
+        }
+    }
+
+    /// Z-Wave ACK count, or None for non-Z-Wave flows.
+    #[getter]
+    fn zwave_ack_count(&self) -> Option<u64> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::ZWave(zw) => Some(zw.ack_count),
+            _ => None,
+        }
+    }
+
     /// Reassembled forward TCP stream data, or None.
     #[getter]
     fn reassembled_forward<'py>(
@@ -3362,16 +4254,26 @@ impl PyConversation {
             "  Reverse: {} pkts, {} bytes\n",
             self.inner.reverse.packets, self.inner.reverse.bytes
         ));
-        if let stackforge_core::ProtocolState::Tcp(tcp) = &self.inner.protocol_state {
-            s.push_str(&format!("  TCP State: {}\n", tcp.conn_state));
-            let fwd_len = tcp.reassembler_fwd.reassembled_data().len();
-            let rev_len = tcp.reassembler_rev.reassembled_data().len();
-            if fwd_len > 0 || rev_len > 0 {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => {
+                s.push_str(&format!("  TCP State: {}\n", tcp.conn_state));
+                let fwd_len = tcp.reassembler_fwd.reassembled_data().len();
+                let rev_len = tcp.reassembler_rev.reassembled_data().len();
+                if fwd_len > 0 || rev_len > 0 {
+                    s.push_str(&format!(
+                        "  Reassembled: fwd={} bytes, rev={} bytes\n",
+                        fwd_len, rev_len
+                    ));
+                }
+            },
+            stackforge_core::ProtocolState::ZWave(zw) => {
+                s.push_str(&format!("  Z-Wave Home ID: {:#010X}\n", zw.home_id));
                 s.push_str(&format!(
-                    "  Reassembled: fwd={} bytes, rev={} bytes\n",
-                    fwd_len, rev_len
+                    "  Commands: {}, ACKs: {}\n",
+                    zw.command_count, zw.ack_count
                 ));
-            }
+            },
+            _ => {},
         }
         s
     }
@@ -3487,6 +4389,15 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyQUIC>()?;
     m.add_class::<PyHTTP2>()?;
     m.add_class::<PyL2tp>()?;
+    m.add_class::<PyMqtt>()?;
+    m.add_class::<PyMqttSn>()?;
+    m.add_class::<PyModbus>()?;
+    m.add_class::<PyZWave>()?;
+    m.add_class::<PyFTP>()?;
+    m.add_class::<PyTFTP>()?;
+    m.add_class::<PySmtp>()?;
+    m.add_class::<PyPop3>()?;
+    m.add_class::<PyImap>()?;
 
     // PCAP I/O
     m.add_class::<PyPcapPacket>()?;

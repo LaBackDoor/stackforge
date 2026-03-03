@@ -82,6 +82,7 @@ impl ConversationTable {
             ProtocolState::Udp(udp_state) => {
                 udp_state.process_packet();
             },
+            ProtocolState::ZWave(_) => {},
             ProtocolState::Other => {},
         }
 

@@ -39,27 +39,45 @@
 use super::bindings::apply_binding;
 use super::dns::builder::DnsBuilder;
 use super::ethernet::{ETHERNET_HEADER_LEN, EthernetBuilder};
+use super::ftp::builder::FtpBuilder;
 use super::http2::builder::Http2FrameBuilder;
 use super::icmp::builder::IcmpBuilder;
 use super::icmpv6::builder::Icmpv6Builder;
+use super::imap::builder::ImapBuilder;
 use super::ipv4::builder::Ipv4Builder;
 use super::ipv6::builder::Ipv6Builder;
 use super::l2tp::builder::L2tpBuilder;
+use super::modbus::builder::ModbusBuilder;
+use super::mqtt::builder::MqttBuilder;
+use super::mqttsn::builder::MqttSnBuilder;
+use super::pop3::builder::Pop3Builder;
+use super::smtp::builder::SmtpBuilder;
 use super::ssh::builder::SshBuilder;
 use super::tcp::builder::TcpBuilder;
+use super::tftp::builder::TftpBuilder;
 use super::tls::builder::TlsRecordBuilder;
 use super::udp::builder::UdpBuilder;
+use super::zwave::builder::ZWaveBuilder;
 use super::{ArpBuilder, LayerKind};
 use crate::Packet;
 use crate::layer::arp::ARP_HEADER_LEN;
 use crate::layer::dns::DNS_HEADER_LEN;
+use crate::layer::ftp::FTP_MIN_HEADER_LEN;
 use crate::layer::icmp::ICMP_MIN_HEADER_LEN;
 use crate::layer::icmpv6::ICMPV6_MIN_HEADER_LEN;
+use crate::layer::imap::IMAP_MIN_HEADER_LEN;
 use crate::layer::ipv4::IPV4_MIN_HEADER_LEN;
 use crate::layer::ipv6::IPV6_HEADER_LEN;
 use crate::layer::l2tp::L2TP_MIN_HEADER_LEN;
+use crate::layer::modbus::MODBUS_MIN_HEADER_LEN;
+use crate::layer::mqtt::MQTT_MIN_HEADER_LEN;
+use crate::layer::mqttsn::MQTTSN_MIN_HEADER_LEN;
+use crate::layer::pop3::POP3_MIN_HEADER_LEN;
+use crate::layer::smtp::SMTP_MIN_HEADER_LEN;
 use crate::layer::tcp::TCP_MIN_HEADER_LEN;
+use crate::layer::tftp::TFTP_MIN_HEADER_LEN;
 use crate::layer::udp::UDP_HEADER_LEN;
+use crate::layer::zwave::ZWAVE_MIN_HEADER_LEN;
 
 /// An entry in a layer stack, representing a protocol layer builder.
 #[derive(Debug, Clone)]
@@ -90,6 +108,24 @@ pub enum LayerStackEntry {
     Http2(Http2FrameBuilder),
     /// L2TP layer
     L2tp(L2tpBuilder),
+    /// MQTT layer
+    Mqtt(MqttBuilder),
+    /// MQTT-SN layer
+    MqttSn(MqttSnBuilder),
+    /// Modbus layer
+    Modbus(ModbusBuilder),
+    /// Z-Wave layer
+    ZWave(ZWaveBuilder),
+    /// FTP layer
+    Ftp(FtpBuilder),
+    /// TFTP layer
+    Tftp(TftpBuilder),
+    /// SMTP layer
+    Smtp(SmtpBuilder),
+    /// POP3 layer
+    Pop3(Pop3Builder),
+    /// IMAP layer
+    Imap(ImapBuilder),
     /// Raw bytes payload
     Raw(Vec<u8>),
 }
@@ -111,6 +147,15 @@ impl LayerStackEntry {
             Self::Dns(_) => LayerKind::Dns,
             Self::Http2(_) => LayerKind::Http2,
             Self::L2tp(_) => LayerKind::L2tp,
+            Self::Mqtt(_) => LayerKind::Mqtt,
+            Self::MqttSn(_) => LayerKind::MqttSn,
+            Self::Modbus(_) => LayerKind::Modbus,
+            Self::ZWave(_) => LayerKind::ZWave,
+            Self::Ftp(_) => LayerKind::Ftp,
+            Self::Tftp(_) => LayerKind::Tftp,
+            Self::Smtp(_) => LayerKind::Smtp,
+            Self::Pop3(_) => LayerKind::Pop3,
+            Self::Imap(_) => LayerKind::Imap,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -131,6 +176,15 @@ impl LayerStackEntry {
             Self::Dns(b) => b.build(),
             Self::Http2(b) => b.build(),
             Self::L2tp(b) => b.build(),
+            Self::Mqtt(b) => b.build(),
+            Self::MqttSn(b) => b.build(),
+            Self::Modbus(b) => b.build(),
+            Self::ZWave(b) => b.build(),
+            Self::Ftp(b) => b.build(),
+            Self::Tftp(b) => b.build(),
+            Self::Smtp(b) => b.build(),
+            Self::Pop3(b) => b.build(),
+            Self::Imap(b) => b.build(),
             Self::Raw(data) => data.clone(),
         }
     }
@@ -151,6 +205,15 @@ impl LayerStackEntry {
             Self::Dns(b) => b.header_size(),
             Self::Http2(b) => b.build().len(), // frame size is dynamic
             Self::L2tp(b) => b.header_size(),
+            Self::Mqtt(b) => b.build().len(),
+            Self::MqttSn(b) => b.build().len(),
+            Self::Modbus(b) => b.build().len(),
+            Self::ZWave(b) => b.build().len(),
+            Self::Ftp(b) => b.build().len(),
+            Self::Tftp(b) => b.build().len(),
+            Self::Smtp(b) => b.build().len(),
+            Self::Pop3(b) => b.build().len(),
+            Self::Imap(b) => b.build().len(),
             Self::Raw(data) => data.len(),
         }
     }
@@ -171,6 +234,15 @@ impl LayerStackEntry {
             Self::Dns(_) => DNS_HEADER_LEN,
             Self::Http2(_) => 9, // HTTP/2 frame header is 9 bytes
             Self::L2tp(_) => L2TP_MIN_HEADER_LEN,
+            Self::Mqtt(_) => MQTT_MIN_HEADER_LEN,
+            Self::MqttSn(_) => MQTTSN_MIN_HEADER_LEN,
+            Self::Modbus(_) => MODBUS_MIN_HEADER_LEN,
+            Self::ZWave(_) => ZWAVE_MIN_HEADER_LEN,
+            Self::Ftp(_) => FTP_MIN_HEADER_LEN,
+            Self::Tftp(_) => TFTP_MIN_HEADER_LEN,
+            Self::Smtp(_) => SMTP_MIN_HEADER_LEN,
+            Self::Pop3(_) => POP3_MIN_HEADER_LEN,
+            Self::Imap(_) => IMAP_MIN_HEADER_LEN,
             Self::Raw(data) => data.len(),
         }
     }
@@ -642,6 +714,30 @@ impl IntoLayerStackEntry for Http2FrameBuilder {
 impl IntoLayerStackEntry for L2tpBuilder {
     fn into_layer_stack_entry(self) -> LayerStackEntry {
         LayerStackEntry::L2tp(self)
+    }
+}
+
+impl IntoLayerStackEntry for MqttBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Mqtt(self)
+    }
+}
+
+impl IntoLayerStackEntry for MqttSnBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::MqttSn(self)
+    }
+}
+
+impl IntoLayerStackEntry for ModbusBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Modbus(self)
+    }
+}
+
+impl IntoLayerStackEntry for ZWaveBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::ZWave(self)
     }
 }
 

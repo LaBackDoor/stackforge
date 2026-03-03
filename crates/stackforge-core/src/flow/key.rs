@@ -6,6 +6,84 @@ use crate::layer::ipv6::Ipv6Layer;
 
 use super::error::FlowError;
 
+/// Z-Wave conversation key based on home ID and node pair.
+///
+/// Uses canonical ordering: the smaller node ID is always `node_a`.
+/// This ensures that both directions of a Z-Wave conversation hash
+/// to the same key.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ZWaveKey {
+    /// Z-Wave network home ID.
+    pub home_id: u32,
+    /// The smaller node ID.
+    pub node_a: u8,
+    /// The larger node ID.
+    pub node_b: u8,
+}
+
+impl ZWaveKey {
+    /// Create a new canonical Z-Wave key with deterministic node ordering.
+    ///
+    /// Returns the key and the direction of the original packet relative
+    /// to the canonical ordering.
+    pub fn new(home_id: u32, src_node: u8, dst_node: u8) -> (Self, FlowDirection) {
+        if src_node <= dst_node {
+            (
+                Self {
+                    home_id,
+                    node_a: src_node,
+                    node_b: dst_node,
+                },
+                FlowDirection::Forward,
+            )
+        } else {
+            (
+                Self {
+                    home_id,
+                    node_a: dst_node,
+                    node_b: src_node,
+                },
+                FlowDirection::Reverse,
+            )
+        }
+    }
+}
+
+impl std::fmt::Display for ZWaveKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ZWave[{:#010X}] node {} <-> node {}",
+            self.home_id, self.node_a, self.node_b
+        )
+    }
+}
+
+/// Extract a Z-Wave key and direction from a parsed packet.
+///
+/// Reads the Z-Wave layer for home ID, source, and destination node IDs.
+pub fn extract_zwave_key(packet: &Packet) -> Result<(ZWaveKey, FlowDirection), FlowError> {
+    if !packet.is_parsed() {
+        return Err(FlowError::PacketNotParsed);
+    }
+
+    let buf = packet.as_bytes();
+
+    let zwave = packet.zwave().ok_or(FlowError::NoTransportLayer)?;
+
+    let home_id = zwave
+        .home_id(buf)
+        .map_err(|e| FlowError::PacketError(e.into()))?;
+    let src = zwave
+        .src(buf)
+        .map_err(|e| FlowError::PacketError(e.into()))?;
+    let dst = zwave
+        .dst(buf)
+        .map_err(|e| FlowError::PacketError(e.into()))?;
+
+    Ok(ZWaveKey::new(home_id, src, dst))
+}
+
 /// Transport layer protocol identifier for flow keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TransportProtocol {

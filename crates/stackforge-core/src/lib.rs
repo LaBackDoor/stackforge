@@ -67,11 +67,28 @@ pub use layer::bindings::{
 pub use layer::ethernet::{
     DOT3_MAX_LENGTH, ETHERNET_HEADER_LEN, EthernetFrameType, dispatch_hook, is_dot3, is_ethernet_ii,
 };
+pub use layer::ftp::{
+    FTP_CONTROL_PORT, FTP_DATA_PORT, FTP_FIELD_NAMES, FTP_MIN_HEADER_LEN, FtpBuilder, FtpLayer,
+};
+pub use layer::imap::{IMAP_FIELD_NAMES, IMAP_MIN_HEADER_LEN, IMAP_PORT, ImapBuilder, ImapLayer};
+pub use layer::modbus::{
+    MODBUS_FIELD_NAMES, MODBUS_MIN_HEADER_LEN, MODBUS_TCP_PORT, ModbusBuilder, ModbusLayer,
+};
+pub use layer::mqtt::{MQTT_FIELD_NAMES, MQTT_MIN_HEADER_LEN, MQTT_PORT, MqttBuilder, MqttLayer};
+pub use layer::mqttsn::{
+    MQTTSN_FIELD_NAMES, MQTTSN_MIN_HEADER_LEN, MQTTSN_PORT, MqttSnBuilder, MqttSnLayer,
+};
 pub use layer::neighbor::{
     ArpCache, CacheEntry, NdpCache, ipv4_multicast_mac, ipv6_multicast_mac, is_ipv4_multicast,
     is_ipv6_multicast, solicited_node_multicast,
 };
+pub use layer::pop3::{POP3_FIELD_NAMES, POP3_MIN_HEADER_LEN, POP3_PORT, Pop3Builder, Pop3Layer};
 pub use layer::quic::builder::QuicBuilder;
+pub use layer::smtp::{SMTP_FIELD_NAMES, SMTP_MIN_HEADER_LEN, SMTP_PORT, SmtpBuilder, SmtpLayer};
+pub use layer::tftp::{TFTP_MIN_HEADER_LEN, TFTP_PORT, TftpBuilder, TftpLayer};
+pub use layer::zwave::{
+    ZWAVE_FIELD_NAMES, ZWAVE_HEADER_LEN, ZWAVE_MIN_HEADER_LEN, ZWaveBuilder, ZWaveLayer,
+};
 pub use layer::{
     // Builders
     ArpBuilder,
@@ -149,8 +166,8 @@ pub use pcap::{
 // Flow extraction re-exports
 pub use flow::{
     CanonicalKey, ConversationState, ConversationStatus, ConversationTable, DirectionStats,
-    FlowConfig, FlowDirection, FlowError, ProtocolState, TransportProtocol, extract_flows,
-    extract_flows_with_config,
+    FlowConfig, FlowDirection, FlowError, ProtocolState, TransportProtocol, ZWaveFlowState,
+    ZWaveKey, extract_flows, extract_flows_with_config, extract_zwave_flows,
 };
 
 // Utils re-exports

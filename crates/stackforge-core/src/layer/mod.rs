@@ -11,22 +11,31 @@ pub mod dot15d4;
 pub mod ethernet;
 pub mod field;
 pub mod field_ext;
+pub mod ftp;
 pub mod generic;
 pub mod http;
 pub mod http2;
 pub mod icmp;
 pub mod icmpv6;
+pub mod imap;
 pub mod ipv4;
 pub mod ipv6;
 pub mod l2tp;
+pub mod modbus;
+pub mod mqtt;
+pub mod mqttsn;
 pub mod neighbor;
+pub mod pop3;
 pub mod quic;
 pub mod raw;
+pub mod smtp;
 pub mod ssh;
 pub mod stack;
 pub mod tcp;
+pub mod tftp;
 pub mod tls;
 pub mod udp;
+pub mod zwave;
 
 use std::ops::Range;
 
@@ -35,17 +44,41 @@ pub use arp::{ArpBuilder, ArpLayer};
 pub use bindings::{LAYER_BINDINGS, LayerBinding};
 pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
+pub use ftp::{
+    FTP_CONTROL_PORT, FTP_DATA_PORT, FTP_FIELD_NAMES, FTP_MIN_HEADER_LEN, FtpBuilder, FtpLayer,
+    is_ftp_payload,
+};
 pub use http::{HTTP_FIELD_NAMES, HttpLayer, HttpRequestBuilder, HttpResponseBuilder};
 pub use http2::{HTTP2_FIELD_NAMES, Http2Builder, Http2FrameBuilder, Http2Layer};
 pub use icmp::{ICMP_MIN_HEADER_LEN, IcmpBuilder, IcmpLayer, icmp_checksum, verify_icmp_checksum};
 pub use icmpv6::{
     ICMPV6_MIN_HEADER_LEN, Icmpv6Builder, Icmpv6Layer, icmpv6_checksum, verify_icmpv6_checksum,
 };
+pub use imap::{
+    IMAP_FIELD_NAMES, IMAP_MIN_HEADER_LEN, IMAP_PORT, ImapBuilder, ImapLayer, is_imap_payload,
+};
 pub use ipv4::{Ipv4Builder, Ipv4Flags, Ipv4Layer, Ipv4Options, Ipv4Route};
 pub use ipv6::{IPV6_HEADER_LEN, Ipv6Builder, Ipv6Layer};
 pub use l2tp::{L2TP_FIELD_NAMES, L2TP_MIN_HEADER_LEN, L2TP_PORT, L2tpBuilder, L2tpLayer};
+pub use modbus::{
+    MODBUS_FIELD_NAMES, MODBUS_MIN_HEADER_LEN, MODBUS_TCP_PORT, ModbusBuilder, ModbusLayer,
+    is_modbus_tcp_payload,
+};
+pub use mqtt::{
+    MQTT_FIELD_NAMES, MQTT_MIN_HEADER_LEN, MQTT_PORT, MqttBuilder, MqttLayer, is_mqtt_payload,
+};
+pub use mqttsn::{
+    MQTTSN_FIELD_NAMES, MQTTSN_MIN_HEADER_LEN, MQTTSN_PORT, MqttSnBuilder, MqttSnLayer,
+    is_mqttsn_payload,
+};
 pub use neighbor::{NeighborCache, NeighborResolver};
+pub use pop3::{
+    POP3_FIELD_NAMES, POP3_MIN_HEADER_LEN, POP3_PORT, Pop3Builder, Pop3Layer, is_pop3_payload,
+};
 pub use raw::{RAW_FIELDS, RawBuilder, RawLayer};
+pub use smtp::{
+    SMTP_FIELD_NAMES, SMTP_MIN_HEADER_LEN, SMTP_PORT, SmtpBuilder, SmtpLayer, is_smtp_payload,
+};
 pub use ssh::{SSH_BINARY_HEADER_LEN, SSH_PORT, SshBuilder, SshLayer};
 pub use stack::{IntoLayerStackEntry, LayerStack, LayerStackEntry};
 pub use tcp::{
@@ -53,6 +86,7 @@ pub use tcp::{
     TcpFlags, TcpLayer, TcpOption, TcpOptionKind, TcpOptions, TcpOptionsBuilder, TcpSackBlock,
     TcpTimestamp, service_name, service_port, tcp_checksum, tcp_checksum_ipv4, verify_tcp_checksum,
 };
+pub use tftp::{TFTP_MIN_HEADER_LEN, TFTP_PORT, TftpBuilder, TftpLayer, is_tftp_payload};
 pub use tls::{
     TLS_FIELDS, TLS_PORT, TLS_RECORD_HEADER_LEN, TlsAlertBuilder, TlsCcsBuilder, TlsContentType,
     TlsLayer, TlsRecordBuilder, TlsVersion,
@@ -60,6 +94,9 @@ pub use tls::{
 pub use udp::{
     UDP_HEADER_LEN, UdpBuilder, UdpLayer, udp_checksum_ipv4, udp_checksum_ipv6,
     verify_udp_checksum_ipv4, verify_udp_checksum_ipv6,
+};
+pub use zwave::{
+    ZWAVE_FIELD_NAMES, ZWAVE_HEADER_LEN, ZWAVE_MIN_HEADER_LEN, ZWaveBuilder, ZWaveLayer,
 };
 
 /// Identifies the type of network protocol layer.
@@ -91,6 +128,15 @@ pub enum LayerKind {
     Generic = 22,
     Http2 = 23,
     L2tp = 24,
+    Mqtt = 25,
+    MqttSn = 26,
+    Modbus = 27,
+    ZWave = 28,
+    Ftp = 29,
+    Tftp = 30,
+    Smtp = 31,
+    Pop3 = 32,
+    Imap = 33,
     Raw = 255,
 }
 
@@ -123,6 +169,15 @@ impl LayerKind {
             Self::Generic => "Generic",
             Self::Http2 => "HTTP/2",
             Self::L2tp => "L2TP",
+            Self::Mqtt => "MQTT",
+            Self::MqttSn => "MQTT-SN",
+            Self::Modbus => "Modbus",
+            Self::ZWave => "Z-Wave",
+            Self::Ftp => "FTP",
+            Self::Tftp => "TFTP",
+            Self::Smtp => "SMTP",
+            Self::Pop3 => "POP3",
+            Self::Imap => "IMAP",
             Self::Raw => "Raw",
         }
     }
@@ -153,6 +208,15 @@ impl LayerKind {
             Self::Generic => 0,
             Self::Http2 => 9, // 9-byte frame header
             Self::L2tp => l2tp::L2TP_MIN_HEADER_LEN,
+            Self::Mqtt => mqtt::MQTT_MIN_HEADER_LEN,
+            Self::MqttSn => mqttsn::MQTTSN_MIN_HEADER_LEN,
+            Self::Modbus => modbus::MODBUS_MIN_HEADER_LEN,
+            Self::ZWave => zwave::ZWAVE_MIN_HEADER_LEN,
+            Self::Ftp => ftp::FTP_MIN_HEADER_LEN,
+            Self::Tftp => tftp::TFTP_MIN_HEADER_LEN,
+            Self::Smtp => smtp::SMTP_MIN_HEADER_LEN,
+            Self::Pop3 => pop3::POP3_MIN_HEADER_LEN,
+            Self::Imap => imap::IMAP_MIN_HEADER_LEN,
             Self::Raw => 0,
         }
     }
@@ -293,6 +357,15 @@ pub enum LayerEnum {
     Http2(http2::Http2Layer),
     Quic(quic::QuicLayer),
     L2tp(l2tp::L2tpLayer),
+    Mqtt(mqtt::MqttLayer),
+    MqttSn(mqttsn::MqttSnLayer),
+    Modbus(modbus::ModbusLayer),
+    ZWave(zwave::ZWaveLayer),
+    Ftp(ftp::FtpLayer),
+    Tftp(tftp::TftpLayer),
+    Smtp(smtp::SmtpLayer),
+    Pop3(pop3::Pop3Layer),
+    Imap(imap::ImapLayer),
     Raw(RawLayer),
 }
 
@@ -319,6 +392,15 @@ impl LayerEnum {
             Self::Http2(_) => LayerKind::Http2,
             Self::Quic(_) => LayerKind::Quic,
             Self::L2tp(_) => LayerKind::L2tp,
+            Self::Mqtt(_) => LayerKind::Mqtt,
+            Self::MqttSn(_) => LayerKind::MqttSn,
+            Self::Modbus(_) => LayerKind::Modbus,
+            Self::ZWave(_) => LayerKind::ZWave,
+            Self::Ftp(_) => LayerKind::Ftp,
+            Self::Tftp(_) => LayerKind::Tftp,
+            Self::Smtp(_) => LayerKind::Smtp,
+            Self::Pop3(_) => LayerKind::Pop3,
+            Self::Imap(_) => LayerKind::Imap,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -345,6 +427,15 @@ impl LayerEnum {
             Self::Http2(l) => &l.index,
             Self::Quic(l) => &l.index,
             Self::L2tp(l) => &l.index,
+            Self::Mqtt(l) => &l.index,
+            Self::MqttSn(l) => &l.index,
+            Self::Modbus(l) => &l.index,
+            Self::ZWave(l) => &l.index,
+            Self::Ftp(l) => &l.index,
+            Self::Tftp(l) => &l.index,
+            Self::Smtp(l) => &l.index,
+            Self::Pop3(l) => &l.index,
+            Self::Imap(l) => &l.index,
             Self::Raw(l) => &l.index,
         }
     }
@@ -370,6 +461,15 @@ impl LayerEnum {
             Self::Http2(l) => l.summary(buf),
             Self::Quic(l) => l.summary(buf),
             Self::L2tp(l) => l.summary(buf),
+            Self::Mqtt(l) => l.summary(buf),
+            Self::MqttSn(l) => l.summary(buf),
+            Self::Modbus(l) => l.summary(buf),
+            Self::ZWave(l) => l.summary(buf),
+            Self::Ftp(l) => l.summary(buf),
+            Self::Tftp(l) => l.summary(buf),
+            Self::Smtp(l) => l.summary(buf),
+            Self::Pop3(l) => l.summary(buf),
+            Self::Imap(l) => l.summary(buf),
             Self::Raw(l) => l.summary(buf),
         }
     }
@@ -410,6 +510,15 @@ impl LayerEnum {
             Self::Http2(l) => l.header_len(buf),
             Self::Quic(l) => l.header_len(buf),
             Self::L2tp(l) => l.header_len(buf),
+            Self::Mqtt(l) => l.header_len(buf),
+            Self::MqttSn(l) => l.header_len(buf),
+            Self::Modbus(l) => l.header_len(buf),
+            Self::ZWave(l) => l.header_len(buf),
+            Self::Ftp(l) => l.header_len(buf),
+            Self::Tftp(l) => l.header_len(buf),
+            Self::Smtp(l) => l.header_len(buf),
+            Self::Pop3(l) => l.header_len(buf),
+            Self::Imap(l) => l.header_len(buf),
             Self::Raw(l) => l.header_len(buf),
         }
     }
@@ -437,6 +546,15 @@ impl LayerEnum {
             Self::Http2(l) => http2_show_fields(l, buf),
             Self::Quic(l) => quic_show_fields(l, buf),
             Self::L2tp(l) => l2tp_show_fields(l, buf),
+            Self::Mqtt(l) => mqtt_show_fields(l, buf),
+            Self::MqttSn(l) => mqttsn_show_fields(l, buf),
+            Self::Modbus(l) => modbus_show_fields(l, buf),
+            Self::ZWave(l) => zwave_show_fields(l, buf),
+            Self::Ftp(l) => ftp::ftp_show_fields(l, buf),
+            Self::Tftp(l) => tftp::tftp_show_fields(l, buf),
+            Self::Smtp(l) => smtp::smtp_show_fields(l, buf),
+            Self::Pop3(l) => pop3::pop3_show_fields(l, buf),
+            Self::Imap(l) => imap::imap_show_fields(l, buf),
             Self::Raw(l) => raw::raw_show_fields(l, buf),
         }
     }
@@ -465,6 +583,15 @@ impl LayerEnum {
             Self::Ipv6(l) => l.get_field(buf, name),
             Self::Icmpv6(l) => l.get_field(buf, name),
             Self::L2tp(l) => l.get_field(buf, name),
+            Self::Mqtt(l) => l.get_field(buf, name),
+            Self::MqttSn(l) => l.get_field(buf, name),
+            Self::Modbus(l) => l.get_field(buf, name),
+            Self::ZWave(l) => l.get_field(buf, name),
+            Self::Ftp(l) => l.get_field(buf, name),
+            Self::Tftp(l) => l.get_field(buf, name),
+            Self::Smtp(l) => l.get_field(buf, name),
+            Self::Pop3(l) => l.get_field(buf, name),
+            Self::Imap(l) => l.get_field(buf, name),
         }
     }
 
@@ -497,6 +624,15 @@ impl LayerEnum {
             Self::Ipv6(l) => l.set_field(buf, name, value),
             Self::Icmpv6(l) => l.set_field(buf, name, value),
             Self::L2tp(l) => l.set_field(buf, name, value),
+            Self::Mqtt(l) => l.set_field(buf, name, value),
+            Self::MqttSn(l) => l.set_field(buf, name, value),
+            Self::Modbus(l) => l.set_field(buf, name, value),
+            Self::ZWave(l) => l.set_field(buf, name, value),
+            Self::Ftp(_) => None,  // FTP fields are read-only (text protocol)
+            Self::Tftp(_) => None, // TFTP fields are read-only via this interface
+            Self::Smtp(_) => None, // SMTP fields are read-only (text protocol)
+            Self::Pop3(_) => None, // POP3 fields are read-only (text protocol)
+            Self::Imap(_) => None, // IMAP fields are read-only (text protocol)
         }
     }
 
@@ -523,6 +659,15 @@ impl LayerEnum {
             Self::Ipv6(_) => Ipv6Layer::field_names(),
             Self::Icmpv6(_) => Icmpv6Layer::field_names(),
             Self::L2tp(_) => l2tp::L2tpLayer::field_names(),
+            Self::Mqtt(_) => mqtt::MqttLayer::field_names(),
+            Self::MqttSn(_) => mqttsn::MqttSnLayer::field_names(),
+            Self::Modbus(_) => modbus::ModbusLayer::field_names(),
+            Self::ZWave(_) => zwave::ZWaveLayer::field_names(),
+            Self::Ftp(l) => l.field_names(),
+            Self::Tftp(l) => l.field_names(),
+            Self::Smtp(l) => l.field_names(),
+            Self::Pop3(l) => l.field_names(),
+            Self::Imap(l) => l.field_names(),
         }
     }
 }
@@ -1393,7 +1538,226 @@ fn l2tp_show_fields(l: &l2tp::L2tpLayer, buf: &[u8]) -> Vec<(&'static str, Strin
     fields
 }
 
-// DnsLayer is now in dns::DnsLayer
+fn mqtt_show_fields(l: &mqtt::MqttLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "msg_type",
+        l.msg_type(buf)
+            .map(|v| format!("{} ({})", v, mqtt::message_type_name(v)))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dup",
+        l.dup(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "qos",
+        l.qos(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "retain",
+        l.retain(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "remaining_length",
+        l.remaining_length(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    if let Ok(mt) = l.msg_type(buf) {
+        if mt == mqtt::PUBLISH {
+            if let Ok(topic) = l.topic(buf) {
+                fields.push(("topic", topic));
+            }
+        } else if mt == mqtt::CONNECT {
+            if let Ok(name) = l.proto_name(buf) {
+                fields.push(("proto_name", name));
+            }
+            if let Ok(level) = l.proto_level(buf) {
+                fields.push(("proto_level", level.to_string()));
+            }
+            if let Ok(klive) = l.klive(buf) {
+                fields.push(("klive", klive.to_string()));
+            }
+            if let Ok(cid) = l.client_id(buf) {
+                fields.push(("client_id", cid));
+            }
+        } else if mt == mqtt::CONNACK {
+            if let Ok(rc) = l.retcode(buf) {
+                fields.push(("retcode", rc.to_string()));
+            }
+        }
+    }
+    fields
+}
+
+fn mqttsn_show_fields(l: &mqttsn::MqttSnLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "length",
+        l.packet_length(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let mt = l.msg_type(buf).unwrap_or(0xFF);
+    fields.push((
+        "type",
+        format!("{} ({})", mt, mqttsn::message_type_name(mt)),
+    ));
+    if let Ok(v) = l.gw_id(buf) {
+        fields.push(("gw_id", format!("{:#04x}", v)));
+    }
+    if let Ok(v) = l.duration(buf) {
+        fields.push(("duration", v.to_string()));
+    }
+    if let Ok(v) = l.return_code(buf) {
+        fields.push(("return_code", v.to_string()));
+    }
+    if let Ok(v) = l.tid(buf) {
+        fields.push(("tid", format!("{:#06x}", v)));
+    }
+    if let Ok(v) = l.mid(buf) {
+        fields.push(("mid", format!("{:#06x}", v)));
+    }
+    fields
+}
+
+fn modbus_show_fields(l: &modbus::ModbusLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "trans_id",
+        l.trans_id(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "proto_id",
+        l.proto_id(buf)
+            .map(|v| format!("{:#06x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "length",
+        l.length(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "unit_id",
+        l.unit_id(buf)
+            .map(|v| format!("{:#04x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    let fc = l.func_code(buf).unwrap_or(0);
+    fields.push((
+        "func_code",
+        format!("{:#04x} ({})", fc, modbus::func_code_name(fc)),
+    ));
+    if l.is_error(buf) {
+        fields.push((
+            "except_code",
+            l.except_code(buf)
+                .map(|v| format!("{} ({})", v, modbus::except_code_name(v)))
+                .unwrap_or_else(|_| "?".into()),
+        ));
+    }
+    fields
+}
+
+fn zwave_show_fields(l: &zwave::ZWaveLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "home_id",
+        l.home_id(buf)
+            .map(|v| format!("{:#010x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "src",
+        l.src(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "dst",
+        l.dst(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "routed",
+        l.routed(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "ackreq",
+        l.ackreq(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "lowpower",
+        l.lowpower(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "speedmodified",
+        l.speedmodified(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "headertype",
+        l.headertype(buf)
+            .map(|v| format!("{:#04x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "beam_control",
+        l.beam_control(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "seqn",
+        l.seqn(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields.push((
+        "length",
+        l.length(buf)
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    if !l.is_ack(buf) {
+        fields.push((
+            "cmd_class",
+            l.cmd_class(buf)
+                .map(|v| format!("{:#04x} ({})", v, zwave::cmd_class_name(v)))
+                .unwrap_or_else(|_| "?".into()),
+        ));
+        if let Ok(cmd) = l.cmd(buf) {
+            fields.push(("cmd", format!("{:#04x}", cmd)));
+        }
+    }
+    fields.push((
+        "crc",
+        l.crc(buf)
+            .map(|v| format!("{:#04x}", v))
+            .unwrap_or_else(|_| "?".into()),
+    ));
+    fields
+}
+
 pub use dns::DnsLayer;
 
 /// EtherType constants
