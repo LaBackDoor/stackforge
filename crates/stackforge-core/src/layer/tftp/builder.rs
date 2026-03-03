@@ -134,6 +134,7 @@ impl TftpBuilder {
     // ========================================================================
 
     /// Serialize this TFTP packet to bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         match self.opcode {
             OPCODE_RRQ | OPCODE_WRQ => self.build_request(),

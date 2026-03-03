@@ -13,6 +13,7 @@ pub const VARINT_MAX: u64 = (1u64 << 62) - 1;
 ///
 /// Returns `Some((value, bytes_consumed))` on success, or `None` if the buffer
 /// is too short or the prefix is invalid.
+#[must_use]
 pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
     if buf.is_empty() {
         return None;
@@ -21,14 +22,14 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
     match prefix {
         0 => {
             // 1-byte encoding: 6-bit value
-            Some(((buf[0] & 0x3F) as u64, 1))
+            Some((u64::from(buf[0] & 0x3F), 1))
         },
         1 => {
             // 2-byte encoding: 14-bit value
             if buf.len() < 2 {
                 return None;
             }
-            let value = u16::from_be_bytes([buf[0] & 0x3F, buf[1]]) as u64;
+            let value = u64::from(u16::from_be_bytes([buf[0] & 0x3F, buf[1]]));
             Some((value, 2))
         },
         2 => {
@@ -36,7 +37,7 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
             if buf.len() < 4 {
                 return None;
             }
-            let value = u32::from_be_bytes([buf[0] & 0x3F, buf[1], buf[2], buf[3]]) as u64;
+            let value = u64::from(u32::from_be_bytes([buf[0] & 0x3F, buf[1], buf[2], buf[3]]));
             Some((value, 4))
         },
         3 => {
@@ -65,12 +66,11 @@ pub fn decode(buf: &[u8]) -> Option<(u64, usize)> {
 /// # Panics
 ///
 /// Panics if `value` exceeds `VARINT_MAX` (4611686018427387903).
+#[must_use]
 pub fn encode(value: u64) -> Vec<u8> {
     assert!(
         value <= VARINT_MAX,
-        "QUIC varint value {} exceeds maximum {}",
-        value,
-        VARINT_MAX
+        "QUIC varint value {value} exceeds maximum {VARINT_MAX}"
     );
     if value < 64 {
         // 1-byte encoding
@@ -97,12 +97,11 @@ pub fn encode(value: u64) -> Vec<u8> {
 /// # Panics
 ///
 /// Panics if `value` exceeds `VARINT_MAX`.
+#[must_use]
 pub fn encoded_len(value: u64) -> usize {
     assert!(
         value <= VARINT_MAX,
-        "QUIC varint value {} exceeds maximum {}",
-        value,
-        VARINT_MAX
+        "QUIC varint value {value} exceeds maximum {VARINT_MAX}"
     );
     if value < 64 {
         1

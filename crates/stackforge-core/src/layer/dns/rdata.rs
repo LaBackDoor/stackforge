@@ -217,18 +217,10 @@ impl DnsRData {
         match rtype {
             rr_type::A => Self::parse_a(rdata),
             rr_type::AAAA => Self::parse_aaaa(rdata),
-            rr_type::NS => {
-                Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::NS(n))
-            },
-            rr_type::CNAME => {
-                Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::CNAME(n))
-            },
-            rr_type::PTR => {
-                Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::PTR(n))
-            },
-            rr_type::DNAME => {
-                Self::parse_name_record(packet, rdata_offset, rdlen, |n| DnsRData::DNAME(n))
-            },
+            rr_type::NS => Self::parse_name_record(packet, rdata_offset, rdlen, DnsRData::NS),
+            rr_type::CNAME => Self::parse_name_record(packet, rdata_offset, rdlen, DnsRData::CNAME),
+            rr_type::PTR => Self::parse_name_record(packet, rdata_offset, rdlen, DnsRData::PTR),
+            rr_type::DNAME => Self::parse_name_record(packet, rdata_offset, rdlen, DnsRData::DNAME),
             rr_type::MX => Self::parse_mx(packet, rdata_offset, rdata),
             rr_type::TXT => Self::parse_txt(rdata),
             rr_type::SOA => Self::parse_soa(packet, rdata_offset, rdata_end),
@@ -405,7 +397,7 @@ impl DnsRData {
                 have: rdata.len() - 1,
             });
         }
-        let cpu = rdata[1..1 + cpu_len].to_vec();
+        let cpu = rdata[1..=cpu_len].to_vec();
 
         let os_start = 1 + cpu_len;
         let os_len = rdata[os_start] as usize;
@@ -761,12 +753,12 @@ impl DnsRData {
                 have: rdata_end.saturating_sub(pos),
             });
         }
-        let time_signed = ((packet[pos] as u64) << 40)
-            | ((packet[pos + 1] as u64) << 32)
-            | ((packet[pos + 2] as u64) << 24)
-            | ((packet[pos + 3] as u64) << 16)
-            | ((packet[pos + 4] as u64) << 8)
-            | (packet[pos + 5] as u64);
+        let time_signed = (u64::from(packet[pos]) << 40)
+            | (u64::from(packet[pos + 1]) << 32)
+            | (u64::from(packet[pos + 2]) << 24)
+            | (u64::from(packet[pos + 3]) << 16)
+            | (u64::from(packet[pos + 4]) << 8)
+            | u64::from(packet[pos + 5]);
         pos += 6;
 
         // Fudge: 2 bytes
@@ -887,6 +879,7 @@ impl DnsRData {
     // ========================================================================
 
     /// Serialize RDATA to wire format without DNS name compression.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         match self {
             DnsRData::A(addr) => addr.octets().to_vec(),
@@ -1305,25 +1298,26 @@ impl DnsRData {
     // ========================================================================
 
     /// Get a human-readable summary of this RDATA.
+    #[must_use]
     pub fn summary(&self) -> String {
         match self {
             DnsRData::A(addr) => addr.to_string(),
 
             DnsRData::AAAA(addr) => addr.to_string(),
 
-            DnsRData::NS(name) => format!("NS {}", name),
+            DnsRData::NS(name) => format!("NS {name}"),
 
-            DnsRData::CNAME(name) => format!("CNAME {}", name),
+            DnsRData::CNAME(name) => format!("CNAME {name}"),
 
-            DnsRData::PTR(name) => format!("PTR {}", name),
+            DnsRData::PTR(name) => format!("PTR {name}"),
 
-            DnsRData::DNAME(name) => format!("DNAME {}", name),
+            DnsRData::DNAME(name) => format!("DNAME {name}"),
 
             DnsRData::MX {
                 preference,
                 exchange,
             } => {
-                format!("MX {} {}", preference, exchange)
+                format!("MX {preference} {exchange}")
             },
 
             DnsRData::TXT(strings) => {
@@ -1343,10 +1337,7 @@ impl DnsRData {
                 expire,
                 minimum,
             } => {
-                format!(
-                    "SOA {} {} {} {} {} {} {}",
-                    mname, rname, serial, refresh, retry, expire, minimum
-                )
+                format!("SOA {mname} {rname} {serial} {refresh} {retry} {expire} {minimum}")
             },
 
             DnsRData::SRV {
@@ -1355,7 +1346,7 @@ impl DnsRData {
                 port,
                 target,
             } => {
-                format!("SRV {} {} {} {}", priority, weight, port, target)
+                format!("SRV {priority} {weight} {port} {target}")
             },
 
             DnsRData::HINFO { cpu, os } => {
@@ -1574,7 +1565,10 @@ impl DnsRData {
                 if options.is_empty() {
                     "OPT (empty)".to_string()
                 } else {
-                    let summaries: Vec<String> = options.iter().map(|o| o.summary()).collect();
+                    let summaries: Vec<String> = options
+                        .iter()
+                        .map(super::edns::EdnsOption::summary)
+                        .collect();
                     format!("OPT [{}]", summaries.join(", "))
                 }
             },
@@ -1588,7 +1582,7 @@ impl DnsRData {
 
 /// Convert bytes to a hex string.
 fn hex(data: &[u8]) -> String {
-    data.iter().map(|b| format!("{:02x}", b)).collect()
+    data.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 // ============================================================================

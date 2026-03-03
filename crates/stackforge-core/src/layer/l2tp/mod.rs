@@ -1,6 +1,6 @@
 //! L2TP (Layer 2 Tunneling Protocol) layer implementation.
 //!
-//! Implements L2TPv2 as defined in RFC 2661.
+//! Implements `L2TPv2` as defined in RFC 2661.
 //!
 //! ## Header Format
 //!
@@ -15,7 +15,7 @@
 //! - S (bit 4):   Sequence bit; if set, Ns and Nr fields are present
 //! - O (bit 6):   Offset bit; if set, Offset Size/Pad fields are present
 //! - P (bit 8):   Priority (data messages only)
-//! - Ver (12-15): Must be 2 for L2TPv2
+//! - Ver (12-15): Must be 2 for `L2TPv2`
 //!
 //! Fields present in order:
 //! 1. Flags+Version (2 bytes, always)
@@ -34,7 +34,7 @@ pub use builder::L2tpBuilder;
 use crate::layer::field::{FieldError, FieldValue};
 use crate::layer::{Layer, LayerIndex, LayerKind};
 
-/// Minimum L2TP header: flags+version (2) + tunnel_id (2) + session_id (2) = 6 bytes.
+/// Minimum L2TP header: flags+version (2) + `tunnel_id` (2) + `session_id` (2) = 6 bytes.
 pub const L2TP_MIN_HEADER_LEN: usize = 6;
 
 /// L2TP version number (bits 12-15 of the flags word).
@@ -64,11 +64,13 @@ pub struct L2tpLayer {
 
 impl L2tpLayer {
     /// Create a new L2TP layer from a layer index.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
 
     /// Create an L2TP layer starting at offset 0 (for standalone parsing).
+    #[must_use]
     pub fn at_start() -> Self {
         Self {
             index: LayerIndex::new(LayerKind::L2tp, 0, L2TP_MIN_HEADER_LEN),
@@ -158,7 +160,7 @@ impl L2tpLayer {
         Ok(Some(u16::from_be_bytes([s[offset], s[offset + 1]])))
     }
 
-    /// Compute the byte offset of tunnel_id within the layer slice.
+    /// Compute the byte offset of `tunnel_id` within the layer slice.
     fn tunnel_id_offset(&self, buf: &[u8]) -> Result<usize, FieldError> {
         let mut off = 2; // after flags word
         if self.has_length(buf)? {
@@ -195,7 +197,7 @@ impl L2tpLayer {
         Ok(())
     }
 
-    /// Compute byte offset of session_id within the layer slice.
+    /// Compute byte offset of `session_id` within the layer slice.
     fn session_id_offset(&self, buf: &[u8]) -> Result<usize, FieldError> {
         Ok(self.tunnel_id_offset(buf)? + 2)
     }
@@ -348,6 +350,7 @@ impl L2tpLayer {
     // ========================================================================
 
     /// Generate a one-line summary of this L2TP layer.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let s = self.slice(buf);
         if s.len() < 2 {
@@ -359,13 +362,11 @@ impl L2tpLayer {
             .unwrap_or("?");
         let tid = self
             .tunnel_id(buf)
-            .map(|v| v.to_string())
-            .unwrap_or_else(|_| "?".to_string());
+            .map_or_else(|_| "?".to_string(), |v| v.to_string());
         let sid = self
             .session_id(buf)
-            .map(|v| v.to_string())
-            .unwrap_or_else(|_| "?".to_string());
-        format!("L2TP {} tunnel_id={} session_id={}", is_ctrl, tid, sid)
+            .map_or_else(|_| "?".to_string(), |v| v.to_string());
+        format!("L2TP {is_ctrl} tunnel_id={tid} session_id={sid}")
     }
 
     // ========================================================================
@@ -373,6 +374,7 @@ impl L2tpLayer {
     // ========================================================================
 
     /// Get the field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         L2TP_FIELD_NAMES
     }
@@ -405,8 +407,7 @@ impl L2tpLayer {
                     Some(self.set_tunnel_id(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "tunnel_id: expected U16, got {:?}",
-                        value
+                        "tunnel_id: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -415,8 +416,7 @@ impl L2tpLayer {
                     Some(self.set_session_id(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "session_id: expected U16, got {:?}",
-                        value
+                        "session_id: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -425,8 +425,7 @@ impl L2tpLayer {
                     Some(self.set_ns(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "ns: expected U16, got {:?}",
-                        value
+                        "ns: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -435,8 +434,7 @@ impl L2tpLayer {
                     Some(self.set_nr(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "nr: expected U16, got {:?}",
-                        value
+                        "nr: expected U16, got {value:?}"
                     ))))
                 }
             },

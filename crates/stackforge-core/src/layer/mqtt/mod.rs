@@ -114,7 +114,7 @@ pub fn decode_variable_length(buf: &[u8], offset: usize) -> Result<(u32, usize),
             });
         }
         let encoded_byte = buf[idx];
-        value += (encoded_byte & 0x7F) as u32 * multiplier;
+        value += u32::from(encoded_byte & 0x7F) * multiplier;
 
         if multiplier > 128 * 128 * 128 {
             return Err(FieldError::InvalidValue(
@@ -135,6 +135,7 @@ pub fn decode_variable_length(buf: &[u8], offset: usize) -> Result<(u32, usize),
 /// Encode a value as an MQTT variable-length integer.
 ///
 /// Max encodable value is 268,435,455 (0x0FFFFFFF).
+#[must_use]
 pub fn encode_variable_length(value: u32) -> Vec<u8> {
     if value == 0 {
         return vec![0x00];
@@ -153,6 +154,7 @@ pub fn encode_variable_length(value: u32) -> Vec<u8> {
 }
 
 /// Return the string name for an MQTT message type value.
+#[must_use]
 pub fn message_type_name(msg_type: u8) -> &'static str {
     match msg_type {
         CONNECT => "CONNECT",
@@ -178,6 +180,7 @@ pub fn message_type_name(msg_type: u8) -> &'static str {
 ///
 /// Validates that the first byte contains a valid message type (1-15) in bits
 /// 7-4 and that the remaining length can be decoded.
+#[must_use]
 pub fn is_mqtt_payload(buf: &[u8]) -> bool {
     if buf.len() < 2 {
         return false;
@@ -202,11 +205,13 @@ pub struct MqttLayer {
 
 impl MqttLayer {
     /// Create a new MQTT layer from a layer index.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
 
     /// Create an MQTT layer starting at offset 0 (for standalone parsing).
+    #[must_use]
     pub fn at_start(len: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Mqtt, 0, len),
@@ -248,7 +253,7 @@ impl MqttLayer {
         Ok((s[0] >> 3) & 0x01 == 1)
     }
 
-    /// Get the QoS level (bits 2-1 of byte 0).
+    /// Get the `QoS` level (bits 2-1 of byte 0).
     pub fn qos(&self, buf: &[u8]) -> Result<u8, FieldError> {
         let s = self.slice(buf);
         if s.is_empty() {
@@ -289,6 +294,7 @@ impl MqttLayer {
     }
 
     /// Compute the fixed header length (1 byte type/flags + N bytes remaining length).
+    #[must_use]
     pub fn fixed_header_len(&self, buf: &[u8]) -> usize {
         let s = self.slice(buf);
         if s.len() < 2 {
@@ -342,13 +348,13 @@ impl MqttLayer {
             });
         }
         String::from_utf8(buf[topic_start..topic_start + tlen].to_vec())
-            .map_err(|e| FieldError::InvalidValue(format!("invalid UTF-8 topic: {}", e)))
+            .map_err(|e| FieldError::InvalidValue(format!("invalid UTF-8 topic: {e}")))
     }
 
-    /// Get the message ID for PUBLISH (QoS > 0), PUBACK, PUBREC, PUBREL, PUBCOMP,
+    /// Get the message ID for PUBLISH (`QoS` > 0), PUBACK, PUBREC, PUBREL, PUBCOMP,
     /// SUBSCRIBE, SUBACK, UNSUBSCRIBE, UNSUBACK messages.
     ///
-    /// For PUBLISH: message ID follows the topic (2 bytes topic_len + topic bytes).
+    /// For PUBLISH: message ID follows the topic (2 bytes `topic_len` + topic bytes).
     /// For others: message ID is at the start of the variable header.
     pub fn msgid(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let mt = self.msg_type(buf)?;
@@ -386,8 +392,7 @@ impl MqttLayer {
                 Ok(u16::from_be_bytes([buf[off], buf[off + 1]]))
             },
             _ => Err(FieldError::InvalidValue(format!(
-                "message type {} does not have a msgid field",
-                mt
+                "message type {mt} does not have a msgid field"
             ))),
         }
     }
@@ -426,7 +431,7 @@ impl MqttLayer {
     // CONNECT field accessors
     // ========================================================================
 
-    /// Get the protocol name from a CONNECT message (e.g., "MQTT" or "MQIsdp").
+    /// Get the protocol name from a CONNECT message (e.g., "MQTT" or "`MQIsdp`").
     pub fn proto_name(&self, buf: &[u8]) -> Result<String, FieldError> {
         let off = self.var_header_offset(buf);
         if off + 2 > buf.len() {
@@ -446,7 +451,7 @@ impl MqttLayer {
             });
         }
         String::from_utf8(buf[name_start..name_start + name_len].to_vec())
-            .map_err(|e| FieldError::InvalidValue(format!("invalid UTF-8 proto_name: {}", e)))
+            .map_err(|e| FieldError::InvalidValue(format!("invalid UTF-8 proto_name: {e}")))
     }
 
     /// Get the protocol level/version byte from a CONNECT message.
@@ -511,7 +516,7 @@ impl MqttLayer {
         Ok((flags >> 5) & 0x01 == 1)
     }
 
-    /// Get the will QoS from CONNECT flags (bits 4-3).
+    /// Get the will `QoS` from CONNECT flags (bits 4-3).
     pub fn will_qosflag(&self, buf: &[u8]) -> Result<u8, FieldError> {
         let flags = self.connect_flags(buf)?;
         Ok((flags >> 3) & 0x03)
@@ -586,7 +591,7 @@ impl MqttLayer {
             });
         }
         String::from_utf8(buf[cid_start..cid_start + cid_len].to_vec())
-            .map_err(|e| FieldError::InvalidValue(format!("invalid UTF-8 client_id: {}", e)))
+            .map_err(|e| FieldError::InvalidValue(format!("invalid UTF-8 client_id: {e}")))
     }
 
     // ========================================================================
@@ -643,6 +648,7 @@ impl MqttLayer {
     // ========================================================================
 
     /// Generate a one-line summary of this MQTT layer.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let mt = match self.msg_type(buf) {
             Ok(t) => t,
@@ -654,29 +660,29 @@ impl MqttLayer {
             PUBLISH => {
                 let topic = self.topic(buf).unwrap_or_else(|_| "?".to_string());
                 let qos = self.qos(buf).unwrap_or(0);
-                format!("MQTT {} topic={} QOS={}", type_name, topic, qos)
+                format!("MQTT {type_name} topic={topic} QOS={qos}")
             },
             CONNECT => {
                 let cid = self.client_id(buf).unwrap_or_else(|_| "?".to_string());
-                format!("MQTT {} clientId={}", type_name, cid)
+                format!("MQTT {type_name} clientId={cid}")
             },
             CONNACK => {
                 let rc = self.retcode(buf).unwrap_or(0);
-                format!("MQTT {} retcode={}", type_name, rc)
+                format!("MQTT {type_name} retcode={rc}")
             },
             SUBSCRIBE | UNSUBSCRIBE => {
                 let mid = self.msgid(buf).unwrap_or(0);
-                format!("MQTT {} msgid={}", type_name, mid)
+                format!("MQTT {type_name} msgid={mid}")
             },
             SUBACK => {
                 let mid = self.msgid(buf).unwrap_or(0);
-                format!("MQTT {} msgid={}", type_name, mid)
+                format!("MQTT {type_name} msgid={mid}")
             },
             PUBACK | PUBREC | PUBREL | PUBCOMP | UNSUBACK => {
                 let mid = self.msgid(buf).unwrap_or(0);
-                format!("MQTT {} msgid={}", type_name, mid)
+                format!("MQTT {type_name} msgid={mid}")
             },
-            _ => format!("MQTT {}", type_name),
+            _ => format!("MQTT {type_name}"),
         }
     }
 
@@ -692,6 +698,7 @@ impl MqttLayer {
     // ========================================================================
 
     /// Get the field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         MQTT_FIELD_NAMES
     }

@@ -320,6 +320,7 @@ impl FtpBuilder {
     // ========================================================================
 
     /// Serialize this FTP message to bytes (including CRLF terminator).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         if let Some(code) = self.reply_code {
             self.build_reply(code)

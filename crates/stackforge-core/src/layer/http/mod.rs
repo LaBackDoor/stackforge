@@ -79,6 +79,7 @@ pub struct HttpLayer {
 
 impl HttpLayer {
     /// Create a new `HttpLayer` from a [`LayerIndex`].
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
@@ -98,11 +99,13 @@ impl HttpLayer {
     // -----------------------------------------------------------------------
 
     /// Returns `true` when the layer data looks like an HTTP request.
+    #[must_use]
     pub fn is_request(&self, buf: &[u8]) -> bool {
         detection::is_http_request(self.slice(buf))
     }
 
     /// Returns `true` when the layer data looks like an HTTP response.
+    #[must_use]
     pub fn is_response(&self, buf: &[u8]) -> bool {
         detection::is_http_response(self.slice(buf))
     }
@@ -112,6 +115,7 @@ impl HttpLayer {
     // -----------------------------------------------------------------------
 
     /// Return the first CRLF-terminated line of the HTTP message.
+    #[must_use]
     pub fn first_line<'a>(&self, buf: &'a [u8]) -> Option<&'a [u8]> {
         let slice = self.slice(buf);
         let crlf_pos = slice.windows(2).position(|w| w == b"\r\n")?;
@@ -121,6 +125,7 @@ impl HttpLayer {
     /// Find the offset (relative to `start`) of the first byte **after** the
     /// `\r\n\r\n` header terminator.  Returns `None` when the terminator is
     /// not found in `buf[start..]`.
+    #[must_use]
     pub fn headers_end(buf: &[u8], start: usize) -> Option<usize> {
         let search_area = buf.get(start..)?;
         search_area
@@ -136,6 +141,7 @@ impl HttpLayer {
     /// Return the HTTP method for a request (e.g. `"GET"`, `"POST"`).
     ///
     /// Returns `None` for responses or malformed data.
+    #[must_use]
     pub fn method<'a>(&self, buf: &'a [u8]) -> Option<&'a str> {
         if !self.is_request(buf) {
             return None;
@@ -147,6 +153,7 @@ impl HttpLayer {
     /// Return the request-URI for a request.
     ///
     /// Returns `None` for responses or malformed data.
+    #[must_use]
     pub fn uri<'a>(&self, buf: &'a [u8]) -> Option<&'a str> {
         if !self.is_request(buf) {
             return None;
@@ -162,6 +169,7 @@ impl HttpLayer {
 
     /// Return the HTTP version string (e.g. `"HTTP/1.1"`) for either a
     /// request or a response.
+    #[must_use]
     pub fn http_version<'a>(&self, buf: &'a [u8]) -> Option<&'a str> {
         let slice = self.slice(buf);
         let text = std::str::from_utf8(slice).ok()?;
@@ -173,7 +181,7 @@ impl HttpLayer {
             first_line.split(' ').next()
         } else {
             // "METHOD URI HTTP/x.y" — version is the last token.
-            first_line.rsplitn(2, ' ').next()
+            first_line.rsplit(' ').next()
         }
     }
 
@@ -184,6 +192,7 @@ impl HttpLayer {
     /// Return the numeric status code for a response (e.g. `200`, `404`).
     ///
     /// Returns `None` for requests or malformed data.
+    #[must_use]
     pub fn status_code(&self, buf: &[u8]) -> Option<u16> {
         if !self.is_response(buf) {
             return None;
@@ -200,6 +209,7 @@ impl HttpLayer {
     /// Return the reason phrase for a response (e.g. `"OK"`, `"Not Found"`).
     ///
     /// Returns `None` for requests or malformed data.
+    #[must_use]
     pub fn reason<'a>(&self, buf: &'a [u8]) -> Option<&'a str> {
         if !self.is_response(buf) {
             return None;
@@ -221,6 +231,7 @@ impl HttpLayer {
     /// Perform a **case-insensitive** lookup for a header by name.
     ///
     /// Returns the trimmed header value if found.
+    #[must_use]
     pub fn header_value<'a>(&self, buf: &'a [u8], name: &str) -> Option<&'a str> {
         let slice = self.slice(buf);
         let text = std::str::from_utf8(slice).ok()?;
@@ -254,6 +265,7 @@ impl HttpLayer {
     /// the byte immediately after `\r\n\r\n`.
     ///
     /// Returns `None` when the header terminator is not present.
+    #[must_use]
     pub fn body_offset(&self, buf: &[u8]) -> Option<usize> {
         Self::headers_end(buf, self.index.start)
     }
@@ -261,16 +273,17 @@ impl HttpLayer {
     /// Parse the `Content-Length` header and return it as a `usize`.
     ///
     /// Returns `None` when the header is absent or cannot be parsed.
+    #[must_use]
     pub fn content_length(&self, buf: &[u8]) -> Option<usize> {
         self.header_value(buf, "content-length")
             .and_then(|v| v.parse().ok())
     }
 
     /// Return `true` when `Transfer-Encoding: chunked` is present.
+    #[must_use]
     pub fn is_chunked(&self, buf: &[u8]) -> bool {
         self.header_value(buf, "transfer-encoding")
-            .map(|v| v.eq_ignore_ascii_case("chunked"))
-            .unwrap_or(false)
+            .is_some_and(|v| v.eq_ignore_ascii_case("chunked"))
     }
 
     // -----------------------------------------------------------------------
@@ -280,16 +293,17 @@ impl HttpLayer {
     /// Generate a human-readable one-line summary:
     /// - Request : `"HTTP GET /path HTTP/1.1"`
     /// - Response: `"HTTP 200 OK"`
+    #[must_use]
     pub fn summary_str(&self, buf: &[u8]) -> String {
         if self.is_request(buf) {
             let method = self.method(buf).unwrap_or("?");
             let uri = self.uri(buf).unwrap_or("?");
             let version = self.http_version(buf).unwrap_or("HTTP/?");
-            format!("HTTP {} {} {}", method, uri, version)
+            format!("HTTP {method} {uri} {version}")
         } else if self.is_response(buf) {
             let code = self.status_code(buf).unwrap_or(0);
             let reason = self.reason(buf).unwrap_or("?");
-            format!("HTTP {} {}", code, reason)
+            format!("HTTP {code} {reason}")
         } else {
             "HTTP".to_owned()
         }
@@ -299,6 +313,7 @@ impl HttpLayer {
     /// terminal `\r\n\r\n`, but **excluding** the body.
     ///
     /// Returns `0` when the header block cannot be located.
+    #[must_use]
     pub fn http_header_len(&self, buf: &[u8]) -> usize {
         match self.body_offset(buf) {
             Some(body_start) => body_start.saturating_sub(self.index.start),
@@ -311,6 +326,7 @@ impl HttpLayer {
     // -----------------------------------------------------------------------
 
     /// Return the static list of field names for this layer.
+    #[must_use]
     pub fn field_names(&self) -> &'static [&'static str] {
         HTTP_FIELD_NAMES
     }
@@ -327,6 +343,7 @@ impl HttpLayer {
     ///
     /// Returns `None` for unrecognised field names or when the field does not
     /// apply to the current message type.
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         match name {
             "method" => {

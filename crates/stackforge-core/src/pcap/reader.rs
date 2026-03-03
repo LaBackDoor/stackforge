@@ -44,7 +44,7 @@ impl<R: Read> PcapIterator<R> {
     /// Create a `PcapIterator` from any reader.
     pub fn from_reader(reader: R) -> Result<Self> {
         let pcap_reader = PcapFileReader::new(reader)
-            .map_err(|e| PacketError::Io(format!("invalid PCAP: {}", e)))?;
+            .map_err(|e| PacketError::Io(format!("invalid PCAP: {e}")))?;
         let link_type = LinkType(u32::from(pcap_reader.header().datalink));
         Ok(Self {
             inner: pcap_reader,
@@ -77,7 +77,7 @@ impl<R: Read> Iterator for PcapIterator<R> {
                     },
                 }))
             },
-            Some(Err(e)) => Some(Err(PacketError::Io(format!("PCAP read error: {}", e)))),
+            Some(Err(e)) => Some(Err(PacketError::Io(format!("PCAP read error: {e}")))),
             None => None,
         }
     }

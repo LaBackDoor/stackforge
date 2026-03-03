@@ -1,6 +1,7 @@
 //! Padding and alignment utilities.
 
 /// Pad data to a minimum length with zeros.
+#[must_use]
 pub fn pad_to(data: &[u8], min_len: usize) -> Vec<u8> {
     if data.len() >= min_len {
         data.to_vec()
@@ -12,12 +13,14 @@ pub fn pad_to(data: &[u8], min_len: usize) -> Vec<u8> {
 }
 
 /// Pad data to align to a boundary.
+#[must_use]
 pub fn align_to(data: &[u8], alignment: usize) -> Vec<u8> {
-    let padded_len = (data.len() + alignment - 1) / alignment * alignment;
+    let padded_len = data.len().div_ceil(alignment) * alignment;
     pad_to(data, padded_len)
 }
 
 /// Calculate the minimum Ethernet frame size (including padding).
+#[must_use]
 pub fn ethernet_min_frame(data: &[u8]) -> Vec<u8> {
     // Minimum Ethernet frame is 64 bytes (including 4-byte FCS)
     // Without FCS, it's 60 bytes

@@ -117,6 +117,7 @@ pub enum ModbusFrameType {
 }
 
 /// Return a human-readable name for a Modbus function code.
+#[must_use]
 pub fn func_code_name(fc: u8) -> &'static str {
     match fc & 0x7F {
         func_code::READ_COILS => "Read Coils",
@@ -143,6 +144,7 @@ pub fn func_code_name(fc: u8) -> &'static str {
 }
 
 /// Return a human-readable name for a Modbus exception code.
+#[must_use]
 pub fn except_code_name(ec: u8) -> &'static str {
     match ec {
         except_code::ILLEGAL_FUNCTION => "Illegal Function",
@@ -164,6 +166,7 @@ pub fn except_code_name(ec: u8) -> &'static str {
 /// 1. At least 8 bytes (MBAP header + function code)
 /// 2. Protocol ID at offset 2 is 0x0000
 /// 3. Length field at offset 4 is sensible (>= 2, <= remaining)
+#[must_use]
 pub fn is_modbus_tcp_payload(buf: &[u8]) -> bool {
     if buf.len() < MODBUS_MIN_HEADER_LEN {
         return false;
@@ -203,6 +206,7 @@ pub struct ModbusLayer {
 
 impl ModbusLayer {
     /// Create a new Modbus layer from a layer index (defaults to TCP framing).
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self {
             index,
@@ -211,6 +215,7 @@ impl ModbusLayer {
     }
 
     /// Create a Modbus layer with explicit frame type.
+    #[must_use]
     pub fn with_frame_type(index: LayerIndex, frame_type: ModbusFrameType) -> Self {
         Self { index, frame_type }
     }
@@ -290,6 +295,7 @@ impl ModbusLayer {
     }
 
     /// Check if this is an exception response (function code has bit 7 set).
+    #[must_use]
     pub fn is_error(&self, buf: &[u8]) -> bool {
         self.func_code(buf)
             .map(|fc| fc & 0x80 != 0)
@@ -498,6 +504,7 @@ impl ModbusLayer {
     // ========================================================================
 
     /// Generate a one-line summary of this Modbus layer.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let fc = match self.func_code(buf) {
             Ok(v) => v,
@@ -507,23 +514,21 @@ impl ModbusLayer {
         let fc_name = func_code_name(fc);
 
         if self.is_error(buf) {
-            let ec = self
-                .except_code(buf)
-                .map(|v| format!("{} ({})", v, except_code_name(v)))
-                .unwrap_or_else(|_| "?".to_string());
-            return format!("Modbus Error fc={:#04x} except={}", fc, ec);
+            let ec = self.except_code(buf).map_or_else(
+                |_| "?".to_string(),
+                |v| format!("{} ({})", v, except_code_name(v)),
+            );
+            return format!("Modbus Error fc={fc:#04x} except={ec}");
         }
 
         let tid = self
             .trans_id(buf)
-            .map(|v| v.to_string())
-            .unwrap_or_else(|_| "?".to_string());
+            .map_or_else(|_| "?".to_string(), |v| v.to_string());
         let uid = self
             .unit_id(buf)
-            .map(|v| format!("{:#04x}", v))
-            .unwrap_or_else(|_| "?".to_string());
+            .map_or_else(|_| "?".to_string(), |v| format!("{v:#04x}"));
 
-        format!("Modbus {} trans_id={} unit_id={}", fc_name, tid, uid)
+        format!("Modbus {fc_name} trans_id={tid} unit_id={uid}")
     }
 
     // ========================================================================
@@ -531,6 +536,7 @@ impl ModbusLayer {
     // ========================================================================
 
     /// Get the field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         MODBUS_FIELD_NAMES
     }
@@ -578,8 +584,7 @@ impl ModbusLayer {
                     Some(self.set_trans_id(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "trans_id: expected U16, got {:?}",
-                        value
+                        "trans_id: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -588,8 +593,7 @@ impl ModbusLayer {
                     Some(self.set_unit_id(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "unit_id: expected U8, got {:?}",
-                        value
+                        "unit_id: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -598,8 +602,7 @@ impl ModbusLayer {
                     Some(self.set_func_code(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "func_code: expected U8, got {:?}",
-                        value
+                        "func_code: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -608,8 +611,7 @@ impl ModbusLayer {
                     Some(self.set_start_addr(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "start_addr: expected U16, got {:?}",
-                        value
+                        "start_addr: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -618,8 +620,7 @@ impl ModbusLayer {
                     Some(self.set_quantity(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "quantity: expected U16, got {:?}",
-                        value
+                        "quantity: expected U16, got {value:?}"
                     ))))
                 }
             },

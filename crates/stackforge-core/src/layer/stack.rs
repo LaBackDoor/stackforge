@@ -96,7 +96,7 @@ pub enum LayerStackEntry {
     Udp(UdpBuilder),
     /// ICMP layer
     Icmp(IcmpBuilder),
-    /// ICMPv6 layer
+    /// `ICMPv6` layer
     Icmpv6(Icmpv6Builder),
     /// SSH layer
     Ssh(SshBuilder),
@@ -131,7 +131,8 @@ pub enum LayerStackEntry {
 }
 
 impl LayerStackEntry {
-    /// Get the LayerKind for this entry.
+    /// Get the `LayerKind` for this entry.
+    #[must_use]
     pub fn kind(&self) -> LayerKind {
         match self {
             Self::Ethernet(_) => LayerKind::Ethernet,
@@ -161,6 +162,7 @@ impl LayerStackEntry {
     }
 
     /// Build this layer into bytes, without applying bindings.
+    #[must_use]
     pub fn build_bytes(&self) -> Vec<u8> {
         match self {
             Self::Ethernet(b) => b.build(),
@@ -190,6 +192,7 @@ impl LayerStackEntry {
     }
 
     /// Get the header size for this layer.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         match self {
             Self::Ethernet(_) => ETHERNET_HEADER_LEN,
@@ -219,6 +222,7 @@ impl LayerStackEntry {
     }
 
     /// Get minimum header size for this layer type.
+    #[must_use]
     pub fn min_header_size(&self) -> usize {
         match self {
             Self::Ethernet(_) => ETHERNET_HEADER_LEN,
@@ -259,6 +263,7 @@ pub struct LayerStack {
 
 impl LayerStack {
     /// Create a new empty layer stack.
+    #[must_use]
     pub fn new() -> Self {
         Self { layers: Vec::new() }
     }
@@ -266,6 +271,7 @@ impl LayerStack {
     /// Push a new layer onto the stack.
     ///
     /// Layers are stacked from bottom (first) to top (last).
+    #[must_use]
     pub fn push(mut self, layer: LayerStackEntry) -> Self {
         self.layers.push(layer);
         self
@@ -276,25 +282,29 @@ impl LayerStack {
         self.layers.push(layer);
     }
 
-    /// Stack another LayerStack on top of this one.
+    /// Stack another `LayerStack` on top of this one.
     ///
     /// This is the implementation of the `/` operator.
+    #[must_use]
     pub fn stack(mut self, other: LayerStack) -> Self {
         self.layers.extend(other.layers);
         self
     }
 
     /// Get the number of layers in the stack.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.layers.len()
     }
 
     /// Check if the stack is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.layers.is_empty()
     }
 
     /// Get the layers in the stack.
+    #[must_use]
     pub fn layers(&self) -> &[LayerStackEntry] {
         &self.layers
     }
@@ -306,16 +316,21 @@ impl LayerStack {
     /// 2. Applies bindings (e.g., sets Ethernet type when IP is stacked on top)
     /// 3. Concatenates all layer bytes
     /// 4. Recalculates checksums and lengths where applicable
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         if self.layers.is_empty() {
             return Vec::new();
         }
 
         // First pass: build all layers to determine total size
-        let mut layer_bytes: Vec<Vec<u8>> = self.layers.iter().map(|l| l.build_bytes()).collect();
+        let mut layer_bytes: Vec<Vec<u8>> = self
+            .layers
+            .iter()
+            .map(LayerStackEntry::build_bytes)
+            .collect();
 
         // Calculate total payload sizes for each layer
-        let total_len: usize = layer_bytes.iter().map(|b| b.len()).sum();
+        let total_len: usize = layer_bytes.iter().map(std::vec::Vec::len).sum();
 
         // Second pass: apply bindings and fix length/checksum fields
         for i in 0..self.layers.len().saturating_sub(1) {
@@ -341,6 +356,7 @@ impl LayerStack {
     }
 
     /// Build the stack into a Packet.
+    #[must_use]
     pub fn build_packet(&self) -> Packet {
         let bytes = self.build();
         let mut pkt = Packet::from_bytes(bytes);
@@ -353,7 +369,7 @@ impl LayerStack {
         for (i, layer) in self.layers.iter().enumerate() {
             if let LayerStackEntry::Ipv4(_) = layer {
                 // Calculate payload size (everything after IP header)
-                let payload_size: usize = layer_bytes[i + 1..].iter().map(|b| b.len()).sum();
+                let payload_size: usize = layer_bytes[i + 1..].iter().map(std::vec::Vec::len).sum();
                 let ip_header_len = layer_bytes[i].len();
                 let ip_total_len = ip_header_len + payload_size;
 
@@ -448,16 +464,16 @@ impl LayerStack {
         }
 
         // If UDP is present without IP, just fix the length field
-        if let Some(udp_idx) = udp_layer_idx {
-            if ip_layer_idx.is_none() {
-                // Standalone UDP - only fix length field, leave checksum as 0
-                let udp_len: usize = layer_bytes[udp_idx..].iter().map(|b| b.len()).sum();
-                if layer_bytes[udp_idx].len() >= 6 {
-                    layer_bytes[udp_idx][4] = ((udp_len >> 8) & 0xFF) as u8;
-                    layer_bytes[udp_idx][5] = (udp_len & 0xFF) as u8;
-                }
-                return;
+        if let Some(udp_idx) = udp_layer_idx
+            && ip_layer_idx.is_none()
+        {
+            // Standalone UDP - only fix length field, leave checksum as 0
+            let udp_len: usize = layer_bytes[udp_idx..].iter().map(std::vec::Vec::len).sum();
+            if layer_bytes[udp_idx].len() >= 6 {
+                layer_bytes[udp_idx][4] = ((udp_len >> 8) & 0xFF) as u8;
+                layer_bytes[udp_idx][5] = (udp_len & 0xFF) as u8;
             }
+            return;
         }
 
         if let (Some(ip_idx), Some(udp_idx)) = (ip_layer_idx, udp_layer_idx) {
@@ -472,7 +488,7 @@ impl LayerStack {
                 let dst_ip = std::net::Ipv4Addr::from(dst_bytes);
 
                 // Calculate UDP length (header + payload)
-                let udp_len: usize = layer_bytes[udp_idx..].iter().map(|b| b.len()).sum();
+                let udp_len: usize = layer_bytes[udp_idx..].iter().map(std::vec::Vec::len).sum();
 
                 // Update length field (bytes 4-5)
                 if layer_bytes[udp_idx].len() >= 6 {
@@ -541,7 +557,7 @@ impl LayerStack {
         for (i, layer) in self.layers.iter().enumerate() {
             if let LayerStackEntry::Ipv6(_) = layer {
                 // Payload = everything after this IPv6 header
-                let payload_size: usize = layer_bytes[i + 1..].iter().map(|b| b.len()).sum();
+                let payload_size: usize = layer_bytes[i + 1..].iter().map(std::vec::Vec::len).sum();
 
                 // Update payload length field (bytes 4-5 of IPv6 header)
                 if layer_bytes[i].len() >= 6 {
@@ -552,7 +568,7 @@ impl LayerStack {
         }
     }
 
-    /// Fix ICMPv6 checksum if an IPv6 layer and ICMPv6 layer are both present.
+    /// Fix `ICMPv6` checksum if an IPv6 layer and `ICMPv6` layer are both present.
     fn fix_icmpv6_fields(&self, layer_bytes: &mut [Vec<u8>]) {
         let mut ipv6_layer_idx = None;
         let mut icmpv6_layer_idx = None;
@@ -652,7 +668,7 @@ fn apply_field_to_bytes(bytes: &mut Vec<u8>, layer_kind: LayerKind, field_name: 
     }
 }
 
-/// Trait for types that can be converted into a LayerStackEntry.
+/// Trait for types that can be converted into a `LayerStackEntry`.
 pub trait IntoLayerStackEntry {
     fn into_layer_stack_entry(self) -> LayerStackEntry;
 }

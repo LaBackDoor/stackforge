@@ -1,6 +1,6 @@
 //! Stream cipher implementations for TLS.
 //!
-//! Provides Cipher_NULL and optionally RC4 (behind `tls-weak-crypto` feature).
+//! Provides `Cipher_NULL` and optionally RC4 (behind `tls-weak-crypto` feature).
 
 /// Stream cipher trait for TLS.
 pub trait StreamCipher: Send + Sync {
@@ -19,6 +19,7 @@ pub trait StreamCipher: Send + Sync {
 pub struct CipherNull;
 
 impl CipherNull {
+    #[must_use]
     pub fn new(_key: &[u8]) -> Self {
         Self
     }

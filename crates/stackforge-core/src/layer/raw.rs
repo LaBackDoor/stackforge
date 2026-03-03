@@ -46,14 +46,16 @@ pub struct RawLayer {
 }
 
 impl RawLayer {
-    /// Create a new RawLayer with the given index.
+    /// Create a new `RawLayer` with the given index.
     #[inline]
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
 
-    /// Create a RawLayer that spans the entire buffer from `start` to the end.
+    /// Create a `RawLayer` that spans the entire buffer from `start` to the end.
     #[inline]
+    #[must_use]
     pub fn from_start(start: usize) -> Self {
         Self {
             index: LayerIndex::new(crate::LayerKind::Raw, start, start),
@@ -62,23 +64,27 @@ impl RawLayer {
 
     /// Get the raw bytes of this layer.
     #[inline]
+    #[must_use]
     pub fn load<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         self.index.slice(buf)
     }
 
     /// Get the length of the raw payload.
     #[inline]
+    #[must_use]
     pub fn len(&self, buf: &[u8]) -> usize {
         self.load(buf).len()
     }
 
     /// Check if the payload is empty.
     #[inline]
+    #[must_use]
     pub fn is_empty(&self, buf: &[u8]) -> bool {
         self.load(buf).is_empty()
     }
 
     /// Get a summary string for this layer.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let load = self.load(buf);
         if load.is_empty() {
@@ -90,28 +96,31 @@ impl RawLayer {
 
     /// Get the header length (for Raw, this is the entire payload).
     #[inline]
+    #[must_use]
     pub fn header_len(&self, buf: &[u8]) -> usize {
         self.load(buf).len()
     }
 
     /// Get a hexdump preview of the payload (first N bytes).
+    #[must_use]
     pub fn hex_preview(&self, buf: &[u8], max_bytes: usize) -> String {
         let load = self.load(buf);
         let preview_len = load.len().min(max_bytes);
         let hex: String = load[..preview_len]
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<_>>()
             .join(" ");
 
         if load.len() > max_bytes {
-            format!("{}...", hex)
+            format!("{hex}...")
         } else {
             hex
         }
     }
 
     /// Get an ASCII preview of the payload (printable chars only).
+    #[must_use]
     pub fn ascii_preview(&self, buf: &[u8], max_bytes: usize) -> String {
         let load = self.load(buf);
         let preview_len = load.len().min(max_bytes);
@@ -128,7 +137,7 @@ impl RawLayer {
             .collect();
 
         if load.len() > max_bytes {
-            format!("{}...", ascii)
+            format!("{ascii}...")
         } else {
             ascii
         }
@@ -136,6 +145,7 @@ impl RawLayer {
 
     /// Compute a hash for request/response matching.
     /// For Raw, we just return the first 8 bytes as a simple hash.
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let load = self.load(buf);
         load.iter().take(8).copied().collect()
@@ -143,11 +153,13 @@ impl RawLayer {
 
     /// Check if this Raw layer "answers" another Raw layer.
     /// For Raw payloads, we consider them matching if they have the same content.
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &RawLayer, other_buf: &[u8]) -> bool {
         self.load(buf) == other.load(other_buf)
     }
 
     /// Get a field value by name.
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         match name {
             "load" => Some(Ok(FieldValue::Bytes(self.load(buf).to_vec()))),
@@ -185,6 +197,7 @@ impl RawLayer {
     }
 
     /// Get the list of field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         RAW_FIELDS
     }
@@ -203,32 +216,36 @@ pub struct RawBuilder {
 }
 
 impl RawBuilder {
-    /// Create a new empty RawBuilder.
+    /// Create a new empty `RawBuilder`.
+    #[must_use]
     pub fn new() -> Self {
         Self { data: Vec::new() }
     }
 
-    /// Create a RawBuilder with the given bytes.
+    /// Create a `RawBuilder` with the given bytes.
+    #[must_use]
     pub fn with_bytes(data: Vec<u8>) -> Self {
         Self { data }
     }
 
-    /// Create a RawBuilder from a string (UTF-8 bytes).
+    /// Create a `RawBuilder` from a string (UTF-8 bytes).
+    #[must_use]
     pub fn from_str(s: &str) -> Self {
         Self {
             data: s.as_bytes().to_vec(),
         }
     }
 
-    /// Create a RawBuilder from a hex string (e.g., "deadbeef").
+    /// Create a `RawBuilder` from a hex string (e.g., "deadbeef").
     ///
     /// Returns None if the hex string is invalid or contains no valid hex digits.
+    #[must_use]
     pub fn from_hex(hex: &str) -> Option<Self> {
         // Remove common separators
-        let clean: String = hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+        let clean: String = hex.chars().filter(char::is_ascii_hexdigit).collect();
 
         // Return None for empty input or odd length
-        if clean.is_empty() || clean.len() % 2 != 0 {
+        if clean.is_empty() || !clean.len().is_multiple_of(2) {
             return None;
         }
 
@@ -241,41 +258,48 @@ impl RawBuilder {
     }
 
     /// Set the payload data.
+    #[must_use]
     pub fn load(mut self, data: &[u8]) -> Self {
         self.data = data.to_vec();
         self
     }
 
     /// Append data to the payload.
+    #[must_use]
     pub fn append(mut self, data: &[u8]) -> Self {
         self.data.extend_from_slice(data);
         self
     }
 
     /// Append a string to the payload.
+    #[must_use]
     pub fn append_str(mut self, s: &str) -> Self {
         self.data.extend_from_slice(s.as_bytes());
         self
     }
 
     /// Create a payload of `count` repeated `byte` values.
+    #[must_use]
     pub fn repeat(mut self, byte: u8, count: usize) -> Self {
         self.data = vec![byte; count];
         self
     }
 
     /// Create a payload of zeros with the given length.
+    #[must_use]
     pub fn zeros(self, len: usize) -> Self {
         self.repeat(0, len)
     }
 
     /// Create a payload filled with a pattern repeated to reach `len` bytes.
+    #[must_use]
     pub fn pattern(mut self, pattern: &[u8], len: usize) -> Self {
         self.data = pattern.iter().cycle().take(len).copied().collect();
         self
     }
 
     /// Pad the payload to a minimum length with zeros.
+    #[must_use]
     pub fn pad_to(mut self, min_len: usize) -> Self {
         if self.data.len() < min_len {
             self.data.resize(min_len, 0);
@@ -284,6 +308,7 @@ impl RawBuilder {
     }
 
     /// Pad the payload to a minimum length with a specific byte.
+    #[must_use]
     pub fn pad_with(mut self, min_len: usize, byte: u8) -> Self {
         if self.data.len() < min_len {
             self.data.resize(min_len, byte);
@@ -292,22 +317,26 @@ impl RawBuilder {
     }
 
     /// Build the raw payload bytes.
+    #[must_use]
     pub fn build(self) -> Vec<u8> {
         self.data
     }
 
     /// Get the current length of the payload.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
     /// Check if the payload is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 }
 
-/// Display fields for Raw layer in show() output.
+/// Display fields for Raw layer in `show()` output.
+#[must_use]
 pub fn raw_show_fields(layer: &RawLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let load = layer.load(buf);
     let mut fields = Vec::new();

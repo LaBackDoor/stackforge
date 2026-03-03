@@ -59,6 +59,7 @@ impl Packet {
 
     /// Creates an empty packet with no data.
     #[inline]
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             data: Bytes::new(),
@@ -79,6 +80,7 @@ impl Packet {
 
     /// Creates a packet from a byte slice by copying the data.
     #[inline]
+    #[must_use]
     pub fn from_slice(data: &[u8]) -> Self {
         Self {
             data: Bytes::copy_from_slice(data),
@@ -89,6 +91,7 @@ impl Packet {
 
     /// Creates a new packet with pre-allocated capacity.
     #[inline]
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             data: Bytes::from(BytesMut::with_capacity(capacity)),
@@ -165,8 +168,7 @@ impl Packet {
     pub fn payload(&self) -> &[u8] {
         self.layers
             .last()
-            .map(|l| &self.data[l.end..])
-            .unwrap_or(&self.data)
+            .map_or(&self.data, |l| &self.data[l.end..])
     }
 
     // ========================================================================
@@ -275,7 +277,7 @@ impl Packet {
             .map(|idx| crate::layer::imap::ImapLayer::new(*idx))
     }
 
-    /// Get a LayerEnum for a given LayerIndex.
+    /// Get a `LayerEnum` for a given `LayerIndex`.
     pub fn layer_enum(&self, idx: &LayerIndex) -> LayerEnum {
         match idx.kind {
             LayerKind::Ethernet => LayerEnum::Ethernet(EthernetLayer::new(idx.start, idx.end)),
@@ -322,7 +324,7 @@ impl Packet {
         }
     }
 
-    /// Get all layers as LayerEnum objects.
+    /// Get all layers as `LayerEnum` objects.
     pub fn layer_enums(&self) -> Vec<LayerEnum> {
         self.layers.iter().map(|idx| self.layer_enum(idx)).collect()
     }
@@ -376,7 +378,7 @@ impl Packet {
         if header_len < min_size {
             return Err(PacketError::ParseError {
                 offset,
-                message: format!("invalid IHL: {}", ihl),
+                message: format!("invalid IHL: {ihl}"),
             });
         }
 
@@ -645,8 +647,7 @@ impl Packet {
             let end = remaining
                 .windows(2)
                 .position(|w| w == b"\r\n")
-                .map(|p| offset + p + 2)
-                .unwrap_or(self.data.len());
+                .map_or(self.data.len(), |p| offset + p + 2);
             self.layers
                 .push(LayerIndex::new(LayerKind::Ssh, offset, end));
             if end < self.data.len() {

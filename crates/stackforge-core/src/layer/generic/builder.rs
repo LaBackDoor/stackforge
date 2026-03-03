@@ -9,7 +9,7 @@ use crate::layer::{LayerIndex, LayerKind};
 /// Builder for dynamically-defined custom protocol layers.
 ///
 /// This builder is intended to be constructed once per protocol definition
-/// (e.g. in Python via the PyO3 bindings) and then used to produce byte
+/// (e.g. in Python via the `PyO3` bindings) and then used to produce byte
 /// buffers that conform to the protocol layout.
 ///
 /// # Example
@@ -58,6 +58,7 @@ pub struct GenericLayerBuilder {
 
 impl GenericLayerBuilder {
     /// Create a builder for the named protocol with the given field descriptors.
+    #[must_use]
     pub fn new(name: Arc<str>, field_descs: Arc<Vec<GenericFieldDesc>>) -> Self {
         Self {
             name,
@@ -70,27 +71,32 @@ impl GenericLayerBuilder {
     ///
     /// If `value` is shorter than the field's declared size it is zero-padded
     /// (on the right); if it is longer it is truncated.
+    #[must_use]
     pub fn set(mut self, name: &str, value: Vec<u8>) -> Self {
         self.values.insert(name.to_string(), value);
         self
     }
 
     /// Set a U8 field by name.
+    #[must_use]
     pub fn set_u8(self, name: &str, value: u8) -> Self {
         self.set(name, vec![value])
     }
 
     /// Set a U16 field by name (stored big-endian).
+    #[must_use]
     pub fn set_u16(self, name: &str, value: u16) -> Self {
         self.set(name, value.to_be_bytes().to_vec())
     }
 
     /// Set a U32 field by name (stored big-endian).
+    #[must_use]
     pub fn set_u32(self, name: &str, value: u32) -> Self {
         self.set(name, value.to_be_bytes().to_vec())
     }
 
     /// Total byte size of the protocol header (sum of all field sizes).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         self.field_descs.iter().map(|f| f.size).sum()
     }
@@ -101,6 +107,7 @@ impl GenericLayerBuilder {
     /// Each field value is copied into the buffer starting at `field.offset`,
     /// padded with zeros on the right or truncated if the value's length does
     /// not match `field.size`.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total = self.header_size();
         let mut buf = vec![0u8; total];
@@ -128,6 +135,7 @@ impl GenericLayerBuilder {
     ///
     /// The returned layer's `LayerIndex` covers `[0..header_size]` within the
     /// returned byte buffer.
+    #[must_use]
     pub fn build_layer(&self) -> (GenericLayer, Vec<u8>) {
         let buf = self.build();
         let size = buf.len();
@@ -137,11 +145,13 @@ impl GenericLayerBuilder {
     }
 
     /// The protocol name.
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
     /// The layer kind (always `LayerKind::Generic`).
+    #[must_use]
     pub fn kind(&self) -> LayerKind {
         LayerKind::Generic
     }

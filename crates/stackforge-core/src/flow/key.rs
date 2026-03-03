@@ -26,6 +26,7 @@ impl ZWaveKey {
     ///
     /// Returns the key and the direction of the original packet relative
     /// to the canonical ordering.
+    #[must_use]
     pub fn new(home_id: u32, src_node: u8, dst_node: u8) -> (Self, FlowDirection) {
         if src_node <= dst_node {
             (
@@ -96,6 +97,7 @@ pub enum TransportProtocol {
 
 impl TransportProtocol {
     /// Create from IP protocol number.
+    #[must_use]
     pub fn from_ip_protocol(proto: u8) -> Self {
         match proto {
             6 => Self::Tcp,
@@ -107,6 +109,7 @@ impl TransportProtocol {
     }
 
     /// Human-readable name.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Tcp => "TCP",
@@ -171,6 +174,7 @@ impl CanonicalKey {
     ///
     /// Returns the key and the direction of the original packet relative
     /// to the canonical ordering.
+    #[must_use]
     pub fn new(
         src_ip: IpAddr,
         dst_ip: IpAddr,

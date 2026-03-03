@@ -1,6 +1,6 @@
 //! IMAP (Internet Message Access Protocol) layer implementation.
 //!
-//! Implements RFC 3501 IMAP4rev1 packet parsing as a zero-copy view into a packet buffer.
+//! Implements RFC 3501 `IMAP4rev1` packet parsing as a zero-copy view into a packet buffer.
 //!
 //! ## Protocol Overview
 //!
@@ -246,18 +246,21 @@ impl ImapLayer {
     }
 
     /// Returns true if this is an untagged server response (starts with "* ").
+    #[must_use]
     pub fn is_untagged(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         s.starts_with(b"* ")
     }
 
     /// Returns true if this is a continuation request (starts with "+ ").
+    #[must_use]
     pub fn is_continuation(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         s.starts_with(b"+ ")
     }
 
     /// Returns true if this is a tagged server response.
+    #[must_use]
     pub fn is_tagged_response(&self, buf: &[u8]) -> bool {
         if self.is_untagged(buf) || self.is_continuation(buf) {
             return false;
@@ -272,6 +275,7 @@ impl ImapLayer {
     }
 
     /// Returns true if this is a client command.
+    #[must_use]
     pub fn is_client_command(&self, buf: &[u8]) -> bool {
         if self.is_untagged(buf) || self.is_continuation(buf) {
             return false;
@@ -365,6 +369,7 @@ impl ImapLayer {
     }
 
     /// Returns the raw payload as a string.
+    #[must_use]
     pub fn raw(&self, buf: &[u8]) -> String {
         String::from_utf8_lossy(self.slice(buf)).to_string()
     }
@@ -424,10 +429,10 @@ pub fn imap_show_fields(l: &ImapLayer, buf: &[u8]) -> Vec<(&'static str, String)
     }
     if let Ok(cmd) = l.command(buf) {
         fields.push(("command", cmd));
-        if let Ok(args) = l.args(buf) {
-            if !args.is_empty() {
-                fields.push(("args", args));
-            }
+        if let Ok(args) = l.args(buf)
+            && !args.is_empty()
+        {
+            fields.push(("args", args));
         }
     }
     fields.push(("is_untagged", l.is_untagged(buf).to_string()));

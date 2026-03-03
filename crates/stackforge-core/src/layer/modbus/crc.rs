@@ -10,10 +10,11 @@
 /// Uses the reflected polynomial 0xA001, initial value 0xFFFF.
 /// The result is in little-endian byte order when appended to an RTU frame
 /// (low byte first, high byte second).
+#[must_use]
 pub fn modbus_crc16(data: &[u8]) -> u16 {
     let mut crc: u16 = 0xFFFF;
     for &byte in data {
-        crc ^= byte as u16;
+        crc ^= u16::from(byte);
         for _ in 0..8 {
             if crc & 0x0001 != 0 {
                 crc = (crc >> 1) ^ 0xA001;
@@ -29,6 +30,7 @@ pub fn modbus_crc16(data: &[u8]) -> u16 {
 ///
 /// The last two bytes of `frame` are the CRC in little-endian order.
 /// Returns true if the CRC is correct.
+#[must_use]
 pub fn verify_crc16(frame: &[u8]) -> bool {
     if frame.len() < 3 {
         return false;
@@ -42,6 +44,7 @@ pub fn verify_crc16(frame: &[u8]) -> bool {
 ///
 /// LRC is the two's complement of the 8-bit sum of all bytes.
 /// Used in Modbus ASCII mode: the LRC byte is transmitted as two ASCII hex chars.
+#[must_use]
 pub fn modbus_lrc(data: &[u8]) -> u8 {
     let sum: u8 = data.iter().fold(0u8, |acc, &b| acc.wrapping_add(b));
     sum.wrapping_neg()
@@ -50,6 +53,7 @@ pub fn modbus_lrc(data: &[u8]) -> u8 {
 /// Verify the LRC of a data slice where the last byte is the LRC.
 ///
 /// Returns true if the LRC is correct (sum of all bytes including LRC == 0).
+#[must_use]
 pub fn verify_lrc(data: &[u8]) -> bool {
     if data.is_empty() {
         return false;

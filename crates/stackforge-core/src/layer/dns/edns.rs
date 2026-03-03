@@ -193,6 +193,7 @@ impl EdnsOption {
     }
 
     /// Get the option code for this EDNS0 option.
+    #[must_use]
     pub fn code(&self) -> u16 {
         match self {
             EdnsOption::NSID(_) => option_code::NSID,
@@ -208,6 +209,7 @@ impl EdnsOption {
     }
 
     /// Serialize the option data (without the code and length header).
+    #[must_use]
     pub fn build_data(&self) -> Vec<u8> {
         match self {
             EdnsOption::NSID(data) => data.clone(),
@@ -256,6 +258,7 @@ impl EdnsOption {
     }
 
     /// Build the complete TLV (code + length + data).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let data = self.build_data();
         let mut out = Vec::with_capacity(4 + data.len());
@@ -299,12 +302,13 @@ impl EdnsOption {
     }
 
     /// Summary string for display.
+    #[must_use]
     pub fn summary(&self) -> String {
         match self {
             EdnsOption::NSID(data) => format!("NSID: {:?}", String::from_utf8_lossy(data)),
-            EdnsOption::DAU(algs) => format!("DAU: {:?}", algs),
-            EdnsOption::DHU(algs) => format!("DHU: {:?}", algs),
-            EdnsOption::N3U(algs) => format!("N3U: {:?}", algs),
+            EdnsOption::DAU(algs) => format!("DAU: {algs:?}"),
+            EdnsOption::DHU(algs) => format!("DHU: {algs:?}"),
+            EdnsOption::N3U(algs) => format!("N3U: {algs:?}"),
             EdnsOption::ClientSubnet {
                 family,
                 source_prefix,
@@ -312,8 +316,7 @@ impl EdnsOption {
                 ..
             } => {
                 format!(
-                    "ClientSubnet: family={} source=/{} scope=/{}",
-                    family, source_prefix, scope_prefix
+                    "ClientSubnet: family={family} source=/{source_prefix} scope=/{scope_prefix}"
                 )
             },
             EdnsOption::Cookie { client, server } => {
@@ -323,14 +326,14 @@ impl EdnsOption {
                 info_code,
                 extra_text,
             } => {
-                format!("EDE: code={} text={:?}", info_code, extra_text)
+                format!("EDE: code={info_code} text={extra_text:?}")
             },
             EdnsOption::Owner {
                 version,
                 seq,
                 primary_mac,
             } => {
-                format!("Owner: v={} seq={} mac={}", version, seq, primary_mac)
+                format!("Owner: v={version} seq={seq} mac={primary_mac}")
             },
             EdnsOption::Unknown { code, data } => {
                 format!("Option({}): {} bytes", code, data.len())
@@ -340,7 +343,7 @@ impl EdnsOption {
 }
 
 fn hex(data: &[u8]) -> String {
-    data.iter().map(|b| format!("{:02x}", b)).collect()
+    data.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 #[cfg(test)]

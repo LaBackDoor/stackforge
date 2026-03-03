@@ -28,7 +28,7 @@ pub const WEP_TRAILER_LEN: usize = 4;
 /// [IV (3 bytes)] [KeyID/Pad (1 byte)] [Encrypted Data ...] [ICV (4 bytes)]
 /// ```
 ///
-/// The KeyID byte layout:
+/// The `KeyID` byte layout:
 /// - Bits 0-5: Pad (reserved, should be 0)
 /// - Bits 6-7: Key ID (0-3)
 #[derive(Debug, Clone)]
@@ -37,6 +37,7 @@ pub struct Dot11WEP {
 }
 
 impl Dot11WEP {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -68,7 +69,7 @@ impl Dot11WEP {
     /// Full IV as a u32 (24-bit value, big-endian).
     pub fn iv_u32(&self, buf: &[u8]) -> Result<u32, FieldError> {
         let iv = self.iv(buf)?;
-        Ok(((iv[0] as u32) << 16) | ((iv[1] as u32) << 8) | (iv[2] as u32))
+        Ok((u32::from(iv[0]) << 16) | (u32::from(iv[1]) << 8) | u32::from(iv[2]))
     }
 
     /// Key ID (bits 6-7 of byte 3).
@@ -133,21 +134,25 @@ impl Dot11WEP {
     }
 
     /// Header length (always 4 bytes).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         WEP_HEADER_LEN
     }
 
     /// Trailer length (always 4 bytes).
+    #[must_use]
     pub fn trailer_len(&self) -> usize {
         WEP_TRAILER_LEN
     }
 
     /// Build a WEP header.
+    #[must_use]
     pub fn build_header(iv: [u8; 3], key_id: u8) -> Vec<u8> {
         vec![iv[0], iv[1], iv[2], (key_id & 0x03) << 6]
     }
 
     /// Build a WEP ICV trailer.
+    #[must_use]
     pub fn build_icv(icv: u32) -> Vec<u8> {
         icv.to_le_bytes().to_vec()
     }
@@ -181,7 +186,7 @@ pub const TKIP_ICV_LEN: usize = 4;
 ///
 /// The KeyID/ExtIV byte:
 /// - Bits 0-4: Reserved
-/// - Bit 5: ExtIV flag (always 1 for TKIP)
+/// - Bit 5: `ExtIV` flag (always 1 for TKIP)
 /// - Bits 6-7: Key ID
 ///
 /// TSC (TKIP Sequence Counter) is a 48-bit value constructed from TSC0..TSC5.
@@ -191,6 +196,7 @@ pub struct Dot11TKIP {
 }
 
 impl Dot11TKIP {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -267,7 +273,7 @@ impl Dot11TKIP {
         Ok((buf[self.offset + 3] >> 6) & 0x03)
     }
 
-    /// TSC2-TSC5 (bytes 4-7, only present if ExtIV is set).
+    /// TSC2-TSC5 (bytes 4-7, only present if `ExtIV` is set).
     pub fn tsc_high(&self, buf: &[u8]) -> Result<[u8; 4], FieldError> {
         if buf.len() < self.offset + TKIP_HEADER_LONG {
             return Err(FieldError::BufferTooShort {
@@ -287,17 +293,18 @@ impl Dot11TKIP {
     /// Full 48-bit TSC (TKIP Sequence Counter).
     /// TSC = TSC0 | (TSC1 << 8) | (TSC2 << 16) | (TSC3 << 24) | (TSC4 << 32) | (TSC5 << 40)
     pub fn tsc(&self, buf: &[u8]) -> Result<u64, FieldError> {
-        let tsc0 = self.tsc0(buf)? as u64;
-        let tsc1 = self.tsc1(buf)? as u64;
+        let tsc0 = u64::from(self.tsc0(buf)?);
+        let tsc1 = u64::from(self.tsc1(buf)?);
         let high = self.tsc_high(buf)?;
-        let tsc2 = high[0] as u64;
-        let tsc3 = high[1] as u64;
-        let tsc4 = high[2] as u64;
-        let tsc5 = high[3] as u64;
+        let tsc2 = u64::from(high[0]);
+        let tsc3 = u64::from(high[1]);
+        let tsc4 = u64::from(high[2]);
+        let tsc5 = u64::from(high[3]);
         Ok(tsc0 | (tsc1 << 8) | (tsc2 << 16) | (tsc3 << 24) | (tsc4 << 32) | (tsc5 << 40))
     }
 
-    /// Header length: 4 bytes (no ExtIV) or 8 bytes (with ExtIV).
+    /// Header length: 4 bytes (no `ExtIV`) or 8 bytes (with `ExtIV`).
+    #[must_use]
     pub fn header_len(&self, buf: &[u8]) -> usize {
         if self.ext_iv(buf).unwrap_or(false) {
             TKIP_HEADER_LONG
@@ -307,11 +314,13 @@ impl Dot11TKIP {
     }
 
     /// Trailer length (ICV = 4 bytes).
+    #[must_use]
     pub fn trailer_len(&self) -> usize {
         TKIP_ICV_LEN
     }
 
     /// Build a TKIP header with Extended IV.
+    #[must_use]
     pub fn build_header(tsc: u64, key_id: u8) -> Vec<u8> {
         let tsc0 = (tsc & 0xFF) as u8;
         let tsc1 = ((tsc >> 8) & 0xFF) as u8;
@@ -351,7 +360,7 @@ pub const CCMP_MIC_LEN: usize = 8;
 ///
 /// The KeyID/ExtIV byte:
 /// - Bits 0-4: Reserved
-/// - Bit 5: ExtIV flag (always 1 for CCMP)
+/// - Bit 5: `ExtIV` flag (always 1 for CCMP)
 /// - Bits 6-7: Key ID
 ///
 /// PN (Packet Number) is a 48-bit value constructed from PN0..PN5.
@@ -361,6 +370,7 @@ pub struct Dot11CCMP {
 }
 
 impl Dot11CCMP {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -425,7 +435,7 @@ impl Dot11CCMP {
         Ok((buf[self.offset + 3] >> 6) & 0x03)
     }
 
-    /// ExtIV flag (bit 5 of byte 3, always 1 for CCMP).
+    /// `ExtIV` flag (bit 5 of byte 3, always 1 for CCMP).
     pub fn ext_iv(&self, buf: &[u8]) -> Result<bool, FieldError> {
         if buf.len() < self.offset + CCMP_HEADER_LEN {
             return Err(FieldError::BufferTooShort {
@@ -457,13 +467,13 @@ impl Dot11CCMP {
     /// Full 48-bit Packet Number (PN).
     /// PN = PN0 | (PN1 << 8) | (PN2 << 16) | (PN3 << 24) | (PN4 << 32) | (PN5 << 40)
     pub fn pn(&self, buf: &[u8]) -> Result<u64, FieldError> {
-        let pn0 = self.pn0(buf)? as u64;
-        let pn1 = self.pn1(buf)? as u64;
+        let pn0 = u64::from(self.pn0(buf)?);
+        let pn1 = u64::from(self.pn1(buf)?);
         let high = self.pn_high(buf)?;
-        let pn2 = high[0] as u64;
-        let pn3 = high[1] as u64;
-        let pn4 = high[2] as u64;
-        let pn5 = high[3] as u64;
+        let pn2 = u64::from(high[0]);
+        let pn3 = u64::from(high[1]);
+        let pn4 = u64::from(high[2]);
+        let pn5 = u64::from(high[3]);
         Ok(pn0 | (pn1 << 8) | (pn2 << 16) | (pn3 << 24) | (pn4 << 32) | (pn5 << 40))
     }
 
@@ -483,16 +493,19 @@ impl Dot11CCMP {
     }
 
     /// Header length (always 8 bytes for CCMP).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         CCMP_HEADER_LEN
     }
 
     /// Trailer length (MIC = 8 bytes).
+    #[must_use]
     pub fn trailer_len(&self) -> usize {
         CCMP_MIC_LEN
     }
 
     /// Build a CCMP header.
+    #[must_use]
     pub fn build_header(pn: u64, key_id: u8) -> Vec<u8> {
         let pn0 = (pn & 0xFF) as u8;
         let pn1 = ((pn >> 8) & 0xFF) as u8;
@@ -505,6 +518,7 @@ impl Dot11CCMP {
     }
 
     /// Build a CCMP MIC trailer (placeholder — actual MIC requires key material).
+    #[must_use]
     pub fn build_mic(mic: [u8; 8]) -> Vec<u8> {
         mic.to_vec()
     }
@@ -517,23 +531,24 @@ impl Dot11CCMP {
 /// Security protocol type detected from the header.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecurityType {
-    /// WEP (no ExtIV flag).
+    /// WEP (no `ExtIV` flag).
     WEP,
-    /// TKIP (ExtIV flag set, WEP seed pattern).
+    /// TKIP (`ExtIV` flag set, WEP seed pattern).
     TKIP,
-    /// CCMP (ExtIV flag set, reserved byte is 0).
+    /// CCMP (`ExtIV` flag set, reserved byte is 0).
     CCMP,
 }
 
 /// Detect the security type from the encryption header at the given offset.
 ///
-/// This uses heuristics based on the ExtIV flag and the reserved byte:
-/// - No ExtIV flag (bit 5 of byte 3 is 0) => WEP
-/// - ExtIV flag set and byte 2 is 0 (reserved) => CCMP
-/// - ExtIV flag set and byte 2 is non-zero => TKIP (WEP seed)
+/// This uses heuristics based on the `ExtIV` flag and the reserved byte:
+/// - No `ExtIV` flag (bit 5 of byte 3 is 0) => WEP
+/// - `ExtIV` flag set and byte 2 is 0 (reserved) => CCMP
+/// - `ExtIV` flag set and byte 2 is non-zero => TKIP (WEP seed)
 ///
 /// Note: This is a heuristic and may not always be correct. The actual
 /// security type should be determined from the RSN/WPA IE in the beacon.
+#[must_use]
 pub fn detect_security_type(buf: &[u8], offset: usize) -> Option<SecurityType> {
     if buf.len() < offset + 4 {
         return None;

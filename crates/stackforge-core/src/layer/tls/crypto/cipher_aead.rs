@@ -62,7 +62,8 @@ pub trait AeadCipher: Send + Sync {
 
 /// TLS 1.2 AEAD nonce construction.
 ///
-/// nonce = fixed_iv (4 bytes) + explicit_nonce (8 bytes from record)
+/// nonce = `fixed_iv` (4 bytes) + `explicit_nonce` (8 bytes from record)
+#[must_use]
 pub fn tls12_nonce(fixed_iv: &[u8], explicit_nonce: &[u8]) -> Vec<u8> {
     let mut nonce = Vec::with_capacity(fixed_iv.len() + explicit_nonce.len());
     nonce.extend_from_slice(fixed_iv);
@@ -72,7 +73,8 @@ pub fn tls12_nonce(fixed_iv: &[u8], explicit_nonce: &[u8]) -> Vec<u8> {
 
 /// TLS 1.3 AEAD nonce construction.
 ///
-/// nonce = iv XOR padded_seq_num
+/// nonce = iv XOR `padded_seq_num`
+#[must_use]
 pub fn tls13_nonce(iv: &[u8], seq_num: u64) -> Vec<u8> {
     let mut nonce = iv.to_vec();
     let seq_bytes = seq_num.to_be_bytes();

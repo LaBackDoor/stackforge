@@ -7,7 +7,7 @@
 //! - Integer encoding/decoding with N-bit prefix
 //! - String literal encoding/decoding
 //! - Huffman encoding/decoding (RFC 7541 Appendix B)
-//! - HpackDecoder and HpackEncoder types
+//! - `HpackDecoder` and `HpackEncoder` types
 
 // ============================================================================
 // Static Table (RFC 7541 Appendix A)
@@ -355,7 +355,7 @@ pub const HUFFMAN_TABLE: &[(u32, u8)] = &[
 
 /// Decode an HPACK integer with N-bit prefix.
 ///
-/// The first byte is the prefix byte, where the top (8 - prefix_bits) bits
+/// The first byte is the prefix byte, where the top (8 - `prefix_bits`) bits
 /// may contain a representation indicator.
 ///
 /// # Arguments
@@ -365,21 +365,22 @@ pub const HUFFMAN_TABLE: &[(u32, u8)] = &[
 /// # Returns
 /// `Some((value, bytes_consumed))` or `None` if the buffer is too short or
 /// the integer is malformed.
+#[must_use]
 pub fn decode_integer(buf: &[u8], prefix_bits: u8) -> Option<(u64, usize)> {
     if buf.is_empty() || prefix_bits == 0 || prefix_bits > 8 {
         return None;
     }
 
     let prefix_max = (1u32 << prefix_bits) - 1;
-    let first = (buf[0] & (prefix_max as u8)) as u64;
+    let first = u64::from(buf[0] & (prefix_max as u8));
 
-    if first < prefix_max as u64 {
+    if first < u64::from(prefix_max) {
         // Small value that fits in prefix
         return Some((first, 1));
     }
 
     // Value is >= prefix_max, read continuation bytes
-    let mut value = prefix_max as u64;
+    let mut value = u64::from(prefix_max);
     let mut shift = 0u64;
     let mut i = 1;
 
@@ -389,7 +390,7 @@ pub fn decode_integer(buf: &[u8], prefix_bits: u8) -> Option<(u64, usize)> {
         }
         let byte = buf[i];
         i += 1;
-        value += ((byte & 0x7F) as u64) << shift;
+        value += u64::from(byte & 0x7F) << shift;
         shift += 7;
 
         if (byte & 0x80) == 0 {
@@ -414,6 +415,7 @@ pub fn decode_integer(buf: &[u8], prefix_bits: u8) -> Option<(u64, usize)> {
 ///
 /// # Returns
 /// A `Vec<u8>` containing the encoded integer.
+#[must_use]
 pub fn encode_integer(value: u64, prefix_bits: u8, prefix_byte: u8) -> Vec<u8> {
     let prefix_max = (1u64 << prefix_bits) - 1;
 
@@ -458,7 +460,7 @@ impl HuffmanNode {
     }
 }
 
-/// Build the Huffman decoding tree from the HUFFMAN_TABLE.
+/// Build the Huffman decoding tree from the `HUFFMAN_TABLE`.
 fn build_huffman_tree() -> HuffmanNode {
     let mut root = HuffmanNode::new();
 
@@ -489,6 +491,7 @@ fn build_huffman_tree() -> HuffmanNode {
 ///
 /// Returns the decoded bytes on success, or `None` if the data is malformed.
 /// Padding bits (at most 7) must all be 1s as per the spec.
+#[must_use]
 pub fn huffman_decode(encoded: &[u8]) -> Option<Vec<u8>> {
     let root = build_huffman_tree();
     let mut output = Vec::new();
@@ -524,6 +527,7 @@ pub fn huffman_decode(encoded: &[u8]) -> Option<Vec<u8>> {
 /// Encode data using Huffman coding (RFC 7541 Appendix B).
 ///
 /// Returns a byte vector. The output is padded with 1-bits to the next byte boundary.
+#[must_use]
 pub fn huffman_encode(data: &[u8]) -> Vec<u8> {
     let mut bit_buf: u64 = 0;
     let mut bit_count = 0u32;
@@ -531,9 +535,9 @@ pub fn huffman_encode(data: &[u8]) -> Vec<u8> {
 
     for &byte in data {
         let (code, nbits) = HUFFMAN_TABLE[byte as usize];
-        let nbits = nbits as u32;
+        let nbits = u32::from(nbits);
 
-        bit_buf = (bit_buf << nbits) | (code as u64);
+        bit_buf = (bit_buf << nbits) | u64::from(code);
         bit_count += nbits;
 
         while bit_count >= 8 {
@@ -569,6 +573,7 @@ pub fn huffman_encode(data: &[u8]) -> Vec<u8> {
 ///
 /// # Returns
 /// `Some((string_bytes, bytes_consumed))` or `None` if the buffer is too short.
+#[must_use]
 pub fn decode_string(buf: &[u8]) -> Option<(Vec<u8>, usize)> {
     if buf.is_empty() {
         return None;
@@ -596,6 +601,7 @@ pub fn decode_string(buf: &[u8]) -> Option<(Vec<u8>, usize)> {
 /// Encode a string literal without Huffman coding.
 ///
 /// Returns bytes in literal (non-Huffman) format.
+#[must_use]
 pub fn encode_string_literal(data: &[u8]) -> Vec<u8> {
     let mut out = encode_integer(data.len() as u64, 7, 0x00); // H=0
     out.extend_from_slice(data);
@@ -605,6 +611,7 @@ pub fn encode_string_literal(data: &[u8]) -> Vec<u8> {
 /// Encode a string literal with Huffman coding if beneficial.
 ///
 /// Uses Huffman encoding and sets H=1. Always Huffman-encodes for simplicity.
+#[must_use]
 pub fn encode_string_huffman(data: &[u8]) -> Vec<u8> {
     let encoded = huffman_encode(data);
     let mut out = encode_integer(encoded.len() as u64, 7, 0x80); // H=1
@@ -628,7 +635,7 @@ fn entry_size(name: &str, value: &str) -> usize {
 pub struct HpackDecoder {
     /// Dynamic table entries (most recently added first).
     dynamic_table: Vec<(String, String)>,
-    /// Maximum dynamic table size (bytes, per SETTINGS_HEADER_TABLE_SIZE).
+    /// Maximum dynamic table size (bytes, per `SETTINGS_HEADER_TABLE_SIZE`).
     max_table_size: usize,
     /// Current dynamic table size (sum of entry sizes).
     current_size: usize,
@@ -642,6 +649,7 @@ impl Default for HpackDecoder {
 
 impl HpackDecoder {
     /// Create a new HPACK decoder with default max table size of 4096 bytes.
+    #[must_use]
     pub fn new() -> Self {
         HpackDecoder {
             dynamic_table: Vec::new(),
@@ -651,6 +659,7 @@ impl HpackDecoder {
     }
 
     /// Create a new HPACK decoder with a specific max table size.
+    #[must_use]
     pub fn with_max_size(max_table_size: usize) -> Self {
         HpackDecoder {
             dynamic_table: Vec::new(),
@@ -659,24 +668,27 @@ impl HpackDecoder {
         }
     }
 
-    /// Update the maximum table size (e.g., from SETTINGS_HEADER_TABLE_SIZE).
+    /// Update the maximum table size (e.g., from `SETTINGS_HEADER_TABLE_SIZE`).
     pub fn set_max_table_size(&mut self, size: usize) {
         self.max_table_size = size;
         self.evict_to_fit(0);
     }
 
     /// Returns the number of entries currently in the dynamic table.
+    #[must_use]
     pub fn dynamic_table_len(&self) -> usize {
         self.dynamic_table.len()
     }
 
     /// Returns the current size (in bytes) of the dynamic table.
+    #[must_use]
     pub fn dynamic_table_current_size(&self) -> usize {
         self.current_size
     }
 
     /// Returns the entries in the dynamic table as (name, value) string slices.
     /// Entries are ordered most-recently-added first (index 62 = first entry).
+    #[must_use]
     pub fn dynamic_table_entries(&self) -> &[(String, String)] {
         &self.dynamic_table
     }
@@ -700,7 +712,7 @@ impl HpackDecoder {
 
                 let (name, value) = self
                     .table_entry(idx as usize)
-                    .ok_or_else(|| format!("Invalid header table index: {}", idx))?;
+                    .ok_or_else(|| format!("Invalid header table index: {idx}"))?;
                 headers.push((name, value));
             } else if (first & 0x40) != 0 {
                 // Literal Header Field with Incremental Indexing (RFC 7541 Section 6.2.1)
@@ -715,11 +727,11 @@ impl HpackDecoder {
                         .ok_or_else(|| "Failed to decode literal name string".to_string())?;
                     pos += nc;
                     String::from_utf8(name_bytes)
-                        .map_err(|e| format!("Invalid UTF-8 in header name: {}", e))?
+                        .map_err(|e| format!("Invalid UTF-8 in header name: {e}"))?
                 } else {
                     let (n, _) = self
                         .table_entry(idx as usize)
-                        .ok_or_else(|| format!("Invalid header table index: {}", idx))?;
+                        .ok_or_else(|| format!("Invalid header table index: {idx}"))?;
                     n
                 };
 
@@ -727,7 +739,7 @@ impl HpackDecoder {
                     .ok_or_else(|| "Failed to decode literal value string".to_string())?;
                 pos += vc;
                 let value = String::from_utf8(value_bytes)
-                    .map_err(|e| format!("Invalid UTF-8 in header value: {}", e))?;
+                    .map_err(|e| format!("Invalid UTF-8 in header value: {e}"))?;
 
                 self.add_to_dynamic_table(name.clone(), value.clone());
                 headers.push((name, value));
@@ -767,11 +779,11 @@ impl HpackDecoder {
                         .ok_or_else(|| "Failed to decode never-indexed name string".to_string())?;
                     pos += nc;
                     String::from_utf8(name_bytes)
-                        .map_err(|e| format!("Invalid UTF-8 in header name: {}", e))?
+                        .map_err(|e| format!("Invalid UTF-8 in header name: {e}"))?
                 } else {
                     let (n, _) = self
                         .table_entry(idx as usize)
-                        .ok_or_else(|| format!("Invalid header table index: {}", idx))?;
+                        .ok_or_else(|| format!("Invalid header table index: {idx}"))?;
                     n
                 };
 
@@ -779,7 +791,7 @@ impl HpackDecoder {
                     .ok_or_else(|| "Failed to decode never-indexed value string".to_string())?;
                 pos += vc;
                 let value = String::from_utf8(value_bytes)
-                    .map_err(|e| format!("Invalid UTF-8 in header value: {}", e))?;
+                    .map_err(|e| format!("Invalid UTF-8 in header value: {e}"))?;
 
                 // Never indexed — do not add to dynamic table
                 headers.push((name, value));
@@ -796,11 +808,11 @@ impl HpackDecoder {
                     })?;
                     pos += nc;
                     String::from_utf8(name_bytes)
-                        .map_err(|e| format!("Invalid UTF-8 in header name: {}", e))?
+                        .map_err(|e| format!("Invalid UTF-8 in header name: {e}"))?
                 } else {
                     let (n, _) = self
                         .table_entry(idx as usize)
-                        .ok_or_else(|| format!("Invalid header table index: {}", idx))?;
+                        .ok_or_else(|| format!("Invalid header table index: {idx}"))?;
                     n
                 };
 
@@ -808,7 +820,7 @@ impl HpackDecoder {
                     .ok_or_else(|| "Failed to decode without-indexing value string".to_string())?;
                 pos += vc;
                 let value = String::from_utf8(value_bytes)
-                    .map_err(|e| format!("Invalid UTF-8 in header value: {}", e))?;
+                    .map_err(|e| format!("Invalid UTF-8 in header value: {e}"))?;
 
                 // Without indexing — do not add to dynamic table
                 headers.push((name, value));
@@ -903,6 +915,7 @@ impl Default for HpackEncoder {
 
 impl HpackEncoder {
     /// Create a new HPACK encoder with default max table size of 4096 bytes.
+    #[must_use]
     pub fn new() -> Self {
         HpackEncoder {
             dynamic_table: Vec::new(),
@@ -915,6 +928,7 @@ impl HpackEncoder {
     /// This implementation uses literal header fields without indexing
     /// (pattern 0000xxxx with index=0) for simplicity and correctness.
     /// It checks the static table for name-only matches to save space.
+    #[must_use]
     pub fn encode(&self, headers: &[(&str, &str)]) -> Vec<u8> {
         let mut out = Vec::new();
 
@@ -947,6 +961,7 @@ impl HpackEncoder {
     }
 
     /// Encode headers using Huffman encoding for string values.
+    #[must_use]
     pub fn encode_huffman(&self, headers: &[(&str, &str)]) -> Vec<u8> {
         let mut out = Vec::new();
 

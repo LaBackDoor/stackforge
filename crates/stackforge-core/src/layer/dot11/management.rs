@@ -12,7 +12,7 @@ use crate::layer::field::{FieldError, MacAddress};
 
 /// 802.11 Beacon frame body.
 ///
-/// Fixed fields: timestamp(8B) + beacon_interval(2B) + capability(2B) = 12 bytes.
+/// Fixed fields: timestamp(8B) + `beacon_interval(2B)` + capability(2B) = 12 bytes.
 /// Followed by an IE chain (parsed separately by the ie module).
 #[derive(Debug, Clone)]
 pub struct Dot11Beacon {
@@ -23,6 +23,7 @@ pub struct Dot11Beacon {
 pub const BEACON_FIXED_LEN: usize = 12;
 
 impl Dot11Beacon {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -88,16 +89,19 @@ impl Dot11Beacon {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + BEACON_FIXED_LEN
     }
 
     /// Header length (fixed fields only).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         BEACON_FIXED_LEN
     }
 
     /// Build beacon fixed fields.
+    #[must_use]
     pub fn build(timestamp: u64, beacon_interval: u16, capability: u16) -> Vec<u8> {
         let mut out = Vec::with_capacity(BEACON_FIXED_LEN);
         out.extend_from_slice(&timestamp.to_le_bytes());
@@ -120,16 +124,19 @@ pub struct Dot11ProbeReq {
 }
 
 impl Dot11ProbeReq {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
     /// Offset where the IE chain starts (immediately).
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset
     }
 
     /// Header length (no fixed fields).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }
@@ -141,13 +148,14 @@ impl Dot11ProbeReq {
 
 /// 802.11 Probe Response frame body.
 ///
-/// Same fixed fields as Beacon: timestamp(8B) + beacon_interval(2B) + capability(2B).
+/// Same fixed fields as Beacon: timestamp(8B) + `beacon_interval(2B)` + capability(2B).
 #[derive(Debug, Clone)]
 pub struct Dot11ProbeResp {
     pub offset: usize,
 }
 
 impl Dot11ProbeResp {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -201,16 +209,19 @@ impl Dot11ProbeResp {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + BEACON_FIXED_LEN
     }
 
     /// Header length (fixed fields only).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         BEACON_FIXED_LEN
     }
 
     /// Build probe response fixed fields.
+    #[must_use]
     pub fn build(timestamp: u64, beacon_interval: u16, capability: u16) -> Vec<u8> {
         Dot11Beacon::build(timestamp, beacon_interval, capability)
     }
@@ -222,7 +233,7 @@ impl Dot11ProbeResp {
 
 /// 802.11 Authentication frame body.
 ///
-/// Fixed fields: auth_algo(2B) + auth_seq(2B) + status_code(2B) = 6 bytes.
+/// Fixed fields: `auth_algo(2B)` + `auth_seq(2B)` + `status_code(2B)` = 6 bytes.
 /// May be followed by IEs (e.g., challenge text for shared key auth).
 #[derive(Debug, Clone)]
 pub struct Dot11Auth {
@@ -232,6 +243,7 @@ pub struct Dot11Auth {
 pub const AUTH_FIXED_LEN: usize = 6;
 
 impl Dot11Auth {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -288,16 +300,19 @@ impl Dot11Auth {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + AUTH_FIXED_LEN
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         AUTH_FIXED_LEN
     }
 
     /// Check if this auth frame answers another.
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &Dot11Auth, other_buf: &[u8]) -> bool {
         let self_algo = self.algo(buf).unwrap_or(0);
         let other_algo = other.algo(other_buf).unwrap_or(0);
@@ -310,6 +325,7 @@ impl Dot11Auth {
     }
 
     /// Build authentication fixed fields.
+    #[must_use]
     pub fn build(algo: u16, seqnum: u16, status_code: u16) -> Vec<u8> {
         let mut out = Vec::with_capacity(AUTH_FIXED_LEN);
         out.extend_from_slice(&algo.to_le_bytes());
@@ -325,7 +341,7 @@ impl Dot11Auth {
 
 /// 802.11 Deauthentication frame body.
 ///
-/// Fixed fields: reason_code(2B).
+/// Fixed fields: `reason_code(2B)`.
 #[derive(Debug, Clone)]
 pub struct Dot11Deauth {
     pub offset: usize,
@@ -334,6 +350,7 @@ pub struct Dot11Deauth {
 pub const DEAUTH_FIXED_LEN: usize = 2;
 
 impl Dot11Deauth {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -352,11 +369,13 @@ impl Dot11Deauth {
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         DEAUTH_FIXED_LEN
     }
 
     /// Build deauthentication body.
+    #[must_use]
     pub fn build(reason_code: u16) -> Vec<u8> {
         reason_code.to_le_bytes().to_vec()
     }
@@ -368,7 +387,7 @@ impl Dot11Deauth {
 
 /// 802.11 Disassociation frame body.
 ///
-/// Fixed fields: reason_code(2B).
+/// Fixed fields: `reason_code(2B)`.
 #[derive(Debug, Clone)]
 pub struct Dot11Disas {
     pub offset: usize,
@@ -377,6 +396,7 @@ pub struct Dot11Disas {
 pub const DISAS_FIXED_LEN: usize = 2;
 
 impl Dot11Disas {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -395,11 +415,13 @@ impl Dot11Disas {
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         DISAS_FIXED_LEN
     }
 
     /// Build disassociation body.
+    #[must_use]
     pub fn build(reason_code: u16) -> Vec<u8> {
         reason_code.to_le_bytes().to_vec()
     }
@@ -411,7 +433,7 @@ impl Dot11Disas {
 
 /// 802.11 Association Request frame body.
 ///
-/// Fixed fields: capability(2B) + listen_interval(2B) = 4 bytes.
+/// Fixed fields: capability(2B) + `listen_interval(2B)` = 4 bytes.
 /// Followed by an IE chain.
 #[derive(Debug, Clone)]
 pub struct Dot11AssocReq {
@@ -421,6 +443,7 @@ pub struct Dot11AssocReq {
 pub const ASSOC_REQ_FIXED_LEN: usize = 4;
 
 impl Dot11AssocReq {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -452,16 +475,19 @@ impl Dot11AssocReq {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + ASSOC_REQ_FIXED_LEN
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         ASSOC_REQ_FIXED_LEN
     }
 
     /// Build association request fixed fields.
+    #[must_use]
     pub fn build(capability: u16, listen_interval: u16) -> Vec<u8> {
         let mut out = Vec::with_capacity(ASSOC_REQ_FIXED_LEN);
         out.extend_from_slice(&capability.to_le_bytes());
@@ -476,7 +502,7 @@ impl Dot11AssocReq {
 
 /// 802.11 Association Response frame body.
 ///
-/// Fixed fields: capability(2B) + status_code(2B) + AID(2B) = 6 bytes.
+/// Fixed fields: capability(2B) + `status_code(2B)` + AID(2B) = 6 bytes.
 /// Followed by an IE chain.
 #[derive(Debug, Clone)]
 pub struct Dot11AssocResp {
@@ -486,6 +512,7 @@ pub struct Dot11AssocResp {
 pub const ASSOC_RESP_FIXED_LEN: usize = 6;
 
 impl Dot11AssocResp {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -530,16 +557,19 @@ impl Dot11AssocResp {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + ASSOC_RESP_FIXED_LEN
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         ASSOC_RESP_FIXED_LEN
     }
 
     /// Build association response fixed fields.
+    #[must_use]
     pub fn build(capability: u16, status_code: u16, aid: u16) -> Vec<u8> {
         let mut out = Vec::with_capacity(ASSOC_RESP_FIXED_LEN);
         out.extend_from_slice(&capability.to_le_bytes());
@@ -555,7 +585,7 @@ impl Dot11AssocResp {
 
 /// 802.11 Reassociation Request frame body.
 ///
-/// Fixed fields: capability(2B) + listen_interval(2B) + current_ap(6B) = 10 bytes.
+/// Fixed fields: capability(2B) + `listen_interval(2B)` + `current_ap(6B)` = 10 bytes.
 /// Followed by an IE chain.
 #[derive(Debug, Clone)]
 pub struct Dot11ReassocReq {
@@ -565,6 +595,7 @@ pub struct Dot11ReassocReq {
 pub const REASSOC_REQ_FIXED_LEN: usize = 10;
 
 impl Dot11ReassocReq {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -616,16 +647,19 @@ impl Dot11ReassocReq {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + REASSOC_REQ_FIXED_LEN
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         REASSOC_REQ_FIXED_LEN
     }
 
     /// Build reassociation request fixed fields.
+    #[must_use]
     pub fn build(capability: u16, listen_interval: u16, current_ap: MacAddress) -> Vec<u8> {
         let mut out = Vec::with_capacity(REASSOC_REQ_FIXED_LEN);
         out.extend_from_slice(&capability.to_le_bytes());
@@ -646,6 +680,7 @@ pub struct Dot11ReassocResp {
 }
 
 impl Dot11ReassocResp {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -690,16 +725,19 @@ impl Dot11ReassocResp {
     }
 
     /// Offset where the IE chain starts.
+    #[must_use]
     pub fn ie_offset(&self) -> usize {
         self.offset + ASSOC_RESP_FIXED_LEN
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         ASSOC_RESP_FIXED_LEN
     }
 
     /// Build reassociation response fixed fields (same as assoc resp).
+    #[must_use]
     pub fn build(capability: u16, status_code: u16, aid: u16) -> Vec<u8> {
         Dot11AssocResp::build(capability, status_code, aid)
     }
@@ -720,6 +758,7 @@ pub struct Dot11Action {
 pub const ACTION_MIN_LEN: usize = 1;
 
 impl Dot11Action {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -751,16 +790,19 @@ impl Dot11Action {
     }
 
     /// Payload offset (after category byte).
+    #[must_use]
     pub fn payload_offset(&self) -> usize {
         self.offset + ACTION_MIN_LEN
     }
 
     /// Header length (just the category byte).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         ACTION_MIN_LEN
     }
 
     /// Build action frame body.
+    #[must_use]
     pub fn build(category: u8) -> Vec<u8> {
         vec![category]
     }
@@ -779,10 +821,12 @@ pub struct Dot11ATIM {
 }
 
 impl Dot11ATIM {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }

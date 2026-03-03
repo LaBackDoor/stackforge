@@ -26,7 +26,7 @@
 //! ```
 //!
 //! An ACK frame is exactly 10 bytes (no payload between dst and CRC).
-//! A REQ frame is 10 + payload_len bytes.
+//! A REQ frame is 10 + `payload_len` bytes.
 
 pub mod builder;
 
@@ -130,6 +130,7 @@ pub mod cmd_class {
 }
 
 /// Return a human-readable name for a command class byte value.
+#[must_use]
 pub fn cmd_class_name(cc: u8) -> &'static str {
     match cc {
         cmd_class::NO_OPERATION => "NO_OPERATION",
@@ -239,6 +240,7 @@ pub static ZWAVE_FIELD_NAMES: &[&str] = &[
 ];
 
 /// Compute the Z-Wave CRC: XOR all bytes starting from an initial value of 0xFF.
+#[must_use]
 pub fn zwave_crc(data: &[u8]) -> u8 {
     data.iter().fold(0xFFu8, |acc, &b| acc ^ b)
 }
@@ -247,6 +249,7 @@ pub fn zwave_crc(data: &[u8]) -> u8 {
 ///
 /// Z-Wave is a wireless protocol (not carried over TCP/UDP), so this is used
 /// for detecting Z-Wave frames in raw captures.
+#[must_use]
 pub fn is_zwave_frame(buf: &[u8]) -> bool {
     if buf.len() < 10 {
         return false;
@@ -263,11 +266,13 @@ pub struct ZWaveLayer {
 
 impl ZWaveLayer {
     /// Create a new Z-Wave layer from a layer index.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
 
     /// Create a Z-Wave layer starting at offset 0 (for standalone parsing).
+    #[must_use]
     pub fn at_start(end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::ZWave, 0, end),
@@ -570,6 +575,7 @@ impl ZWaveLayer {
     // ========================================================================
 
     /// Returns true if this frame is an ACK (no payload -- total length is 10).
+    #[must_use]
     pub fn is_ack(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         s.len() <= ZWAVE_MIN_HEADER_LEN
@@ -652,6 +658,7 @@ impl ZWaveLayer {
 
     /// Verify the CRC of this frame. Computes XOR of all bytes except the last
     /// (starting from 0xFF) and compares with the stored CRC.
+    #[must_use]
     pub fn verify_crc(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         if s.len() < ZWAVE_MIN_HEADER_LEN {
@@ -666,6 +673,7 @@ impl ZWaveLayer {
     // ========================================================================
 
     /// Generate a one-line summary of this Z-Wave frame.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let s = self.slice(buf);
         if s.len() < ZWAVE_MIN_HEADER_LEN {
@@ -677,13 +685,12 @@ impl ZWaveLayer {
         let dst_id = self.dst(buf).unwrap_or(0);
 
         if self.is_ack(buf) {
-            format!("Z-Wave ACK {:#010x} {}->{}", home, src_id, dst_id)
+            format!("Z-Wave ACK {home:#010x} {src_id}->{dst_id}")
         } else {
             let cc = self
                 .cmd_class(buf)
-                .map(|c| cmd_class_name(c).to_string())
-                .unwrap_or_else(|_| "?".to_string());
-            format!("Z-Wave {:#010x} {}->{}  {}", home, src_id, dst_id, cc)
+                .map_or_else(|_| "?".to_string(), |c| cmd_class_name(c).to_string());
+            format!("Z-Wave {home:#010x} {src_id}->{dst_id}  {cc}")
         }
     }
 
@@ -700,6 +707,7 @@ impl ZWaveLayer {
     // ========================================================================
 
     /// Get the field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         ZWAVE_FIELD_NAMES
     }
@@ -750,8 +758,7 @@ impl ZWaveLayer {
                     Some(self.set_home_id(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "home_id: expected U32, got {:?}",
-                        value
+                        "home_id: expected U32, got {value:?}"
                     ))))
                 }
             },
@@ -760,8 +767,7 @@ impl ZWaveLayer {
                     Some(self.set_src(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "src: expected U8, got {:?}",
-                        value
+                        "src: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -770,8 +776,7 @@ impl ZWaveLayer {
                     Some(self.set_dst(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "dst: expected U8, got {:?}",
-                        value
+                        "dst: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -780,8 +785,7 @@ impl ZWaveLayer {
                     Some(self.set_routed(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "routed: expected Bool, got {:?}",
-                        value
+                        "routed: expected Bool, got {value:?}"
                     ))))
                 }
             },
@@ -790,8 +794,7 @@ impl ZWaveLayer {
                     Some(self.set_ackreq(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "ackreq: expected Bool, got {:?}",
-                        value
+                        "ackreq: expected Bool, got {value:?}"
                     ))))
                 }
             },
@@ -800,8 +803,7 @@ impl ZWaveLayer {
                     Some(self.set_lowpower(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "lowpower: expected Bool, got {:?}",
-                        value
+                        "lowpower: expected Bool, got {value:?}"
                     ))))
                 }
             },
@@ -810,8 +812,7 @@ impl ZWaveLayer {
                     Some(self.set_speedmodified(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "speedmodified: expected Bool, got {:?}",
-                        value
+                        "speedmodified: expected Bool, got {value:?}"
                     ))))
                 }
             },
@@ -820,8 +821,7 @@ impl ZWaveLayer {
                     Some(self.set_headertype(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "headertype: expected U8, got {:?}",
-                        value
+                        "headertype: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -830,8 +830,7 @@ impl ZWaveLayer {
                     Some(self.set_beam_control(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "beam_control: expected U8, got {:?}",
-                        value
+                        "beam_control: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -840,8 +839,7 @@ impl ZWaveLayer {
                     Some(self.set_seqn(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "seqn: expected U8, got {:?}",
-                        value
+                        "seqn: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -850,8 +848,7 @@ impl ZWaveLayer {
                     Some(self.set_length(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "length: expected U8, got {:?}",
-                        value
+                        "length: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -860,8 +857,7 @@ impl ZWaveLayer {
                     Some(self.set_cmd_class(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "cmd_class: expected U8, got {:?}",
-                        value
+                        "cmd_class: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -870,8 +866,7 @@ impl ZWaveLayer {
                     Some(self.set_cmd(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "cmd: expected U8, got {:?}",
-                        value
+                        "cmd: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -880,8 +875,7 @@ impl ZWaveLayer {
                     Some(self.set_crc(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "crc: expected U8, got {:?}",
-                        value
+                        "crc: expected U8, got {value:?}"
                     ))))
                 }
             },

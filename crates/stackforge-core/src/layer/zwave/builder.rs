@@ -71,6 +71,7 @@ impl Default for ZWaveBuilder {
 
 impl ZWaveBuilder {
     /// Create a new Z-Wave builder with defaults.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -78,84 +79,98 @@ impl ZWaveBuilder {
     // ========== Field setters (fluent API) ==========
 
     /// Set the 4-byte Home ID.
+    #[must_use]
     pub fn home_id(mut self, id: u32) -> Self {
         self.home_id = id;
         self
     }
 
     /// Set the source node ID.
+    #[must_use]
     pub fn src(mut self, src: u8) -> Self {
         self.src = src;
         self
     }
 
     /// Set the destination node ID.
+    #[must_use]
     pub fn dst(mut self, dst: u8) -> Self {
         self.dst = dst;
         self
     }
 
     /// Set the routed flag (bit 7 of frame control).
+    #[must_use]
     pub fn routed(mut self, v: bool) -> Self {
         self.routed = v;
         self
     }
 
     /// Set the ack request flag (bit 6 of frame control).
+    #[must_use]
     pub fn ackreq(mut self, v: bool) -> Self {
         self.ackreq = v;
         self
     }
 
     /// Set the low power flag (bit 5 of frame control).
+    #[must_use]
     pub fn lowpower(mut self, v: bool) -> Self {
         self.lowpower = v;
         self
     }
 
     /// Set the speed modified flag (bit 4 of frame control).
+    #[must_use]
     pub fn speedmodified(mut self, v: bool) -> Self {
         self.speedmodified = v;
         self
     }
 
     /// Set the header type (bits 3-0 of frame control).
+    #[must_use]
     pub fn headertype(mut self, v: u8) -> Self {
         self.headertype = v & 0x0F;
         self
     }
 
     /// Set the beam control field (bits 6-5 of beam/sequence byte).
+    #[must_use]
     pub fn beam_control(mut self, v: u8) -> Self {
         self.beam_control = v & 0x03;
         self
     }
 
     /// Set the sequence number (bits 3-0 of beam/sequence byte).
+    #[must_use]
     pub fn seqn(mut self, v: u8) -> Self {
         self.seqn = v & 0x0F;
         self
     }
 
     /// Set the command class byte. Setting this makes the frame a REQ.
+    #[must_use]
     pub fn cmd_class(mut self, cc: u8) -> Self {
         self.cmd_class_val = Some(cc);
         self
     }
 
     /// Set the command byte.
+    #[must_use]
     pub fn cmd(mut self, c: u8) -> Self {
         self.cmd_val = Some(c);
         self
     }
 
     /// Set the command data bytes.
+    #[must_use]
     pub fn cmd_data(mut self, data: Vec<u8>) -> Self {
         self.cmd_data_val = data;
         self
     }
 
     /// Configure this builder for an ACK frame (clears any payload fields).
+    #[must_use]
     pub fn ack(mut self) -> Self {
         self.cmd_class_val = None;
         self.cmd_val = None;
@@ -191,8 +206,9 @@ impl ZWaveBuilder {
     /// Serialize the Z-Wave frame into bytes.
     ///
     /// If `cmd_class_val` is `None`, builds a 10-byte ACK frame.
-    /// Otherwise builds a REQ frame with cmd_class + cmd + data.
+    /// Otherwise builds a REQ frame with `cmd_class` + cmd + data.
     /// The CRC is computed automatically as XOR of all preceding bytes starting from 0xFF.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let is_ack = self.cmd_class_val.is_none();
 
@@ -201,7 +217,7 @@ impl ZWaveBuilder {
             0
         } else {
             // cmd_class(1) + cmd(1) + data
-            1 + if self.cmd_val.is_some() { 1 } else { 0 } + self.cmd_data_val.len()
+            1 + usize::from(self.cmd_val.is_some()) + self.cmd_data_val.len()
         };
 
         let total_len = 10 + payload_len; // header(9) + crc(1) + payload

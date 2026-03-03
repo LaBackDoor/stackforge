@@ -94,7 +94,7 @@ impl Pop3Builder {
 
     /// +OK nmsgs octets (STAT response).
     pub fn stat_reply(self, num_msgs: u32, total_size: u64) -> Self {
-        let text = format!("{} {}", num_msgs, total_size);
+        let text = format!("{num_msgs} {total_size}");
         self.ok(text)
     }
 
@@ -103,7 +103,7 @@ impl Pop3Builder {
         let header = format!("{} messages", messages.len());
         let lines = messages
             .into_iter()
-            .map(|(num, size)| format!("{} {}", num, size))
+            .map(|(num, size)| format!("{num} {size}"))
             .collect();
         self.ok_multiline(header, lines)
     }
@@ -178,7 +178,7 @@ impl Pop3Builder {
 
     /// TOP <msg> <n> (retrieve header + first n body lines)
     pub fn top(self, msg: u32, lines: u32) -> Self {
-        let args = format!("{} {}", msg, lines);
+        let args = format!("{msg} {lines}");
         self.command("TOP", args)
     }
 
@@ -213,6 +213,7 @@ impl Pop3Builder {
     // Build
     // ========================================================================
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         match self.is_reply {
             Some(true) => self.build_ok(),
@@ -232,9 +233,9 @@ impl Pop3Builder {
             for line in &self.body_lines {
                 // Byte-stuff lines starting with "."
                 if line.starts_with('.') {
-                    out.extend_from_slice(format!(".{}\r\n", line).as_bytes());
+                    out.extend_from_slice(format!(".{line}\r\n").as_bytes());
                 } else {
-                    out.extend_from_slice(format!("{}\r\n", line).as_bytes());
+                    out.extend_from_slice(format!("{line}\r\n").as_bytes());
                 }
             }
             out.extend_from_slice(b".\r\n"); // terminator
@@ -254,9 +255,9 @@ impl Pop3Builder {
         let verb = self.command.as_deref().unwrap_or("NOOP");
         let args = &self.text;
         let line = if args.is_empty() {
-            format!("{}\r\n", verb)
+            format!("{verb}\r\n")
         } else {
-            format!("{} {}\r\n", verb, args)
+            format!("{verb} {args}\r\n")
         };
         line.into_bytes()
     }

@@ -1,6 +1,6 @@
-//! ICMPv6 (Internet Control Message Protocol for IPv6) layer implementation.
+//! `ICMPv6` (Internet Control Message Protocol for IPv6) layer implementation.
 //!
-//! This module provides types and functions for working with ICMPv6 packets,
+//! This module provides types and functions for working with `ICMPv6` packets,
 //! including parsing, field access, and checksum calculation using the IPv6
 //! pseudo-header.
 
@@ -12,14 +12,14 @@ use crate::layer::field::{FieldError, FieldValue};
 use crate::layer::{Layer, LayerIndex, LayerKind};
 use std::net::Ipv6Addr;
 
-/// ICMPv6 minimum header length (8 bytes).
+/// `ICMPv6` minimum header length (8 bytes).
 pub const ICMPV6_MIN_HEADER_LEN: usize = 8;
 
-/// Field offsets within the ICMPv6 header.
+/// Field offsets within the `ICMPv6` header.
 pub mod offsets {
-    /// ICMPv6 Type (8 bits)
+    /// `ICMPv6` Type (8 bits)
     pub const TYPE: usize = 0;
-    /// ICMPv6 Code (8 bits)
+    /// `ICMPv6` Code (8 bits)
     pub const CODE: usize = 1;
     /// Checksum (16 bits)
     pub const CHECKSUM: usize = 2;
@@ -33,7 +33,7 @@ pub mod offsets {
     pub const MTU: usize = 4;
 }
 
-/// ICMPv6 type constants.
+/// `ICMPv6` type constants.
 pub mod types {
     /// Destination Unreachable
     pub const DEST_UNREACH: u8 = 1;
@@ -58,7 +58,8 @@ pub mod types {
     /// Redirect Message (NDP)
     pub const REDIRECT: u8 = 137;
 
-    /// Get the name of an ICMPv6 type.
+    /// Get the name of an `ICMPv6` type.
+    #[must_use]
     pub fn name(t: u8) -> &'static str {
         match t {
             DEST_UNREACH => "dest-unreach",
@@ -77,14 +78,15 @@ pub mod types {
     }
 }
 
-/// Compute the ICMPv6 checksum over the IPv6 pseudo-header + ICMPv6 data.
+/// Compute the `ICMPv6` checksum over the IPv6 pseudo-header + `ICMPv6` data.
 ///
-/// The ICMPv6 checksum covers:
+/// The `ICMPv6` checksum covers:
 /// 1. IPv6 pseudo-header: src (16 bytes), dst (16 bytes), upper-layer length (4 bytes),
 ///    zeros (3 bytes), next header = 58 (1 byte)
-/// 2. The ICMPv6 message (type, code, checksum=0, and payload)
+/// 2. The `ICMPv6` message (type, code, checksum=0, and payload)
 ///
 /// Returns the 16-bit checksum in network byte order.
+#[must_use]
 pub fn icmpv6_checksum(src: Ipv6Addr, dst: Ipv6Addr, icmpv6_data: &[u8]) -> u16 {
     let mut sum: u32 = 0;
 
@@ -94,18 +96,18 @@ pub fn icmpv6_checksum(src: Ipv6Addr, dst: Ipv6Addr, icmpv6_data: &[u8]) -> u16 
 
     // Sum source address (16 bytes as 8 x u16)
     for chunk in src_bytes.chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Sum destination address (16 bytes as 8 x u16)
     for chunk in dst_bytes.chunks(2) {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
 
     // Upper-layer packet length (4 bytes big-endian)
     let upper_len = icmpv6_data.len() as u32;
-    sum += (upper_len >> 16) as u32;
-    sum += (upper_len & 0xFFFF) as u32;
+    sum += upper_len >> 16;
+    sum += upper_len & 0xFFFF;
 
     // Next header = 58 (ICMPv6), preceded by 3 zero bytes
     // In the pseudo-header format: [0, 0, 0, 58]
@@ -115,11 +117,11 @@ pub fn icmpv6_checksum(src: Ipv6Addr, dst: Ipv6Addr, icmpv6_data: &[u8]) -> u16 
     // Sum ICMPv6 data
     let mut chunks = icmpv6_data.chunks_exact(2);
     for chunk in &mut chunks {
-        sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
+        sum += u32::from(u16::from_be_bytes([chunk[0], chunk[1]]));
     }
     // Handle odd byte
     if let Some(&last) = chunks.remainder().first() {
-        sum += (last as u32) << 8;
+        sum += u32::from(last) << 8;
     }
 
     // Fold carries
@@ -130,16 +132,17 @@ pub fn icmpv6_checksum(src: Ipv6Addr, dst: Ipv6Addr, icmpv6_data: &[u8]) -> u16 
     !(sum as u16)
 }
 
-/// Verify an ICMPv6 checksum.
+/// Verify an `ICMPv6` checksum.
 ///
 /// Returns true if the checksum is valid (result of checksumming the full
 /// message with checksum field included should be 0 or 0xFFFF).
+#[must_use]
 pub fn verify_icmpv6_checksum(src: Ipv6Addr, dst: Ipv6Addr, icmpv6_data: &[u8]) -> bool {
     let result = icmpv6_checksum(src, dst, icmpv6_data);
     result == 0 || result == 0xFFFF
 }
 
-/// An ICMPv6 layer view.
+/// An `ICMPv6` layer view.
 ///
 /// Uses the "Lazy Zero-Copy View" pattern: holds only layer boundaries
 /// and reads fields directly from the buffer on demand.
@@ -149,12 +152,14 @@ pub struct Icmpv6Layer {
 }
 
 impl Icmpv6Layer {
-    /// Create a new ICMPv6 layer view.
+    /// Create a new `ICMPv6` layer view.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
 
     /// Create a layer at offset 0.
+    #[must_use]
     pub const fn at_start() -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Icmpv6, 0, ICMPV6_MIN_HEADER_LEN),
@@ -163,7 +168,7 @@ impl Icmpv6Layer {
 
     // ========== Field Readers ==========
 
-    /// Get the ICMPv6 type.
+    /// Get the `ICMPv6` type.
     pub fn icmpv6_type(&self, buf: &[u8]) -> Result<u8, FieldError> {
         let slice = self.index.slice(buf);
         if slice.is_empty() {
@@ -176,7 +181,7 @@ impl Icmpv6Layer {
         Ok(slice[offsets::TYPE])
     }
 
-    /// Get the ICMPv6 code.
+    /// Get the `ICMPv6` code.
     pub fn code(&self, buf: &[u8]) -> Result<u8, FieldError> {
         let slice = self.index.slice(buf);
         if slice.len() < offsets::CODE + 1 {
@@ -207,7 +212,7 @@ impl Icmpv6Layer {
 
     /// Get the identifier field (for echo request/reply only).
     ///
-    /// Returns None if this ICMPv6 type doesn't have an ID field.
+    /// Returns None if this `ICMPv6` type doesn't have an ID field.
     pub fn id(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         let icmpv6_type = self.icmpv6_type(buf)?;
         if !matches!(icmpv6_type, types::ECHO_REQUEST | types::ECHO_REPLY) {
@@ -229,7 +234,7 @@ impl Icmpv6Layer {
 
     /// Get the sequence number field (for echo request/reply only).
     ///
-    /// Returns None if this ICMPv6 type doesn't have a sequence field.
+    /// Returns None if this `ICMPv6` type doesn't have a sequence field.
     pub fn seq(&self, buf: &[u8]) -> Result<Option<u16>, FieldError> {
         let icmpv6_type = self.icmpv6_type(buf)?;
         if !matches!(icmpv6_type, types::ECHO_REQUEST | types::ECHO_REPLY) {
@@ -251,7 +256,7 @@ impl Icmpv6Layer {
 
     /// Get the target address (for Neighbor Solicitation/Advertisement).
     ///
-    /// Returns None if this ICMPv6 type doesn't have a target address.
+    /// Returns None if this `ICMPv6` type doesn't have a target address.
     pub fn target_addr(&self, buf: &[u8]) -> Result<Option<Ipv6Addr>, FieldError> {
         let icmpv6_type = self.icmpv6_type(buf)?;
         if !matches!(
@@ -299,7 +304,7 @@ impl Icmpv6Layer {
 
     // ========== Field Writers ==========
 
-    /// Set the ICMPv6 type.
+    /// Set the `ICMPv6` type.
     pub fn set_type(&self, buf: &mut [u8], value: u8) -> Result<(), FieldError> {
         let offset = self.index.start + offsets::TYPE;
         if buf.len() <= offset {
@@ -313,7 +318,7 @@ impl Icmpv6Layer {
         Ok(())
     }
 
-    /// Set the ICMPv6 code.
+    /// Set the `ICMPv6` code.
     pub fn set_code(&self, buf: &mut [u8], value: u8) -> Result<(), FieldError> {
         let offset = self.index.start + offsets::CODE;
         if buf.len() <= offset {
@@ -413,13 +418,13 @@ impl Icmpv6Layer {
             ("id", FieldValue::U16(v)) => Some(self.set_id(buf, v)),
             ("seq", FieldValue::U16(v)) => Some(self.set_seq(buf, v)),
             (name, value) => Some(Err(FieldError::InvalidValue(format!(
-                "unknown field '{}' or type mismatch for {:?}",
-                name, value
+                "unknown field '{name}' or type mismatch for {value:?}"
             )))),
         }
     }
 
     /// Get the list of field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &["type", "code", "chksum", "id", "seq"]
     }
@@ -427,6 +432,7 @@ impl Icmpv6Layer {
     // ========== Utility Methods ==========
 
     /// Generate a human-readable summary string.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         if let (Ok(icmpv6_type), Ok(code)) = (self.icmpv6_type(buf), self.code(buf)) {
             let type_name = types::name(icmpv6_type);
@@ -437,51 +443,53 @@ impl Icmpv6Layer {
                         .id(buf)
                         .ok()
                         .flatten()
-                        .map(|id| format!(" id={:#06x}", id))
+                        .map(|id| format!(" id={id:#06x}"))
                         .unwrap_or_default();
                     let seq_str = self
                         .seq(buf)
                         .ok()
                         .flatten()
-                        .map(|seq| format!(" seq={}", seq))
+                        .map(|seq| format!(" seq={seq}"))
                         .unwrap_or_default();
-                    format!("{}{}", id_str, seq_str)
+                    format!("{id_str}{seq_str}")
                 },
                 types::PKT_TOO_BIG => self
                     .mtu(buf)
                     .ok()
                     .flatten()
-                    .map(|mtu| format!(" mtu={}", mtu))
+                    .map(|mtu| format!(" mtu={mtu}"))
                     .unwrap_or_default(),
                 types::NEIGHBOR_SOLICIT | types::NEIGHBOR_ADVERT => self
                     .target_addr(buf)
                     .ok()
                     .flatten()
-                    .map(|addr| format!(" target={}", addr))
+                    .map(|addr| format!(" target={addr}"))
                     .unwrap_or_default(),
                 _ => String::new(),
             };
 
             if code == 0 {
-                format!("ICMPv6 {}{}", type_name, details)
+                format!("ICMPv6 {type_name}{details}")
             } else {
-                format!("ICMPv6 {} code={}{}", type_name, code, details)
+                format!("ICMPv6 {type_name} code={code}{details}")
             }
         } else {
             "ICMPv6".to_string()
         }
     }
 
-    /// Get the ICMPv6 header length.
+    /// Get the `ICMPv6` header length.
     ///
     /// The base header is always 8 bytes. Type-specific fields (like target
     /// addresses for NDP) are counted as part of the "body" beyond the 8-byte
     /// header.
+    #[must_use]
     pub fn header_len(&self, _buf: &[u8]) -> usize {
         ICMPV6_MIN_HEADER_LEN
     }
 
     /// Compute hash for packet matching.
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let icmpv6_type = self.icmpv6_type(buf).unwrap_or(0);
         match icmpv6_type {
@@ -500,7 +508,8 @@ impl Icmpv6Layer {
         }
     }
 
-    /// Check if this packet answers another ICMPv6 packet.
+    /// Check if this packet answers another `ICMPv6` packet.
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &Icmpv6Layer, other_buf: &[u8]) -> bool {
         let self_type = self.icmpv6_type(buf).unwrap_or(0);
         let other_type = other.icmpv6_type(other_buf).unwrap_or(0);

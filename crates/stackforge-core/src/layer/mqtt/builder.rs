@@ -30,7 +30,7 @@ pub struct MqttBuilder {
     msg_type: u8,
     /// DUP flag.
     dup: bool,
-    /// QoS level (0, 1, or 2).
+    /// `QoS` level (0, 1, or 2).
     qos: u8,
     /// RETAIN flag.
     retain: bool,
@@ -44,7 +44,7 @@ pub struct MqttBuilder {
     clean_session: bool,
     /// Will flag.
     will_flag: bool,
-    /// Will QoS.
+    /// Will `QoS`.
     will_qos: u8,
     /// Will retain flag.
     will_retain: bool,
@@ -72,7 +72,7 @@ pub struct MqttBuilder {
     msg_id: u16,
 
     // -- SUBSCRIBE fields --
-    /// Topic filters with requested QoS for SUBSCRIBE.
+    /// Topic filters with requested `QoS` for SUBSCRIBE.
     topics: Vec<(Vec<u8>, u8)>,
 
     // -- SUBACK fields --
@@ -124,6 +124,7 @@ impl Default for MqttBuilder {
 
 impl MqttBuilder {
     /// Create a new MQTT builder. Defaults to PINGREQ (`\xC0\x00`).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -131,90 +132,105 @@ impl MqttBuilder {
     // ========== Message type setters ==========
 
     /// Set message type to CONNECT (1).
+    #[must_use]
     pub fn connect(mut self) -> Self {
         self.msg_type = CONNECT;
         self
     }
 
     /// Set message type to CONNACK (2).
+    #[must_use]
     pub fn connack(mut self) -> Self {
         self.msg_type = CONNACK;
         self
     }
 
     /// Set message type to PUBLISH (3).
+    #[must_use]
     pub fn publish(mut self) -> Self {
         self.msg_type = PUBLISH;
         self
     }
 
     /// Set message type to PUBACK (4).
+    #[must_use]
     pub fn puback(mut self) -> Self {
         self.msg_type = super::PUBACK;
         self
     }
 
     /// Set message type to PUBREC (5).
+    #[must_use]
     pub fn pubrec(mut self) -> Self {
         self.msg_type = super::PUBREC;
         self
     }
 
     /// Set message type to PUBREL (6).
+    #[must_use]
     pub fn pubrel(mut self) -> Self {
         self.msg_type = super::PUBREL;
         self
     }
 
     /// Set message type to PUBCOMP (7).
+    #[must_use]
     pub fn pubcomp(mut self) -> Self {
         self.msg_type = super::PUBCOMP;
         self
     }
 
     /// Set message type to SUBSCRIBE (8).
+    #[must_use]
     pub fn subscribe(mut self) -> Self {
         self.msg_type = SUBSCRIBE;
         self
     }
 
     /// Set message type to SUBACK (9).
+    #[must_use]
     pub fn suback(mut self) -> Self {
         self.msg_type = SUBACK;
         self
     }
 
     /// Set message type to UNSUBSCRIBE (10).
+    #[must_use]
     pub fn unsubscribe(mut self) -> Self {
         self.msg_type = super::UNSUBSCRIBE;
         self
     }
 
     /// Set message type to UNSUBACK (11).
+    #[must_use]
     pub fn unsuback(mut self) -> Self {
         self.msg_type = super::UNSUBACK;
         self
     }
 
     /// Set message type to PINGREQ (12, the default).
+    #[must_use]
     pub fn pingreq(mut self) -> Self {
         self.msg_type = super::PINGREQ;
         self
     }
 
     /// Set message type to PINGRESP (13).
+    #[must_use]
     pub fn pingresp(mut self) -> Self {
         self.msg_type = super::PINGRESP;
         self
     }
 
     /// Set message type to DISCONNECT (14).
+    #[must_use]
     pub fn disconnect(mut self) -> Self {
         self.msg_type = super::DISCONNECT;
         self
     }
 
     /// Set the raw message type value.
+    #[must_use]
     pub fn msg_type(mut self, t: u8) -> Self {
         self.msg_type = t;
         self
@@ -223,18 +239,21 @@ impl MqttBuilder {
     // ========== Flag setters ==========
 
     /// Set the DUP flag.
+    #[must_use]
     pub fn dup(mut self, val: bool) -> Self {
         self.dup = val;
         self
     }
 
-    /// Set the QoS level.
+    /// Set the `QoS` level.
+    #[must_use]
     pub fn qos(mut self, val: u8) -> Self {
         self.qos = val;
         self
     }
 
     /// Set the RETAIN flag.
+    #[must_use]
     pub fn retain(mut self, val: bool) -> Self {
         self.retain = val;
         self
@@ -249,18 +268,21 @@ impl MqttBuilder {
     }
 
     /// Set the protocol level (default: 4 for MQTT 3.1.1).
+    #[must_use]
     pub fn proto_level(mut self, level: u8) -> Self {
         self.proto_level = level;
         self
     }
 
     /// Set the clean session flag.
+    #[must_use]
     pub fn clean_session(mut self, val: bool) -> Self {
         self.clean_session = val;
         self
     }
 
     /// Set the will flag and optionally will topic/message.
+    #[must_use]
     pub fn will(mut self, topic: &[u8], msg: &[u8], qos: u8, retain: bool) -> Self {
         self.will_flag = true;
         self.will_topic = topic.to_vec();
@@ -285,6 +307,7 @@ impl MqttBuilder {
     }
 
     /// Set the keep alive value (seconds).
+    #[must_use]
     pub fn keep_alive(mut self, secs: u16) -> Self {
         self.keep_alive = secs;
         self
@@ -305,6 +328,7 @@ impl MqttBuilder {
     }
 
     /// Set the message ID.
+    #[must_use]
     pub fn msg_id(mut self, id: u16) -> Self {
         self.msg_id = id;
         self
@@ -318,7 +342,8 @@ impl MqttBuilder {
 
     // ========== SUBSCRIBE field setters ==========
 
-    /// Add a topic filter with requested QoS for SUBSCRIBE.
+    /// Add a topic filter with requested `QoS` for SUBSCRIBE.
+    #[must_use]
     pub fn add_topic(mut self, filter: &[u8], qos: u8) -> Self {
         self.topics.push((filter.to_vec(), qos));
         self
@@ -335,12 +360,14 @@ impl MqttBuilder {
     // ========== CONNACK field setters ==========
 
     /// Set the session present flag for CONNACK.
+    #[must_use]
     pub fn sess_present(mut self, val: u8) -> Self {
         self.sess_present = val;
         self
     }
 
     /// Set the return code for CONNACK.
+    #[must_use]
     pub fn ret_code(mut self, code: u8) -> Self {
         self.ret_code = code;
         self
@@ -349,6 +376,7 @@ impl MqttBuilder {
     // ========== Size helpers ==========
 
     /// Compute the size of the variable header + payload (the remaining length).
+    #[must_use]
     pub fn remaining_size(&self) -> usize {
         match self.msg_type {
             CONNECT => {
@@ -409,12 +437,14 @@ impl MqttBuilder {
     }
 
     /// Compute the total header size (fixed header bytes only).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         let rem = self.remaining_size() as u32;
         1 + encode_variable_length(rem).len()
     }
 
     /// Compute the total packet size.
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         self.header_size() + self.remaining_size()
     }
@@ -422,6 +452,7 @@ impl MqttBuilder {
     // ========== Build ==========
 
     /// Serialize the MQTT packet into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let remaining = self.remaining_size();
         let rem_encoded = encode_variable_length(remaining as u32);

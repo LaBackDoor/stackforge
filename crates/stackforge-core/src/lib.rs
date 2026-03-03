@@ -176,7 +176,7 @@ pub use utils::{
     pad_to, parse_hex, set_bits, transport_checksum, verify_checksum,
 };
 
-/// Protocol constants for EtherType field.
+/// Protocol constants for `EtherType` field.
 pub mod ethertype {
     pub use crate::layer::ethertype::*;
 }
@@ -267,6 +267,7 @@ pub mod prelude {
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Get library version
+#[must_use]
 pub fn version() -> &'static str {
     VERSION
 }

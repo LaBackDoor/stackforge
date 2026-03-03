@@ -19,6 +19,7 @@ pub enum ConversationStatus {
 }
 
 impl ConversationStatus {
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Active => "Active",
@@ -49,6 +50,7 @@ pub struct DirectionStats {
 }
 
 impl DirectionStats {
+    #[must_use]
     pub fn new(timestamp: Duration) -> Self {
         Self {
             packets: 0,
@@ -105,9 +107,9 @@ pub struct ConversationState {
     pub start_time: Duration,
     /// Timestamp of the most recent packet in the conversation.
     pub last_seen: Duration,
-    /// Statistics for the forward direction (addr_a → addr_b).
+    /// Statistics for the forward direction (`addr_a` → `addr_b`).
     pub forward: DirectionStats,
-    /// Statistics for the reverse direction (addr_b → addr_a).
+    /// Statistics for the reverse direction (`addr_b` → `addr_a`).
     pub reverse: DirectionStats,
     /// Indices of packets belonging to this conversation (into original packet list).
     pub packet_indices: Vec<usize>,
@@ -117,6 +119,7 @@ pub struct ConversationState {
 
 impl ConversationState {
     /// Create a new conversation state from the first observed packet.
+    #[must_use]
     pub fn new(key: CanonicalKey, timestamp: Duration) -> Self {
         let protocol_state = match key.protocol {
             TransportProtocol::Tcp => ProtocolState::Tcp(TcpConversationState::new()),
@@ -140,6 +143,7 @@ impl ConversationState {
     ///
     /// Z-Wave conversations use a dummy canonical key since they are
     /// keyed by home ID and node pair rather than IP 5-tuple.
+    #[must_use]
     pub fn new_zwave(zwave_key: super::key::ZWaveKey, timestamp: Duration) -> Self {
         use std::net::{IpAddr, Ipv4Addr};
 
@@ -172,16 +176,19 @@ impl ConversationState {
     }
 
     /// Total packets across both directions.
+    #[must_use]
     pub fn total_packets(&self) -> u64 {
         self.forward.packets + self.reverse.packets
     }
 
     /// Total bytes across both directions.
+    #[must_use]
     pub fn total_bytes(&self) -> u64 {
         self.forward.bytes + self.reverse.bytes
     }
 
     /// Duration of the conversation.
+    #[must_use]
     pub fn duration(&self) -> Duration {
         self.last_seen.saturating_sub(self.start_time)
     }
@@ -229,6 +236,7 @@ impl ConversationState {
     }
 
     /// Check whether this conversation has exceeded its idle timeout.
+    #[must_use]
     pub fn is_timed_out(&self, now: Duration, config: &FlowConfig) -> bool {
         let elapsed = now.saturating_sub(self.last_seen);
         match &self.protocol_state {

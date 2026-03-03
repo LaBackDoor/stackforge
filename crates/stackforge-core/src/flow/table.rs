@@ -9,7 +9,7 @@ use super::error::FlowError;
 use super::key::{CanonicalKey, extract_key};
 use super::state::{ConversationState, ProtocolState};
 
-/// Thread-safe conversation tracking table backed by DashMap.
+/// Thread-safe conversation tracking table backed by `DashMap`.
 ///
 /// Supports concurrent packet ingestion from multiple threads while
 /// maintaining per-conversation state including TCP state machines
@@ -21,6 +21,7 @@ pub struct ConversationTable {
 
 impl ConversationTable {
     /// Create a new table with the given configuration.
+    #[must_use]
     pub fn new(config: FlowConfig) -> Self {
         Self {
             conversations: DashMap::new(),
@@ -29,11 +30,13 @@ impl ConversationTable {
     }
 
     /// Create a new table with default configuration.
+    #[must_use]
     pub fn with_default_config() -> Self {
         Self::new(FlowConfig::default())
     }
 
     /// Number of tracked conversations.
+    #[must_use]
     pub fn conversation_count(&self) -> usize {
         self.conversations.len()
     }
@@ -93,6 +96,7 @@ impl ConversationTable {
     }
 
     /// Get a read reference to a specific conversation.
+    #[must_use]
     pub fn get_conversation(
         &self,
         key: &CanonicalKey,
@@ -103,6 +107,7 @@ impl ConversationTable {
     /// Evict conversations that have exceeded their idle timeout.
     ///
     /// Returns the number of evicted conversations.
+    #[must_use]
     pub fn evict_idle(&self, now: Duration) -> usize {
         let mut evicted = 0;
         self.conversations.retain(|_, conv| {
@@ -117,6 +122,7 @@ impl ConversationTable {
     }
 
     /// Consume the table and return all conversations sorted by start time.
+    #[must_use]
     pub fn into_conversations(self) -> Vec<ConversationState> {
         let mut conversations: Vec<ConversationState> =
             self.conversations.into_iter().map(|(_, v)| v).collect();
@@ -125,6 +131,7 @@ impl ConversationTable {
     }
 
     /// Get a reference to the configuration.
+    #[must_use]
     pub fn config(&self) -> &FlowConfig {
         &self.config
     }

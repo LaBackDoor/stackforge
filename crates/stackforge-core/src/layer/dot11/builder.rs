@@ -35,7 +35,7 @@ pub struct Dot11Builder {
     pub frame_type: u8,
     /// Frame subtype.
     pub subtype: u8,
-    /// Flags byte (to_DS, from_DS, retry, etc.).
+    /// Flags byte (`to_DS`, `from_DS`, retry, etc.).
     pub flags: u8,
     /// Duration/ID field.
     pub duration: u16,
@@ -76,35 +76,41 @@ impl Default for Dot11Builder {
 
 impl Dot11Builder {
     /// Create a new builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the protocol version (usually 0).
+    #[must_use]
     pub fn proto(mut self, proto: u8) -> Self {
         self.proto = proto;
         self
     }
 
     /// Set the frame type.
+    #[must_use]
     pub fn frame_type(mut self, ft: u8) -> Self {
         self.frame_type = ft;
         self
     }
 
     /// Set the frame subtype.
+    #[must_use]
     pub fn subtype(mut self, st: u8) -> Self {
         self.subtype = st;
         self
     }
 
     /// Set the flags byte.
+    #[must_use]
     pub fn flags(mut self, flags: u8) -> Self {
         self.flags = flags;
         self
     }
 
-    /// Set the to_DS flag.
+    /// Set the `to_DS` flag.
+    #[must_use]
     pub fn to_ds(mut self, val: bool) -> Self {
         if val {
             self.flags |= types::fc_flags::TO_DS;
@@ -114,7 +120,8 @@ impl Dot11Builder {
         self
     }
 
-    /// Set the from_DS flag.
+    /// Set the `from_DS` flag.
+    #[must_use]
     pub fn from_ds(mut self, val: bool) -> Self {
         if val {
             self.flags |= types::fc_flags::FROM_DS;
@@ -125,6 +132,7 @@ impl Dot11Builder {
     }
 
     /// Set the retry flag.
+    #[must_use]
     pub fn retry(mut self, val: bool) -> Self {
         if val {
             self.flags |= types::fc_flags::RETRY;
@@ -135,6 +143,7 @@ impl Dot11Builder {
     }
 
     /// Set the protected frame flag.
+    #[must_use]
     pub fn protected(mut self, val: bool) -> Self {
         if val {
             self.flags |= types::fc_flags::PROTECTED;
@@ -145,60 +154,70 @@ impl Dot11Builder {
     }
 
     /// Set the Duration/ID field.
+    #[must_use]
     pub fn duration(mut self, dur: u16) -> Self {
         self.duration = dur;
         self
     }
 
     /// Set Address 1 (receiver/destination).
+    #[must_use]
     pub fn addr1(mut self, mac: MacAddress) -> Self {
         self.addr1 = mac;
         self
     }
 
     /// Set Address 2 (transmitter/source).
+    #[must_use]
     pub fn addr2(mut self, mac: MacAddress) -> Self {
         self.addr2 = mac;
         self
     }
 
     /// Set Address 3 (BSSID or other).
+    #[must_use]
     pub fn addr3(mut self, mac: MacAddress) -> Self {
         self.addr3 = mac;
         self
     }
 
     /// Set Address 4 (WDS mode).
+    #[must_use]
     pub fn addr4(mut self, mac: MacAddress) -> Self {
         self.addr4 = Some(mac);
         self
     }
 
     /// Set the Sequence Control field directly.
+    #[must_use]
     pub fn seq_ctrl(mut self, sc: u16) -> Self {
         self.seq_ctrl = sc;
         self
     }
 
     /// Set sequence number and fragment number.
+    #[must_use]
     pub fn seq_num(mut self, seq: u16, frag: u8) -> Self {
-        self.seq_ctrl = ((seq & 0x0FFF) << 4) | ((frag & 0x0F) as u16);
+        self.seq_ctrl = ((seq & 0x0FFF) << 4) | u16::from(frag & 0x0F);
         self
     }
 
     /// Set the frame body (payload after the header).
+    #[must_use]
     pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = body;
         self
     }
 
     /// Enable FCS (Frame Check Sequence) appending.
+    #[must_use]
     pub fn with_fcs(mut self, enable: bool) -> Self {
         self.with_fcs = enable;
         self
     }
 
     /// Calculate the header size based on frame type and addresses.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         if self.addr4.is_some() {
             DOT11_WDS_HEADER_LEN
@@ -214,6 +233,7 @@ impl Dot11Builder {
     }
 
     /// Build the frame bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let header_len = self.header_size();
         let total = header_len + self.body.len() + if self.with_fcs { 4 } else { 0 };
@@ -241,10 +261,10 @@ impl Dot11Builder {
         }
 
         // Address 4 (present if header_len >= 30)
-        if let Some(ref a4) = self.addr4 {
-            if header_len >= 30 {
-                buf[24..30].copy_from_slice(a4.as_bytes());
-            }
+        if let Some(ref a4) = self.addr4
+            && header_len >= 30
+        {
+            buf[24..30].copy_from_slice(a4.as_bytes());
         }
 
         // Body
@@ -267,6 +287,7 @@ impl Dot11Builder {
     // ========================================================================
 
     /// Create a Beacon frame builder.
+    #[must_use]
     pub fn beacon(bssid: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::MANAGEMENT)
@@ -277,6 +298,7 @@ impl Dot11Builder {
     }
 
     /// Create a Probe Request frame builder.
+    #[must_use]
     pub fn probe_request(src: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::MANAGEMENT)
@@ -287,6 +309,7 @@ impl Dot11Builder {
     }
 
     /// Create a Probe Response frame builder.
+    #[must_use]
     pub fn probe_response(dst: MacAddress, bssid: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::MANAGEMENT)
@@ -297,6 +320,7 @@ impl Dot11Builder {
     }
 
     /// Create an Authentication frame builder.
+    #[must_use]
     pub fn authentication(dst: MacAddress, src: MacAddress, bssid: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::MANAGEMENT)
@@ -307,6 +331,7 @@ impl Dot11Builder {
     }
 
     /// Create a Deauthentication frame builder.
+    #[must_use]
     pub fn deauthentication(dst: MacAddress, src: MacAddress, bssid: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::MANAGEMENT)
@@ -317,6 +342,7 @@ impl Dot11Builder {
     }
 
     /// Create an Association Request frame builder.
+    #[must_use]
     pub fn assoc_request(dst: MacAddress, src: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::MANAGEMENT)
@@ -327,6 +353,7 @@ impl Dot11Builder {
     }
 
     /// Create an ACK frame builder.
+    #[must_use]
     pub fn ack(dst: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::CONTROL)
@@ -335,6 +362,7 @@ impl Dot11Builder {
     }
 
     /// Create an RTS frame builder.
+    #[must_use]
     pub fn rts(dst: MacAddress, src: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::CONTROL)
@@ -344,6 +372,7 @@ impl Dot11Builder {
     }
 
     /// Create a CTS frame builder.
+    #[must_use]
     pub fn cts(dst: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::CONTROL)
@@ -351,7 +380,8 @@ impl Dot11Builder {
             .addr1(dst)
     }
 
-    /// Create a Data frame builder (to AP: to_DS=1).
+    /// Create a Data frame builder (to AP: `to_DS=1`).
+    #[must_use]
     pub fn data_to_ap(bssid: MacAddress, src: MacAddress, dst: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::DATA)
@@ -362,7 +392,8 @@ impl Dot11Builder {
             .addr3(dst)
     }
 
-    /// Create a Data frame builder (from AP: from_DS=1).
+    /// Create a Data frame builder (from AP: `from_DS=1`).
+    #[must_use]
     pub fn data_from_ap(dst: MacAddress, bssid: MacAddress, src: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::DATA)
@@ -373,7 +404,8 @@ impl Dot11Builder {
             .addr3(src)
     }
 
-    /// Create a QoS Data frame builder (to AP: to_DS=1).
+    /// Create a `QoS` Data frame builder (to AP: `to_DS=1`).
+    #[must_use]
     pub fn qos_data_to_ap(bssid: MacAddress, src: MacAddress, dst: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::DATA)
@@ -384,7 +416,8 @@ impl Dot11Builder {
             .addr3(dst)
     }
 
-    /// Create a WDS Data frame builder (to_DS=1, from_DS=1).
+    /// Create a WDS Data frame builder (`to_DS=1`, `from_DS=1`).
+    #[must_use]
     pub fn data_wds(ra: MacAddress, ta: MacAddress, da: MacAddress, sa: MacAddress) -> Self {
         Self::new()
             .frame_type(types::frame_type::DATA)
@@ -402,6 +435,7 @@ impl Dot11Builder {
     // ========================================================================
 
     /// Build a beacon frame with the given body parameters and IEs.
+    #[must_use]
     pub fn build_beacon(
         bssid: MacAddress,
         timestamp: u64,
@@ -415,12 +449,14 @@ impl Dot11Builder {
     }
 
     /// Build a probe request frame with the given IEs.
+    #[must_use]
     pub fn build_probe_request(src: MacAddress, ies: &[Dot11Elt]) -> Vec<u8> {
         let body = Dot11Elt::build_chain(ies);
         Self::probe_request(src).body(body).build()
     }
 
     /// Build a probe response frame with the given body parameters and IEs.
+    #[must_use]
     pub fn build_probe_response(
         dst: MacAddress,
         bssid: MacAddress,
@@ -435,6 +471,7 @@ impl Dot11Builder {
     }
 
     /// Build an authentication frame.
+    #[must_use]
     pub fn build_auth(
         dst: MacAddress,
         src: MacAddress,
@@ -448,6 +485,7 @@ impl Dot11Builder {
     }
 
     /// Build a deauthentication frame.
+    #[must_use]
     pub fn build_deauth(
         dst: MacAddress,
         src: MacAddress,
@@ -459,6 +497,7 @@ impl Dot11Builder {
     }
 
     /// Build an association request frame.
+    #[must_use]
     pub fn build_assoc_request(
         dst: MacAddress,
         src: MacAddress,
@@ -472,6 +511,7 @@ impl Dot11Builder {
     }
 
     /// Build an association response frame.
+    #[must_use]
     pub fn build_assoc_response(
         dst: MacAddress,
         bssid: MacAddress,
@@ -492,7 +532,8 @@ impl Dot11Builder {
             .build()
     }
 
-    /// Build a data frame with QoS header.
+    /// Build a data frame with `QoS` header.
+    #[must_use]
     pub fn build_qos_data(
         bssid: MacAddress,
         src: MacAddress,

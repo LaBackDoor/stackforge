@@ -1,17 +1,17 @@
 //! TLS Pseudorandom Function (PRF) implementations.
 //!
-//! Implements PRF for SSLv3, TLS 1.0/1.1, and TLS 1.2 (RFC 5246).
+//! Implements PRF for `SSLv3`, TLS 1.0/1.1, and TLS 1.2 (RFC 5246).
 
 use super::hash::TlsHash;
 use super::hmac_tls::TlsHmac;
 
-/// P_hash expansion function (RFC 4346 Section 5).
+/// `P_hash` expansion function (RFC 4346 Section 5).
 ///
-/// P_hash(secret, seed) = HMAC_hash(secret, A(1) + seed) +
-///                        HMAC_hash(secret, A(2) + seed) +
-///                        HMAC_hash(secret, A(3) + seed) + ...
+/// `P_hash(secret`, seed) = `HMAC_hash(secret`, A(1) + seed) +
+///                        `HMAC_hash(secret`, A(2) + seed) +
+///                        `HMAC_hash(secret`, A(3) + seed) + ...
 ///
-/// where A(0) = seed, A(i) = HMAC_hash(secret, A(i-1))
+/// where A(0) = seed, A(i) = `HMAC_hash(secret`, A(i-1))
 fn p_hash(hash: TlsHash, secret: &[u8], seed: &[u8], req_len: usize) -> Vec<u8> {
     let hmac = TlsHmac::new(hash, secret);
     let mut result = Vec::with_capacity(req_len);
@@ -44,11 +44,13 @@ pub struct Prf {
 
 impl Prf {
     /// Create a new PRF for the given TLS version and hash.
+    #[must_use]
     pub fn new(hash: TlsHash, tls_version: u16) -> Self {
         Self { hash, tls_version }
     }
 
     /// The core PRF function.
+    #[must_use]
     pub fn prf(&self, secret: &[u8], label: &[u8], seed: &[u8], req_len: usize) -> Vec<u8> {
         let mut combined_seed = Vec::with_capacity(label.len() + seed.len());
         combined_seed.extend_from_slice(label);
@@ -64,7 +66,7 @@ impl Prf {
         }
     }
 
-    /// SSLv3 PRF: MD5(secret + SHA1('A' + secret + seed)) + ...
+    /// `SSLv3` PRF: MD5(secret + SHA1('A' + secret + seed)) + ...
     fn prf_sslv3(&self, secret: &[u8], seed: &[u8], req_len: usize) -> Vec<u8> {
         let mut result = Vec::with_capacity(req_len);
         let mut idx: u8 = 0;
@@ -94,9 +96,9 @@ impl Prf {
         result
     }
 
-    /// TLS 1.0/1.1 PRF: XOR of P_MD5 and P_SHA1 with split secret.
+    /// TLS 1.0/1.1 PRF: XOR of `P_MD5` and `P_SHA1` with split secret.
     fn prf_tls10(&self, secret: &[u8], seed: &[u8], req_len: usize) -> Vec<u8> {
-        let half = (secret.len() + 1) / 2;
+        let half = secret.len().div_ceil(2);
         let s1 = &secret[..half];
         let s2 = &secret[secret.len() - half..];
 
@@ -112,6 +114,7 @@ impl Prf {
     }
 
     /// Compute master secret from pre-master secret and randoms.
+    #[must_use]
     pub fn compute_master_secret(
         &self,
         pre_master_secret: &[u8],
@@ -125,6 +128,7 @@ impl Prf {
     }
 
     /// Compute extended master secret (RFC 7627).
+    #[must_use]
     pub fn compute_extended_master_secret(
         &self,
         pre_master_secret: &[u8],
@@ -139,6 +143,7 @@ impl Prf {
     }
 
     /// Derive key block from master secret and randoms.
+    #[must_use]
     pub fn derive_key_block(
         &self,
         master_secret: &[u8],
@@ -153,6 +158,7 @@ impl Prf {
     }
 
     /// Compute verify data for Finished message.
+    #[must_use]
     pub fn compute_verify_data(
         &self,
         master_secret: &[u8],

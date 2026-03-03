@@ -29,21 +29,25 @@ pub struct Extension {
 
 impl Extension {
     /// Create a new extension with given type and data.
+    #[must_use]
     pub fn new(ext_type: u16, data: Vec<u8>) -> Self {
         Self { ext_type, data }
     }
 
     /// Get the name of this extension type.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         super::types::ExtensionType(self.ext_type).name()
     }
 
-    /// Total wire size: 2 (type) + 2 (length) + data.len()
+    /// Total wire size: 2 (type) + 2 (length) + `data.len()`
+    #[must_use]
     pub fn wire_len(&self) -> usize {
         4 + self.data.len()
     }
 
     /// Build this extension into wire format.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.wire_len());
         buf.extend_from_slice(&self.ext_type.to_be_bytes());
@@ -56,6 +60,7 @@ impl Extension {
 /// Parse a list of extensions from raw bytes.
 ///
 /// Input should be the extension data after the 2-byte total length field.
+#[must_use]
 pub fn parse_extensions(data: &[u8]) -> Vec<Extension> {
     let mut extensions = Vec::new();
     let mut offset = 0;
@@ -84,8 +89,9 @@ pub fn parse_extensions(data: &[u8]) -> Vec<Extension> {
 }
 
 /// Build a list of extensions into wire format (without the outer length prefix).
+#[must_use]
 pub fn build_extensions(extensions: &[Extension]) -> Vec<u8> {
-    let total_len: usize = extensions.iter().map(|e| e.wire_len()).sum();
+    let total_len: usize = extensions.iter().map(Extension::wire_len).sum();
     let mut buf = Vec::with_capacity(total_len);
     for ext in extensions {
         buf.extend_from_slice(&ext.build());
@@ -94,6 +100,7 @@ pub fn build_extensions(extensions: &[Extension]) -> Vec<u8> {
 }
 
 /// Find an extension by type in a list.
+#[must_use]
 pub fn find_extension(extensions: &[Extension], ext_type: u16) -> Option<&Extension> {
     extensions.iter().find(|e| e.ext_type == ext_type)
 }

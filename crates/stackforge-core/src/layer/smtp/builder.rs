@@ -152,9 +152,9 @@ impl SmtpBuilder {
     pub fn mail_from(self, address: impl Into<String>) -> Self {
         let addr = address.into();
         let args = if addr.contains('<') {
-            format!("FROM:{}", addr)
+            format!("FROM:{addr}")
         } else {
-            format!("FROM:<{}>", addr)
+            format!("FROM:<{addr}>")
         };
         self.command("MAIL", args)
     }
@@ -163,9 +163,9 @@ impl SmtpBuilder {
     pub fn rcpt_to(self, address: impl Into<String>) -> Self {
         let addr = address.into();
         let args = if addr.contains('<') {
-            format!("TO:{}", addr)
+            format!("TO:{addr}")
         } else {
-            format!("TO:<{}>", addr)
+            format!("TO:<{addr}>")
         };
         self.command("RCPT", args)
     }
@@ -212,7 +212,7 @@ impl SmtpBuilder {
         let args = if init.is_empty() {
             mech
         } else {
-            format!("{} {}", mech, init)
+            format!("{mech} {init}")
         };
         self.command("AUTH", args)
     }
@@ -226,6 +226,7 @@ impl SmtpBuilder {
     // Build
     // ========================================================================
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         if let Some(code) = self.reply_code {
             self.build_reply(code)
@@ -240,10 +241,10 @@ impl SmtpBuilder {
             out.extend_from_slice(format!("{:03}-{}\r\n", code, self.text).as_bytes());
             for line in &self.extra_lines {
                 // Multi-line: intermediate lines use NNN-
-                out.extend_from_slice(format!("{:03}-{}\r\n", code, line).as_bytes());
+                out.extend_from_slice(format!("{code:03}-{line}\r\n").as_bytes());
             }
             // Last line uses space separator
-            out.extend_from_slice(format!("{:03} OK\r\n", code).as_bytes());
+            out.extend_from_slice(format!("{code:03} OK\r\n").as_bytes());
         } else {
             out.extend_from_slice(format!("{:03} {}\r\n", code, self.text).as_bytes());
         }
@@ -254,9 +255,9 @@ impl SmtpBuilder {
         let verb = self.command.as_deref().unwrap_or("NOOP");
         let args = &self.text;
         let line = if args.is_empty() {
-            format!("{}\r\n", verb)
+            format!("{verb}\r\n")
         } else {
-            format!("{} {}\r\n", verb, args)
+            format!("{verb} {args}\r\n")
         };
         line.into_bytes()
     }

@@ -33,12 +33,14 @@ pub struct DnsName {
 }
 
 impl DnsName {
-    /// Create a new DnsName from labels.
+    /// Create a new `DnsName` from labels.
+    #[must_use]
     pub fn new(labels: Vec<String>) -> Self {
         Self { labels }
     }
 
     /// Create a root name (empty labels).
+    #[must_use]
     pub fn root() -> Self {
         Self { labels: vec![] }
     }
@@ -51,7 +53,7 @@ impl DnsName {
             return Ok(Self::root());
         }
         let s = s.strip_suffix('.').unwrap_or(s);
-        let labels: Vec<String> = s.split('.').map(|l| l.to_string()).collect();
+        let labels: Vec<String> = s.split('.').map(std::string::ToString::to_string).collect();
         // Validate label lengths
         for label in &labels {
             if label.len() > DNS_MAX_LABEL_LEN {
@@ -65,20 +67,21 @@ impl DnsName {
         let total_len: usize = labels.iter().map(|l| l.len() + 1).sum::<usize>() + 1;
         if total_len > DNS_MAX_NAME_LEN + 2 {
             return Err(FieldError::InvalidValue(format!(
-                "DNS name too long: {} bytes (max {})",
-                total_len, DNS_MAX_NAME_LEN
+                "DNS name too long: {total_len} bytes (max {DNS_MAX_NAME_LEN})"
             )));
         }
         Ok(Self { labels })
     }
 
     /// Check if this is the root name.
+    #[must_use]
     pub fn is_root(&self) -> bool {
         self.labels.is_empty()
     }
 
     /// Get the fully qualified domain name string.
     /// Returns "www.example.com." with trailing dot.
+    #[must_use]
     pub fn to_fqdn(&self) -> String {
         if self.labels.is_empty() {
             return ".".to_string();
@@ -88,6 +91,7 @@ impl DnsName {
 
     /// Encode to wire format without compression.
     /// Each label is preceded by its length byte, terminated by a zero byte.
+    #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         let mut out = Vec::new();
         for label in &self.labels {
@@ -200,8 +204,7 @@ impl DnsName {
                 let label_len = len_or_ptr as usize;
                 if label_len > DNS_MAX_LABEL_LEN {
                     return Err(FieldError::InvalidValue(format!(
-                        "DNS label too long: {} bytes (max {})",
-                        label_len, DNS_MAX_LABEL_LEN
+                        "DNS label too long: {label_len} bytes (max {DNS_MAX_LABEL_LEN})"
                     )));
                 }
                 if pos + 1 + label_len > packet.len() {
@@ -222,6 +225,7 @@ impl DnsName {
     }
 
     /// Wire-format length of this name without compression.
+    #[must_use]
     pub fn wire_len(&self) -> usize {
         if self.labels.is_empty() {
             return 1; // just the root label (0x00)
@@ -262,16 +266,19 @@ pub struct FlagValue {
 }
 
 impl FlagValue {
+    #[must_use]
     pub fn new(value: u64, names: &'static [&'static str]) -> Self {
         Self { value, names }
     }
 
     /// Check if a specific flag bit is set.
+    #[must_use]
     pub fn has(&self, bit: usize) -> bool {
         (self.value >> bit) & 1 != 0
     }
 
     /// Check if a named flag is set. Returns None if name not found.
+    #[must_use]
     pub fn has_named(&self, name: &str) -> Option<bool> {
         self.names
             .iter()
@@ -290,6 +297,7 @@ impl FlagValue {
     }
 
     /// Get the list of set flag names.
+    #[must_use]
     pub fn set_flags(&self) -> Vec<&'static str> {
         let mut flags = Vec::new();
         for (i, &name) in self.names.iter().enumerate() {

@@ -19,14 +19,13 @@ pub fn bitmap_to_rr_list(data: &[u8]) -> Result<Vec<u16>, FieldError> {
             ));
         }
 
-        let window = data[pos] as u16;
+        let window = u16::from(data[pos]);
         let bitmap_len = data[pos + 1] as usize;
         pos += 2;
 
         if bitmap_len == 0 || bitmap_len > 32 {
             return Err(FieldError::InvalidValue(format!(
-                "invalid NSEC bitmap length: {}",
-                bitmap_len
+                "invalid NSEC bitmap length: {bitmap_len}"
             )));
         }
 
@@ -53,6 +52,7 @@ pub fn bitmap_to_rr_list(data: &[u8]) -> Result<Vec<u16>, FieldError> {
 }
 
 /// Convert a list of RR type numbers to NSEC/NSEC3 type bitmap wire format.
+#[must_use]
 pub fn rr_list_to_bitmap(types: &[u16]) -> Vec<u8> {
     if types.is_empty() {
         return Vec::new();

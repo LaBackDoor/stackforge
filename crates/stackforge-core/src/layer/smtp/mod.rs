@@ -184,12 +184,14 @@ impl SmtpLayer {
     }
 
     /// Returns true if this message is a server reply (3-digit code).
+    #[must_use]
     pub fn is_response(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         s.len() >= 3 && s[0].is_ascii_digit() && s[1].is_ascii_digit() && s[2].is_ascii_digit()
     }
 
     /// Returns true if this is a multi-line reply.
+    #[must_use]
     pub fn is_multiline(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         s.len() >= 4
@@ -249,8 +251,7 @@ impl SmtpLayer {
         let first_line = text.lines().next().unwrap_or("");
         let rest = first_line
             .split_once(' ')
-            .map(|(_, r)| r)
-            .unwrap_or("")
+            .map_or("", |(_, r)| r)
             .trim_end_matches(['\r', '\n']);
         Ok(rest.to_string())
     }
@@ -288,6 +289,7 @@ impl SmtpLayer {
     }
 
     /// Returns the raw payload as a string.
+    #[must_use]
     pub fn raw(&self, buf: &[u8]) -> String {
         let s = self.slice(buf);
         String::from_utf8_lossy(s).to_string()
@@ -364,10 +366,10 @@ pub fn smtp_show_fields(l: &SmtpLayer, buf: &[u8]) -> Vec<(&'static str, String)
         fields.push(("is_multiline", l.is_multiline(buf).to_string()));
     } else if let Ok(cmd) = l.command(buf) {
         fields.push(("command", cmd));
-        if let Ok(args) = l.args(buf) {
-            if !args.is_empty() {
-                fields.push(("args", args));
-            }
+        if let Ok(args) = l.args(buf)
+            && !args.is_empty()
+        {
+            fields.push(("args", args));
         }
     }
     fields

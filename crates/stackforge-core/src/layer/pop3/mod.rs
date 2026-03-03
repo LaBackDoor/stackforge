@@ -144,17 +144,20 @@ impl Pop3Layer {
     }
 
     /// Returns true if this is a server response (starts with +OK or -ERR).
+    #[must_use]
     pub fn is_response(&self, buf: &[u8]) -> bool {
         let s = self.slice(buf);
         s.starts_with(b"+OK") || s.starts_with(b"-ERR")
     }
 
     /// Returns true if this is a positive response (+OK).
+    #[must_use]
     pub fn is_ok(&self, buf: &[u8]) -> bool {
         self.slice(buf).starts_with(b"+OK")
     }
 
     /// Returns true if this is a negative response (-ERR).
+    #[must_use]
     pub fn is_err_response(&self, buf: &[u8]) -> bool {
         self.slice(buf).starts_with(b"-ERR")
     }
@@ -195,13 +198,13 @@ impl Pop3Layer {
         let first_line = text.lines().next().unwrap_or("");
         let rest = first_line
             .split_once(' ')
-            .map(|(_, r)| r)
-            .unwrap_or("")
+            .map_or("", |(_, r)| r)
             .trim_end_matches(['\r', '\n']);
         Ok(rest.to_string())
     }
 
     /// Returns the raw payload.
+    #[must_use]
     pub fn raw(&self, buf: &[u8]) -> String {
         String::from_utf8_lossy(self.slice(buf)).to_string()
     }
@@ -263,10 +266,10 @@ pub fn pop3_show_fields(l: &Pop3Layer, buf: &[u8]) -> Vec<(&'static str, String)
         }
     } else if let Ok(cmd) = l.command(buf) {
         fields.push(("command", cmd));
-        if let Ok(args) = l.args(buf) {
-            if !args.is_empty() {
-                fields.push(("args", args));
-            }
+        if let Ok(args) = l.args(buf)
+            && !args.is_empty()
+        {
+            fields.push(("args", args));
         }
     }
     fields

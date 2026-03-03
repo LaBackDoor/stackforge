@@ -16,7 +16,7 @@ use super::types;
 /// Bits 5-7: Reserved (3 bits)
 
 /// Parsed representation of an Auxiliary Security Header.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AuxSecurityHeader {
     /// Security level (3 bits).
     pub security_level: u8,
@@ -26,14 +26,15 @@ pub struct AuxSecurityHeader {
     pub reserved: u8,
     /// Frame counter (4 bytes).
     pub frame_counter: u32,
-    /// Key source (0, 4, or 8 bytes depending on key_id_mode).
+    /// Key source (0, 4, or 8 bytes depending on `key_id_mode`).
     pub key_source: u64,
-    /// Key index (1 byte, present if key_id_mode != 0).
+    /// Key index (1 byte, present if `key_id_mode` != 0).
     pub key_index: Option<u8>,
 }
 
 impl AuxSecurityHeader {
     /// Total byte length of this security header.
+    #[must_use]
     pub fn len(&self) -> usize {
         // 1 (security control) + 4 (frame counter) + key_id_len
         1 + 4 + types::key_id_len(self.key_id_mode)
@@ -41,6 +42,7 @@ impl AuxSecurityHeader {
 
     /// Compute the byte length of the security header given the security
     /// control byte (first byte of the header).
+    #[must_use]
     pub fn compute_len(security_control: u8) -> usize {
         let key_id_mode = (security_control >> 3) & 0x03;
         1 + 4 + types::key_id_len(key_id_mode)
@@ -90,7 +92,7 @@ impl AuxSecurityHeader {
             },
             2 => {
                 // 4-byte Key Source + 1-byte Key Index
-                key_source = read_u32_le(buf, offset + 5)? as u64;
+                key_source = u64::from(read_u32_le(buf, offset + 5)?);
                 key_index = Some(buf[offset + 9]);
             },
             3 => {
@@ -117,6 +119,7 @@ impl AuxSecurityHeader {
     }
 
     /// Build the security header bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.len());
 
@@ -170,27 +173,16 @@ impl AuxSecurityHeader {
     }
 }
 
-impl Default for AuxSecurityHeader {
-    fn default() -> Self {
-        Self {
-            security_level: 0,
-            key_id_mode: 0,
-            reserved: 0,
-            frame_counter: 0,
-            key_source: 0,
-            key_index: None,
-        }
-    }
-}
-
 /// Read the security level from a Security Control byte.
 #[inline]
+#[must_use]
 pub fn read_security_level(sc: u8) -> u8 {
     sc & 0x07
 }
 
 /// Read the key identifier mode from a Security Control byte.
 #[inline]
+#[must_use]
 pub fn read_key_id_mode(sc: u8) -> u8 {
     (sc >> 3) & 0x03
 }

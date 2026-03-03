@@ -1,7 +1,7 @@
 //! TLS 1.3 HKDF key schedule (RFC 8446 Section 7.1).
 //!
 //! Implements HKDF-Extract, HKDF-Expand, and TLS 1.3-specific
-//! Derive-Secret and expand_label operations.
+//! Derive-Secret and `expand_label` operations.
 
 use hkdf::Hkdf;
 
@@ -14,6 +14,7 @@ pub struct Tls13Hkdf {
 }
 
 impl Tls13Hkdf {
+    #[must_use]
     pub fn new(hash: TlsHash) -> Self {
         Self { hash }
     }
@@ -21,6 +22,7 @@ impl Tls13Hkdf {
     /// HKDF-Extract(salt, ikm) -> prk
     ///
     /// Extract is just HMAC(salt, ikm).
+    #[must_use]
     pub fn extract(&self, salt: &[u8], ikm: &[u8]) -> Vec<u8> {
         use super::hmac_tls::TlsHmac;
         // HKDF-Extract(salt, IKM) = HMAC-Hash(salt, IKM)
@@ -29,6 +31,7 @@ impl Tls13Hkdf {
     }
 
     /// HKDF-Expand(prk, info, length) -> okm
+    #[must_use]
     pub fn expand(&self, prk: &[u8], info: &[u8], length: usize) -> Vec<u8> {
         match self.hash {
             TlsHash::Sha256 => {
@@ -58,7 +61,8 @@ impl Tls13Hkdf {
     ///     uint16 length;
     ///     opaque label<7..255> = "tls13 " + Label;
     ///     opaque context<0..255> = Context;
-    /// } HkdfLabel;
+    /// } `HkdfLabel`;
+    #[must_use]
     pub fn expand_label(
         &self,
         secret: &[u8],
@@ -82,6 +86,7 @@ impl Tls13Hkdf {
     /// Derive-Secret(Secret, Label, Messages)
     ///
     /// = HKDF-Expand-Label(Secret, Label, Transcript-Hash(Messages), Hash.length)
+    #[must_use]
     pub fn derive_secret(&self, secret: &[u8], label: &[u8], messages: &[u8]) -> Vec<u8> {
         let transcript_hash = self.hash.digest(messages);
         self.expand_label(secret, label, &transcript_hash, self.hash.hash_len())
@@ -89,8 +94,9 @@ impl Tls13Hkdf {
 
     /// Compute Finished verify data.
     ///
-    /// finished_key = HKDF-Expand-Label(BaseKey, "finished", "", Hash.length)
-    /// verify_data = HMAC(finished_key, Transcript-Hash(handshake_context))
+    /// `finished_key` = HKDF-Expand-Label(BaseKey, "finished", "", Hash.length)
+    /// `verify_data` = `HMAC(finished_key`, Transcript-Hash(handshake_context))
+    #[must_use]
     pub fn compute_verify_data(&self, base_key: &[u8], handshake_context: &[u8]) -> Vec<u8> {
         let finished_key = self.expand_label(base_key, b"finished", &[], self.hash.hash_len());
         let transcript_hash = self.hash.digest(handshake_context);
@@ -99,6 +105,7 @@ impl Tls13Hkdf {
     }
 
     /// Get the hash length for this HKDF instance.
+    #[must_use]
     pub fn hash_len(&self) -> usize {
         self.hash.hash_len()
     }
@@ -116,6 +123,7 @@ pub struct Tls13KeySchedule {
 }
 
 impl Tls13KeySchedule {
+    #[must_use]
     pub fn new(hash: TlsHash) -> Self {
         Self {
             hkdf: Tls13Hkdf::new(hash),
@@ -160,6 +168,7 @@ impl Tls13KeySchedule {
     }
 
     /// Derive client/server handshake traffic secret.
+    #[must_use]
     pub fn client_handshake_traffic_secret(&self, transcript: &[u8]) -> Vec<u8> {
         let hs = self
             .handshake_secret
@@ -168,6 +177,7 @@ impl Tls13KeySchedule {
         self.hkdf.derive_secret(hs, b"c hs traffic", transcript)
     }
 
+    #[must_use]
     pub fn server_handshake_traffic_secret(&self, transcript: &[u8]) -> Vec<u8> {
         let hs = self
             .handshake_secret
@@ -177,6 +187,7 @@ impl Tls13KeySchedule {
     }
 
     /// Derive client/server application traffic secret.
+    #[must_use]
     pub fn client_application_traffic_secret(&self, transcript: &[u8]) -> Vec<u8> {
         let ms = self
             .master_secret
@@ -185,6 +196,7 @@ impl Tls13KeySchedule {
         self.hkdf.derive_secret(ms, b"c ap traffic", transcript)
     }
 
+    #[must_use]
     pub fn server_application_traffic_secret(&self, transcript: &[u8]) -> Vec<u8> {
         let ms = self
             .master_secret
@@ -194,6 +206,7 @@ impl Tls13KeySchedule {
     }
 
     /// Derive traffic keys from a traffic secret.
+    #[must_use]
     pub fn derive_traffic_keys(
         &self,
         traffic_secret: &[u8],
@@ -206,6 +219,7 @@ impl Tls13KeySchedule {
     }
 
     /// Get reference to the HKDF instance.
+    #[must_use]
     pub fn hkdf(&self) -> &Tls13Hkdf {
         &self.hkdf
     }

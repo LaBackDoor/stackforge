@@ -149,11 +149,11 @@ pub static MQTTSN_FIELD_NAMES: &[&str] = &[
 
 /// Decode the MQTT-SN variable length field.
 ///
-/// Returns `(header_size, packet_length)` where header_size is the number of
+/// Returns `(header_size, packet_length)` where `header_size` is the number of
 /// bytes consumed by the length field itself (1 or 3 bytes).
 ///
-/// - If byte 0 != 0x01: short form, length = byte 0, header_size = 1
-/// - If byte 0 == 0x01: extended form, length = u16(byte1, byte2), header_size = 3
+/// - If byte 0 != 0x01: short form, length = byte 0, `header_size` = 1
+/// - If byte 0 == 0x01: extended form, length = u16(byte1, byte2), `header_size` = 3
 pub fn decode_mqttsn_length(buf: &[u8]) -> Result<(usize, u16), FieldError> {
     if buf.is_empty() {
         return Err(FieldError::BufferTooShort {
@@ -174,7 +174,7 @@ pub fn decode_mqttsn_length(buf: &[u8]) -> Result<(usize, u16), FieldError> {
         let len = u16::from_be_bytes([buf[1], buf[2]]);
         Ok((3, len))
     } else {
-        Ok((1, buf[0] as u16))
+        Ok((1, u16::from(buf[0])))
     }
 }
 
@@ -184,6 +184,7 @@ pub fn decode_mqttsn_length(buf: &[u8]) -> Result<(usize, u16), FieldError> {
 /// 1. Buffer has at least 2 bytes
 /// 2. The length field is valid (>= 2, <= buffer length)
 /// 3. The message type is a known MQTT-SN type
+#[must_use]
 pub fn is_mqttsn_payload(buf: &[u8]) -> bool {
     if buf.len() < MQTTSN_MIN_HEADER_LEN {
         return false;
@@ -240,6 +241,7 @@ fn is_known_message_type(t: u8) -> bool {
 }
 
 /// Get the human-readable name for a message type.
+#[must_use]
 pub fn message_type_name(t: u8) -> &'static str {
     match t {
         ADVERTISE => "ADVERTISE",
@@ -275,6 +277,7 @@ pub fn message_type_name(t: u8) -> &'static str {
 }
 
 /// Get the human-readable name for a return code.
+#[must_use]
 pub fn return_code_name(rc: u8) -> &'static str {
     match rc {
         RC_ACCEPTED => "Accepted",
@@ -297,6 +300,7 @@ pub struct MqttSnLayer {
 
 impl MqttSnLayer {
     /// Create a new MQTT-SN layer from a layer index.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
@@ -385,7 +389,7 @@ impl MqttSnLayer {
         Ok((self.flags(buf)? >> 7) & 1 == 1)
     }
 
-    /// Get the QoS level (bits 6-5 of flags byte).
+    /// Get the `QoS` level (bits 6-5 of flags byte).
     pub fn qos(&self, buf: &[u8]) -> Result<u8, FieldError> {
         Ok((self.flags(buf)? >> 5) & 0x03)
     }
@@ -400,7 +404,7 @@ impl MqttSnLayer {
         Ok((self.flags(buf)? >> 3) & 1 == 1)
     }
 
-    /// Get the CleanSession flag (bit 2 of flags byte).
+    /// Get the `CleanSession` flag (bit 2 of flags byte).
     pub fn cleansess(&self, buf: &[u8]) -> Result<bool, FieldError> {
         Ok((self.flags(buf)? >> 2) & 1 == 1)
     }
@@ -435,7 +439,7 @@ impl MqttSnLayer {
         Ok(s[off])
     }
 
-    /// Get duration field (ADVERTISE: offset body+1, CONNECT: offset body+flags+prot_id,
+    /// Get duration field (ADVERTISE: offset body+1, CONNECT: offset `body+flags+prot_id`,
     /// DISCONNECT: offset body+0 (optional)).
     pub fn duration(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let mt = self.msg_type(buf)?;
@@ -483,7 +487,7 @@ impl MqttSnLayer {
         Ok(s[off])
     }
 
-    /// Get gateway address bytes (GWINFO, after gw_id).
+    /// Get gateway address bytes (GWINFO, after `gw_id`).
     pub fn gw_addr<'a>(&self, buf: &'a [u8]) -> Result<&'a [u8], FieldError> {
         let mt = self.msg_type(buf)?;
         if mt != GWINFO {
@@ -647,7 +651,7 @@ impl MqttSnLayer {
         Ok(&s[off..end])
     }
 
-    /// Get topic name (REGISTER, SUBSCRIBE/UNSUBSCRIBE with TID_NORMAL).
+    /// Get topic name (REGISTER, SUBSCRIBE/UNSUBSCRIBE with `TID_NORMAL`).
     pub fn topic_name<'a>(&self, buf: &'a [u8]) -> Result<&'a str, FieldError> {
         let mt = self.msg_type(buf)?;
         let s = self.slice(buf);
@@ -768,21 +772,18 @@ impl MqttSnLayer {
         let name = message_type_name(mt);
         match mt {
             PUBLISH => {
-                let tid = self
-                    .tid(buf)
-                    .map(|v| v.to_string())
-                    .unwrap_or_else(|_| "?".into());
-                format!("MQTT-SN {} tid={}", name, tid)
+                let tid = self.tid(buf).map_or_else(|_| "?".into(), |v| v.to_string());
+                format!("MQTT-SN {name} tid={tid}")
             },
             CONNECT => {
                 let cid = self.client_id(buf).unwrap_or("?");
-                format!("MQTT-SN {} client_id={}", name, cid)
+                format!("MQTT-SN {name} client_id={cid}")
             },
             CONNACK | WILLTOPICRESP | WILLMSGRESP => {
                 let rc = self.return_code(buf).unwrap_or(0xFF);
                 format!("MQTT-SN {} rc={} ({})", name, rc, return_code_name(rc))
             },
-            _ => format!("MQTT-SN {}", name),
+            _ => format!("MQTT-SN {name}"),
         }
     }
 
@@ -791,6 +792,7 @@ impl MqttSnLayer {
     // ========================================================================
 
     /// Get the field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         MQTTSN_FIELD_NAMES
     }
@@ -837,8 +839,7 @@ impl MqttSnLayer {
                     Some(self.set_msg_type(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "type: expected U8, got {:?}",
-                        value
+                        "type: expected U8, got {value:?}"
                     ))))
                 }
             },
@@ -847,8 +848,7 @@ impl MqttSnLayer {
                     Some(self.set_flags(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "flags: expected U8, got {:?}",
-                        value
+                        "flags: expected U8, got {value:?}"
                     ))))
                 }
             },

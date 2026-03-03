@@ -30,7 +30,7 @@ pub const QUIC_MIN_HEADER_LEN: usize = 1;
 /// Static field descriptors for the QUIC layer.
 ///
 /// Fields common to all QUIC packet types plus long-header specific fields.
-/// Variable-length fields (conn IDs, length, packet_number) use placeholder
+/// Variable-length fields (conn IDs, length, `packet_number`) use placeholder
 /// offsets because their actual positions must be computed dynamically in
 /// `get_field()`.
 pub static QUIC_FIELDS: &[FieldDesc] = &[
@@ -61,6 +61,7 @@ pub struct QuicLayer {
 
 impl QuicLayer {
     /// Create a new `QuicLayer` covering `buf[start..end]`.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Quic, start, end),
@@ -68,6 +69,7 @@ impl QuicLayer {
     }
 
     /// Create a `QuicLayer` from an existing `LayerIndex`.
+    #[must_use]
     pub fn from_index(index: LayerIndex) -> Self {
         Self { index }
     }
@@ -77,12 +79,14 @@ impl QuicLayer {
     // -------------------------------------------------------------------------
 
     /// Returns `true` if bit 7 of the first byte is set (long header).
+    #[must_use]
     pub fn is_long_header(&self, buf: &[u8]) -> bool {
         let slice = self.index.slice(buf);
         !slice.is_empty() && slice[0] & 0x80 != 0
     }
 
     /// Returns the logical packet type, or `None` if the buffer is too short.
+    #[must_use]
     pub fn packet_type(&self, buf: &[u8]) -> Option<QuicPacketType> {
         let slice = self.index.slice(buf);
         if slice.is_empty() {
@@ -99,6 +103,7 @@ impl QuicLayer {
 
     /// Returns the QUIC version (bytes 1-4) for long-header packets, or `None`
     /// if this is a short-header packet or the buffer is too short.
+    #[must_use]
     pub fn version(&self, buf: &[u8]) -> Option<u32> {
         if !self.is_long_header(buf) {
             return None;
@@ -111,6 +116,7 @@ impl QuicLayer {
     }
 
     /// Returns a human-readable summary string.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         match self.packet_type(buf) {
             Some(pt) => format!("QUIC {}", pt.name()),
@@ -123,6 +129,7 @@ impl QuicLayer {
     /// For long headers this parses the connection-ID lengths to compute the
     /// actual header size.  For short headers (where the connection-ID length
     /// is negotiated out-of-band) we return 1 as a safe minimum.
+    #[must_use]
     pub fn header_len(&self, buf: &[u8]) -> usize {
         let slice = self.index.slice(buf);
         if slice.is_empty() {
@@ -141,6 +148,7 @@ impl QuicLayer {
     }
 
     /// Returns the static field names exposed by this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &[
             "header_form",
@@ -159,6 +167,7 @@ impl QuicLayer {
     }
 
     /// Read a field value by name from the underlying buffer.
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         let slice = self.index.slice(buf);
         match name {
@@ -352,12 +361,12 @@ impl QuicLayer {
                 }
                 let pn_bytes = &slice[pos..pos + pn_len];
                 let pn: u32 = match pn_len {
-                    1 => pn_bytes[0] as u32,
-                    2 => u16::from_be_bytes([pn_bytes[0], pn_bytes[1]]) as u32,
+                    1 => u32::from(pn_bytes[0]),
+                    2 => u32::from(u16::from_be_bytes([pn_bytes[0], pn_bytes[1]])),
                     3 => {
-                        ((pn_bytes[0] as u32) << 16)
-                            | ((pn_bytes[1] as u32) << 8)
-                            | (pn_bytes[2] as u32)
+                        (u32::from(pn_bytes[0]) << 16)
+                            | (u32::from(pn_bytes[1]) << 8)
+                            | u32::from(pn_bytes[2])
                     },
                     4 => u32::from_be_bytes([pn_bytes[0], pn_bytes[1], pn_bytes[2], pn_bytes[3]]),
                     _ => unreachable!(),
@@ -382,8 +391,7 @@ impl QuicLayer {
                     FieldValue::U8(v) => v,
                     other => {
                         return Some(Err(FieldError::InvalidValue(format!(
-                            "header_form: expected U8, got {:?}",
-                            other
+                            "header_form: expected U8, got {other:?}"
                         ))));
                     },
                 };
@@ -406,8 +414,7 @@ impl QuicLayer {
                     FieldValue::U8(v) => v,
                     other => {
                         return Some(Err(FieldError::InvalidValue(format!(
-                            "fixed_bit: expected U8, got {:?}",
-                            other
+                            "fixed_bit: expected U8, got {other:?}"
                         ))));
                     },
                 };
@@ -430,8 +437,7 @@ impl QuicLayer {
                     FieldValue::U8(v) => v,
                     other => {
                         return Some(Err(FieldError::InvalidValue(format!(
-                            "packet_type: expected U8, got {:?}",
-                            other
+                            "packet_type: expected U8, got {other:?}"
                         ))));
                     },
                 };
@@ -451,8 +457,7 @@ impl QuicLayer {
                     FieldValue::U32(v) => v,
                     other => {
                         return Some(Err(FieldError::InvalidValue(format!(
-                            "version: expected U32, got {:?}",
-                            other
+                            "version: expected U32, got {other:?}"
                         ))));
                     },
                 };

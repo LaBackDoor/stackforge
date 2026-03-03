@@ -59,6 +59,7 @@ pub struct UdpLayer {
 
 impl UdpLayer {
     /// Create a new UDP layer from a layer index.
+    #[must_use]
     pub fn new(index: LayerIndex) -> Self {
         Self { index }
     }
@@ -184,23 +185,26 @@ impl UdpLayer {
     }
 
     /// Generate a summary string for display.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let slice = self.index.slice(buf);
         if slice.len() >= 4 {
             let src_port = u16::from_be_bytes([slice[0], slice[1]]);
             let dst_port = u16::from_be_bytes([slice[2], slice[3]]);
-            format!("UDP {} > {}", src_port, dst_port)
+            format!("UDP {src_port} > {dst_port}")
         } else {
             "UDP".to_string()
         }
     }
 
     /// Get the UDP header length (always 8 bytes).
+    #[must_use]
     pub fn header_len(&self, _buf: &[u8]) -> usize {
         UDP_HEADER_LEN
     }
 
     /// Get field names for this layer.
+    #[must_use]
     pub fn field_names(&self) -> &'static [&'static str] {
         &["sport", "dport", "len", "chksum"]
     }
@@ -229,8 +233,7 @@ impl UdpLayer {
                     Some(self.set_src_port(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "sport: expected U16, got {:?}",
-                        value
+                        "sport: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -239,8 +242,7 @@ impl UdpLayer {
                     Some(self.set_dst_port(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "dport: expected U16, got {:?}",
-                        value
+                        "dport: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -249,8 +251,7 @@ impl UdpLayer {
                     Some(self.set_length(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "len: expected U16, got {:?}",
-                        value
+                        "len: expected U16, got {value:?}"
                     ))))
                 }
             },
@@ -259,8 +260,7 @@ impl UdpLayer {
                     Some(self.set_checksum(buf, v))
                 } else {
                     Some(Err(FieldError::InvalidValue(format!(
-                        "chksum: expected U16, got {:?}",
-                        value
+                        "chksum: expected U16, got {value:?}"
                     ))))
                 }
             },

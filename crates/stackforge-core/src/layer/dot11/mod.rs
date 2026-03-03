@@ -1,11 +1,11 @@
-//! IEEE 802.11 (WiFi / Dot11) protocol layer implementation.
+//! IEEE 802.11 (`WiFi` / Dot11) protocol layer implementation.
 //!
 //! Provides full 802.11 frame parsing, building, and field access including:
 //! - Frame Control field parsing (type, subtype, flags)
 //! - Variable address fields (1-4 MAC addresses depending on frame type)
 //! - Sequence control field
-//! - FCS variant (Dot11FCS)
-//! - RadioTap header support
+//! - FCS variant (`Dot11FCS`)
+//! - `RadioTap` header support
 //! - Management, control, and data frame subtypes
 //! - Information elements (IEs)
 //! - Security wrappers (WEP, TKIP, CCMP)
@@ -63,7 +63,7 @@ pub mod offsets {
     pub const ADDR3: usize = 16;
     /// Sequence Control (2 bytes, little-endian).
     pub const SEQ_CTRL: usize = 22;
-    /// Address 4 (6 bytes) - only in WDS (to_DS=1 AND from_DS=1).
+    /// Address 4 (6 bytes) - only in WDS (`to_DS=1` AND `from_DS=1`).
     pub const ADDR4: usize = 24;
 }
 
@@ -83,7 +83,8 @@ pub struct Dot11Layer {
 }
 
 impl Dot11Layer {
-    /// Create a new Dot11Layer from start/end offsets.
+    /// Create a new `Dot11Layer` from start/end offsets.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Dot11, start, end),
@@ -236,7 +237,7 @@ impl Dot11Layer {
         MacAddress::read(buf, self.index.start + offsets::ADDR3)
     }
 
-    /// Address 4 (only present in WDS frames: to_DS=1 AND from_DS=1).
+    /// Address 4 (only present in WDS frames: `to_DS=1` AND `from_DS=1`).
     #[inline]
     pub fn addr4(&self, buf: &[u8]) -> Result<MacAddress, FieldError> {
         MacAddress::read(buf, self.index.start + offsets::ADDR4)
@@ -244,19 +245,20 @@ impl Dot11Layer {
 
     /// Check if this frame has a 4th address field (WDS mode).
     #[inline]
+    #[must_use]
     pub fn has_addr4(&self, buf: &[u8]) -> bool {
-        if let Ok(ft) = self.frame_type(buf) {
-            if ft == types::frame_type::DATA {
-                if let Ok(flags) = self.flags(buf) {
-                    return (flags & 0x03) == 0x03; // to_DS=1 AND from_DS=1
-                }
-            }
+        if let Ok(ft) = self.frame_type(buf)
+            && ft == types::frame_type::DATA
+            && let Ok(flags) = self.flags(buf)
+        {
+            return (flags & 0x03) == 0x03; // to_DS=1 AND from_DS=1
         }
         false
     }
 
     /// Check if this is a control frame (which may have fewer addresses).
     #[inline]
+    #[must_use]
     pub fn is_control(&self, buf: &[u8]) -> bool {
         matches!(self.frame_type(buf), Ok(types::frame_type::CONTROL))
     }
@@ -296,6 +298,7 @@ impl Dot11Layer {
     // ========================================================================
 
     /// Calculate the actual header length based on frame type and flags.
+    #[must_use]
     pub fn compute_header_len(&self, buf: &[u8]) -> usize {
         let ft = self.frame_type(buf).unwrap_or(0);
         let st = self.subtype(buf).unwrap_or(0);
@@ -403,6 +406,7 @@ impl Dot11Layer {
     // ========================================================================
 
     /// Field names for dynamic access.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &[
             "type", "subtype", "proto", "FCfield", "ID", "addr1", "addr2", "addr3", "SC", "addr4",
@@ -487,6 +491,7 @@ impl Dot11Layer {
     }
 
     /// Compute hash for packet matching.
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let mut hash = Vec::new();
         if let Ok(addr1) = self.addr1(buf) {
@@ -499,6 +504,7 @@ impl Dot11Layer {
     }
 
     /// Check if this packet answers another 802.11 packet.
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &Dot11Layer, other_buf: &[u8]) -> bool {
         let self_type = self.frame_type(buf).unwrap_or(255);
         let other_type = other.frame_type(other_buf).unwrap_or(255);
@@ -537,16 +543,11 @@ impl Layer for Dot11Layer {
         let subtype_name = types::subtype_name(ft, st);
         let addr2_str = self
             .addr2(buf)
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| "?".to_string());
+            .map_or_else(|_| "?".to_string(), |a| a.to_string());
         let addr1_str = self
             .addr1(buf)
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| "?".to_string());
-        format!(
-            "802.11 {} {} {} > {}",
-            type_name, subtype_name, addr2_str, addr1_str
-        )
+            .map_or_else(|_| "?".to_string(), |a| a.to_string());
+        format!("802.11 {type_name} {subtype_name} {addr2_str} > {addr1_str}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -562,21 +563,23 @@ impl Layer for Dot11Layer {
     }
 }
 
-/// IEEE 802.11 FCS layer - same as Dot11Layer but includes a 4-byte FCS trailer.
+/// IEEE 802.11 FCS layer - same as `Dot11Layer` but includes a 4-byte FCS trailer.
 #[derive(Debug, Clone)]
 pub struct Dot11FcsLayer {
     pub index: LayerIndex,
 }
 
 impl Dot11FcsLayer {
-    /// Create a new Dot11FcsLayer from start/end offsets.
+    /// Create a new `Dot11FcsLayer` from start/end offsets.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Dot11, start, end),
         }
     }
 
-    /// Get the inner Dot11Layer view (excluding FCS).
+    /// Get the inner `Dot11Layer` view (excluding FCS).
+    #[must_use]
     pub fn dot11(&self) -> Dot11Layer {
         Dot11Layer::new(
             self.index.start,
@@ -603,6 +606,7 @@ impl Dot11FcsLayer {
     }
 
     /// Compute the CRC32 FCS for the frame data (excluding the FCS itself).
+    #[must_use]
     pub fn compute_fcs(data: &[u8]) -> u32 {
         crc32_ieee(data)
     }
@@ -616,7 +620,7 @@ impl Dot11FcsLayer {
         Ok(fcs_val == computed)
     }
 
-    /// Delegate field access to the inner Dot11Layer.
+    /// Delegate field access to the inner `Dot11Layer`.
     pub fn frame_type(&self, buf: &[u8]) -> Result<u8, FieldError> {
         self.dot11().frame_type(buf)
     }
@@ -656,9 +660,9 @@ impl Layer for Dot11FcsLayer {
         let base = inner.summary(buf);
         let fcs_str = self
             .fcs(buf)
-            .map(|f| format!(" [FCS={:#010x}]", f))
+            .map(|f| format!(" [FCS={f:#010x}]"))
             .unwrap_or_default();
-        format!("{}{}", base, fcs_str)
+        format!("{base}{fcs_str}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -677,16 +681,18 @@ impl Layer for Dot11FcsLayer {
 /// Bits 2-3:  Type
 /// Bits 4-7:  Subtype
 /// Bits 8-15: Flags
+#[must_use]
 pub fn build_frame_control(proto: u8, frame_type: u8, subtype: u8, flags: u8) -> u16 {
     let byte0 = (proto & 0x03) | ((frame_type & 0x03) << 2) | ((subtype & 0x0F) << 4);
     u16::from_le_bytes([byte0, flags])
 }
 
 /// Compute IEEE CRC32 (used for FCS).
+#[must_use]
 pub fn crc32_ieee(data: &[u8]) -> u32 {
     let mut crc: u32 = 0xFFFFFFFF;
     for &byte in data {
-        crc ^= byte as u32;
+        crc ^= u32::from(byte);
         for _ in 0..8 {
             if crc & 1 != 0 {
                 crc = (crc >> 1) ^ 0xEDB88320;

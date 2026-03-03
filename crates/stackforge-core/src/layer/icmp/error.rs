@@ -19,6 +19,7 @@ pub const ERROR_TYPES: &[u8] = &[
 ///
 /// Error messages include the original IP header + first 8 bytes of transport data.
 #[inline]
+#[must_use]
 pub fn is_error_type(icmp_type: u8) -> bool {
     matches!(
         icmp_type,
@@ -44,6 +45,7 @@ pub const ERROR_MIN_PAYLOAD: usize = 20 + 8; // IP header + 8 bytes of data
 /// # Returns
 /// The byte offset from the start of the ICMP header where the embedded packet begins,
 /// or None if this is not an error type.
+#[must_use]
 pub fn error_payload_offset(icmp_type: u8) -> Option<usize> {
     if !is_error_type(icmp_type) {
         return None;

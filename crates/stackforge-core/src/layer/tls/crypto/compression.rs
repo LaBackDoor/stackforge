@@ -11,6 +11,7 @@ impl CompressionMethod {
     pub const NULL: Self = Self(0);
     pub const DEFLATE: Self = Self(1);
 
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0 => "null",
@@ -21,6 +22,7 @@ impl CompressionMethod {
 }
 
 /// Compress data (identity for NULL compression).
+#[must_use]
 pub fn compress(method: CompressionMethod, data: &[u8]) -> Vec<u8> {
     match method {
         CompressionMethod::NULL => data.to_vec(),
@@ -29,6 +31,7 @@ pub fn compress(method: CompressionMethod, data: &[u8]) -> Vec<u8> {
 }
 
 /// Decompress data (identity for NULL compression).
+#[must_use]
 pub fn decompress(method: CompressionMethod, data: &[u8]) -> Vec<u8> {
     match method {
         CompressionMethod::NULL => data.to_vec(),

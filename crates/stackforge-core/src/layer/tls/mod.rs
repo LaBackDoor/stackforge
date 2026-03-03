@@ -1,7 +1,7 @@
 //! TLS (Transport Layer Security) protocol layer.
 //!
 //! Implements parsing and building for the TLS record protocol (RFC 5246, RFC 8446),
-//! including support for SSLv2, TLS 1.0-1.2, and TLS 1.3.
+//! including support for `SSLv2`, TLS 1.0-1.2, and TLS 1.3.
 //!
 //! This is a "clean-sheet" implementation that follows Scapy's "Permissive Parser,
 //! Explicit Builder" pattern, allowing construction of malformed packets for
@@ -51,6 +51,7 @@ pub const TLS_PORTS: &[u16] = &[443, 465, 636, 853, 993, 995, 8443];
 /// - Content type is 20-24 (valid TLS record types)
 /// - Version is a recognized TLS/SSL version
 /// - Length is reasonable (< 2^14 + 2048)
+#[must_use]
 pub fn is_tls_payload(data: &[u8]) -> bool {
     if data.len() < TLS_RECORD_HEADER_LEN {
         return false;

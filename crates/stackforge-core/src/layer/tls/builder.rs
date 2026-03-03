@@ -29,23 +29,27 @@ impl Default for TlsRecordBuilder {
 
 impl TlsRecordBuilder {
     /// Create a new TLS record builder with defaults.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set the content type.
+    #[must_use]
     pub fn content_type(mut self, ct: TlsContentType) -> Self {
         self.content_type = ct.as_u8();
         self
     }
 
     /// Set the content type as raw u8 (for fuzzing/testing).
+    #[must_use]
     pub fn content_type_raw(mut self, ct: u8) -> Self {
         self.content_type = ct;
         self
     }
 
     /// Set the protocol version.
+    #[must_use]
     pub fn version(mut self, version: u16) -> Self {
         self.version = version;
         self
@@ -53,29 +57,34 @@ impl TlsRecordBuilder {
 
     /// Set the length field explicitly (overrides auto-calculation).
     /// Pass `None` to auto-calculate from fragment size.
+    #[must_use]
     pub fn length(mut self, length: Option<u16>) -> Self {
         self.length = length;
         self
     }
 
     /// Set the fragment data.
+    #[must_use]
     pub fn fragment(mut self, data: Vec<u8>) -> Self {
         self.fragment = data;
         self
     }
 
     /// Set the fragment data from a slice.
+    #[must_use]
     pub fn fragment_from_slice(mut self, data: &[u8]) -> Self {
         self.fragment = data.to_vec();
         self
     }
 
     /// Get the total size of the built record.
+    #[must_use]
     pub fn record_size(&self) -> usize {
         5 + self.fragment.len()
     }
 
     /// Build the TLS record into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let frag_len = self.length.unwrap_or(self.fragment.len() as u16);
         let mut out = Vec::with_capacity(5 + self.fragment.len());
@@ -108,25 +117,30 @@ impl Default for TlsAlertBuilder {
 }
 
 impl TlsAlertBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn level(mut self, level: u8) -> Self {
         self.level = level;
         self
     }
 
+    #[must_use]
     pub fn description(mut self, desc: u8) -> Self {
         self.description = desc;
         self
     }
 
+    #[must_use]
     pub fn version(mut self, version: u16) -> Self {
         self.version = version;
         self
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         TlsRecordBuilder::new()
             .content_type(TlsContentType::Alert)
@@ -136,7 +150,7 @@ impl TlsAlertBuilder {
     }
 }
 
-/// Builder for TLS ChangeCipherSpec messages.
+/// Builder for TLS `ChangeCipherSpec` messages.
 #[derive(Debug, Clone)]
 pub struct TlsCcsBuilder {
     version: u16,
@@ -149,15 +163,18 @@ impl Default for TlsCcsBuilder {
 }
 
 impl TlsCcsBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn version(mut self, version: u16) -> Self {
         self.version = version;
         self
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         TlsRecordBuilder::new()
             .content_type(TlsContentType::ChangeCipherSpec)

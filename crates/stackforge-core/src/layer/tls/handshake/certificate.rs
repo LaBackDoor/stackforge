@@ -1,4 +1,4 @@
-//! TLS Certificate, CertificateVerify, and CertificateRequest messages.
+//! TLS Certificate, `CertificateVerify`, and `CertificateRequest` messages.
 
 /// Parsed TLS Certificate message (type 11).
 ///
@@ -24,6 +24,7 @@ pub struct Certificate {
 
 impl Certificate {
     /// Parse Certificate message body (TLS 1.2 format).
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         if data.len() < 3 {
             return None;
@@ -53,6 +54,7 @@ impl Certificate {
     }
 
     /// Parse Certificate message body (TLS 1.3 format).
+    #[must_use]
     pub fn parse_tls13(data: &[u8]) -> Option<Self> {
         if data.is_empty() {
             return None;
@@ -114,6 +116,7 @@ impl Certificate {
     }
 
     /// Build Certificate message body (TLS 1.2 format).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut cert_data = Vec::new();
         for cert in &self.certificates {
@@ -132,7 +135,7 @@ impl Certificate {
     }
 }
 
-/// TLS CertificateVerify message (type 15).
+/// TLS `CertificateVerify` message (type 15).
 ///
 /// ```text
 /// SignatureScheme algorithm;    // 2 bytes
@@ -147,6 +150,7 @@ pub struct CertificateVerify {
 }
 
 impl CertificateVerify {
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         if data.len() < 4 {
             return None;
@@ -163,6 +167,7 @@ impl CertificateVerify {
         })
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(4 + self.signature.len());
         buf.extend_from_slice(&self.algorithm.to_be_bytes());
@@ -172,7 +177,7 @@ impl CertificateVerify {
     }
 }
 
-/// TLS CertificateRequest message (type 13).
+/// TLS `CertificateRequest` message (type 13).
 #[derive(Debug, Clone)]
 pub struct CertificateRequest {
     /// Certificate types.
@@ -184,6 +189,7 @@ pub struct CertificateRequest {
 }
 
 impl CertificateRequest {
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         if data.is_empty() {
             return None;

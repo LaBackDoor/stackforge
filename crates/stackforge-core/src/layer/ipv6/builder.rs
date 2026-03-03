@@ -39,9 +39,9 @@ pub struct Ipv6Builder {
     dst: Ipv6Addr,
     /// Payload bytes (appended after the 40-byte header)
     payload: Vec<u8>,
-    /// If true, automatically compute payload_len from payload.len()
+    /// If true, automatically compute `payload_len` from `payload.len()`
     auto_length: bool,
-    /// Manual override for payload length (ignored if auto_length=true)
+    /// Manual override for payload length (ignored if `auto_length=true`)
     payload_len_override: Option<u16>,
 }
 
@@ -63,6 +63,7 @@ impl Default for Ipv6Builder {
 
 impl Ipv6Builder {
     /// Create a new IPv6 builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -70,36 +71,42 @@ impl Ipv6Builder {
     // ========== Field Setters ==========
 
     /// Set the source IPv6 address.
+    #[must_use]
     pub fn src(mut self, src: Ipv6Addr) -> Self {
         self.src = src;
         self
     }
 
     /// Set the destination IPv6 address.
+    #[must_use]
     pub fn dst(mut self, dst: Ipv6Addr) -> Self {
         self.dst = dst;
         self
     }
 
     /// Set the Hop Limit (equivalent to TTL in IPv4).
+    #[must_use]
     pub fn hop_limit(mut self, hlim: u8) -> Self {
         self.hop_limit = hlim;
         self
     }
 
     /// Set the Traffic Class field.
+    #[must_use]
     pub fn traffic_class(mut self, tc: u8) -> Self {
         self.traffic_class = tc;
         self
     }
 
     /// Set the Flow Label (20 bits; upper 12 bits are ignored).
+    #[must_use]
     pub fn flow_label(mut self, fl: u32) -> Self {
         self.flow_label = fl & 0x000F_FFFF;
         self
     }
 
     /// Set the Next Header field.
+    #[must_use]
     pub fn next_header(mut self, nh: u8) -> Self {
         self.next_header = nh;
         self
@@ -112,6 +119,7 @@ impl Ipv6Builder {
     }
 
     /// Configure automatic payload length calculation (default: true).
+    #[must_use]
     pub fn auto_length(mut self, auto: bool) -> Self {
         self.auto_length = auto;
         self
@@ -119,7 +127,8 @@ impl Ipv6Builder {
 
     /// Manually override the payload length field.
     ///
-    /// Only used when auto_length is false.
+    /// Only used when `auto_length` is false.
+    #[must_use]
     pub fn payload_len(mut self, len: u16) -> Self {
         self.payload_len_override = Some(len);
         self.auto_length = false;
@@ -129,11 +138,13 @@ impl Ipv6Builder {
     // ========== Size Calculation ==========
 
     /// Get the header size (always 40 bytes for IPv6).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         IPV6_HEADER_LEN
     }
 
     /// Get the total packet size (header + payload).
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         IPV6_HEADER_LEN + self.payload.len()
     }
@@ -146,12 +157,13 @@ impl Ipv6Builder {
     /// - Byte 0: version (6) in high 4 bits | TC high nibble in low 4 bits
     /// - Byte 1: TC low nibble in high 4 bits | FL bits 19-16 in low 4 bits
     /// - Bytes 2-3: FL bits 15-0 (big-endian)
-    /// - Bytes 4-5: payload_len (big-endian)
-    /// - Byte 6: next_header
-    /// - Byte 7: hop_limit
+    /// - Bytes 4-5: `payload_len` (big-endian)
+    /// - Byte 6: `next_header`
+    /// - Byte 7: `hop_limit`
     /// - Bytes 8-23: source address (16 bytes)
     /// - Bytes 24-39: destination address (16 bytes)
     /// - Bytes 40+: payload
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total = self.packet_size();
         let mut buf = vec![0u8; total];

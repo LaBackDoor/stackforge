@@ -1,4 +1,4 @@
-//! TLS ServerHello message parsing and building.
+//! TLS `ServerHello` message parsing and building.
 //!
 //! ```text
 //! ProtocolVersion server_version;     // 2 bytes
@@ -11,13 +11,13 @@
 
 use super::super::extensions::{Extension, build_extensions, parse_extensions};
 
-/// TLS 1.3 HelloRetryRequest magic random value (RFC 8446).
+/// TLS 1.3 `HelloRetryRequest` magic random value (RFC 8446).
 pub const HELLO_RETRY_REQUEST_RANDOM: [u8; 32] = [
     0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91,
     0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C,
 ];
 
-/// Parsed TLS ServerHello message.
+/// Parsed TLS `ServerHello` message.
 #[derive(Debug, Clone)]
 pub struct ServerHello {
     /// Server's selected version (legacy for TLS 1.3).
@@ -35,7 +35,8 @@ pub struct ServerHello {
 }
 
 impl ServerHello {
-    /// Parse ServerHello from the handshake body.
+    /// Parse `ServerHello` from the handshake body.
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<Self> {
         if data.len() < 38 {
             return None; // 2 + 32 + 1 + 2 + 1 = 38 minimum
@@ -92,7 +93,8 @@ impl ServerHello {
         })
     }
 
-    /// Build ServerHello body bytes.
+    /// Build `ServerHello` body bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = Vec::new();
 
@@ -112,29 +114,33 @@ impl ServerHello {
         buf
     }
 
-    /// Check if this is a TLS 1.3 HelloRetryRequest.
+    /// Check if this is a TLS 1.3 `HelloRetryRequest`.
+    #[must_use]
     pub fn is_hello_retry_request(&self) -> bool {
         self.random == HELLO_RETRY_REQUEST_RANDOM
     }
 
-    /// Get the selected version from supported_versions extension (TLS 1.3).
+    /// Get the selected version from `supported_versions` extension (TLS 1.3).
+    #[must_use]
     pub fn selected_version(&self) -> u16 {
         // Check supported_versions extension first
-        if let Some(ext) = self.extensions.iter().find(|e| e.ext_type == 0x002B) {
-            if ext.data.len() >= 2 {
-                return u16::from_be_bytes([ext.data[0], ext.data[1]]);
-            }
+        if let Some(ext) = self.extensions.iter().find(|e| e.ext_type == 0x002B)
+            && ext.data.len() >= 2
+        {
+            return u16::from_be_bytes([ext.data[0], ext.data[1]]);
         }
         // Fall back to record version
         self.version
     }
 
     /// Get a specific extension by type.
+    #[must_use]
     pub fn get_extension(&self, ext_type: u16) -> Option<&Extension> {
         self.extensions.iter().find(|e| e.ext_type == ext_type)
     }
 
     /// Summary string.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "ServerHello version=0x{:04x} cipher=0x{:04x} exts={}",

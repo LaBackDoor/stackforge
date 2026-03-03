@@ -37,11 +37,11 @@ pub enum SvcParam {
 }
 
 impl SvcParam {
-    /// Parse a single SvcParam from wire format.
+    /// Parse a single `SvcParam` from wire format.
     pub fn parse(key: u16, data: &[u8]) -> Result<Self, FieldError> {
         match key {
             svc_key::MANDATORY => {
-                if data.len() % 2 != 0 {
+                if !data.len().is_multiple_of(2) {
                     return Err(FieldError::InvalidValue(
                         "mandatory param length must be even".to_string(),
                     ));
@@ -84,7 +84,7 @@ impl SvcParam {
             },
 
             svc_key::IPV4HINT => {
-                if data.len() % 4 != 0 {
+                if !data.len().is_multiple_of(4) {
                     return Err(FieldError::InvalidValue(
                         "ipv4hint length must be multiple of 4".to_string(),
                     ));
@@ -99,7 +99,7 @@ impl SvcParam {
             svc_key::ECH => Ok(SvcParam::Ech(data.to_vec())),
 
             svc_key::IPV6HINT => {
-                if data.len() % 16 != 0 {
+                if !data.len().is_multiple_of(16) {
                     return Err(FieldError::InvalidValue(
                         "ipv6hint length must be multiple of 16".to_string(),
                     ));
@@ -123,6 +123,7 @@ impl SvcParam {
     }
 
     /// Get the key for this parameter.
+    #[must_use]
     pub fn key(&self) -> u16 {
         match self {
             SvcParam::Mandatory(_) => svc_key::MANDATORY,
@@ -137,6 +138,7 @@ impl SvcParam {
     }
 
     /// Serialize the parameter value (without key and length header).
+    #[must_use]
     pub fn build_value(&self) -> Vec<u8> {
         match self {
             SvcParam::Mandatory(keys) => keys.iter().flat_map(|k| k.to_be_bytes()).collect(),
@@ -150,14 +152,19 @@ impl SvcParam {
             },
             SvcParam::NoDefaultAlpn => Vec::new(),
             SvcParam::Port(port) => port.to_be_bytes().to_vec(),
-            SvcParam::Ipv4Hint(addrs) => addrs.iter().flat_map(|a| a.octets()).collect(),
+            SvcParam::Ipv4Hint(addrs) => {
+                addrs.iter().flat_map(std::net::Ipv4Addr::octets).collect()
+            },
             SvcParam::Ech(data) => data.clone(),
-            SvcParam::Ipv6Hint(addrs) => addrs.iter().flat_map(|a| a.octets()).collect(),
+            SvcParam::Ipv6Hint(addrs) => {
+                addrs.iter().flat_map(std::net::Ipv6Addr::octets).collect()
+            },
             SvcParam::Unknown { value, .. } => value.clone(),
         }
     }
 
     /// Build the complete key-value pair (key + length + value).
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let value = self.build_value();
         let mut out = Vec::with_capacity(4 + value.len());
@@ -167,7 +174,7 @@ impl SvcParam {
         out
     }
 
-    /// Parse all SvcParams from wire format.
+    /// Parse all `SvcParams` from wire format.
     pub fn parse_all(data: &[u8]) -> Result<Vec<Self>, FieldError> {
         let mut params = Vec::new();
         let mut pos = 0;

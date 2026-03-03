@@ -73,6 +73,7 @@ impl Default for ModbusBuilder {
 
 impl ModbusBuilder {
     /// Create a new Modbus builder with TCP (MBAP) framing.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -82,18 +83,21 @@ impl ModbusBuilder {
     // ========================================================================
 
     /// Use Modbus/TCP (MBAP) framing (default).
+    #[must_use]
     pub fn tcp(mut self) -> Self {
         self.frame_type = ModbusFrameType::Tcp;
         self
     }
 
     /// Use Modbus RTU (serial binary) framing.
+    #[must_use]
     pub fn rtu(mut self) -> Self {
         self.frame_type = ModbusFrameType::Rtu;
         self
     }
 
     /// Use Modbus ASCII (serial hex-encoded) framing.
+    #[must_use]
     pub fn ascii(mut self) -> Self {
         self.frame_type = ModbusFrameType::Ascii;
         self
@@ -104,72 +108,84 @@ impl ModbusBuilder {
     // ========================================================================
 
     /// Set the Transaction ID (MBAP only).
+    #[must_use]
     pub fn trans_id(mut self, id: u16) -> Self {
         self.trans_id = id;
         self
     }
 
     /// Set the Protocol ID (MBAP only; should be 0x0000).
+    #[must_use]
     pub fn proto_id(mut self, id: u16) -> Self {
         self.proto_id = id;
         self
     }
 
     /// Set the Unit ID / Slave Address.
+    #[must_use]
     pub fn unit_id(mut self, id: u8) -> Self {
         self.unit_id = id;
         self
     }
 
     /// Set the Function Code.
+    #[must_use]
     pub fn func_code(mut self, fc: u8) -> Self {
         self.func_code = fc;
         self
     }
 
     /// Set the Start Address (for Read/Write requests).
+    #[must_use]
     pub fn start_addr(mut self, addr: u16) -> Self {
         self.start_addr = Some(addr);
         self
     }
 
     /// Set the Quantity (for Read requests).
+    #[must_use]
     pub fn quantity(mut self, qty: u16) -> Self {
         self.quantity = Some(qty);
         self
     }
 
     /// Set the Output Value (for Write Single Coil/Register).
+    #[must_use]
     pub fn output_value(mut self, val: u16) -> Self {
         self.output_value = Some(val);
         self
     }
 
     /// Set register values (for Write Multiple Registers).
+    #[must_use]
     pub fn values(mut self, vals: Vec<u16>) -> Self {
         self.values = vals;
         self
     }
 
     /// Set coil values (for Write Multiple Coils).
+    #[must_use]
     pub fn coil_values(mut self, vals: Vec<bool>) -> Self {
         self.coil_values = vals;
         self
     }
 
     /// Set the Sub-function code (for Diagnostics 0x08).
+    #[must_use]
     pub fn sub_func(mut self, sf: u16) -> Self {
         self.sub_func = Some(sf);
         self
     }
 
     /// Set the AND mask (for Mask Write Register 0x16).
+    #[must_use]
     pub fn and_mask(mut self, mask: u16) -> Self {
         self.and_mask = Some(mask);
         self
     }
 
     /// Set the OR mask (for Mask Write Register 0x16).
+    #[must_use]
     pub fn or_mask(mut self, mask: u16) -> Self {
         self.or_mask = Some(mask);
         self
@@ -177,12 +193,14 @@ impl ModbusBuilder {
 
     /// Set raw PDU data (after the function code).
     /// This overrides the automatic PDU building.
+    #[must_use]
     pub fn pdu_data(mut self, data: Vec<u8>) -> Self {
         self.pdu_data = data;
         self
     }
 
     /// Set extra data bytes (for diagnostics data field, etc.).
+    #[must_use]
     pub fn extra_data(mut self, data: Vec<u8>) -> Self {
         self.extra_data = data;
         self
@@ -203,7 +221,7 @@ impl ModbusBuilder {
 
         match self.func_code {
             // Read Coils, Read Discrete Inputs, Read Holding Registers, Read Input Registers
-            0x01 | 0x02 | 0x03 | 0x04 => {
+            0x01..=0x04 => {
                 let addr = self.start_addr.unwrap_or(0);
                 let qty = self.quantity.unwrap_or(1);
                 pdu.extend_from_slice(&addr.to_be_bytes());
@@ -240,17 +258,19 @@ impl ModbusBuilder {
             // Write Multiple Coils
             0x0F => {
                 let addr = self.start_addr.unwrap_or(0);
-                let qty = if !self.coil_values.is_empty() {
-                    self.coil_values.len() as u16
-                } else {
+                let qty = if self.coil_values.is_empty() {
                     self.quantity.unwrap_or(0)
+                } else {
+                    self.coil_values.len() as u16
                 };
                 pdu.extend_from_slice(&addr.to_be_bytes());
                 pdu.extend_from_slice(&qty.to_be_bytes());
 
-                if !self.coil_values.is_empty() {
+                if self.coil_values.is_empty() {
+                    pdu.push(0); // byte count = 0
+                } else {
                     // Pack booleans into bytes (LSB first)
-                    let byte_count = (self.coil_values.len() + 7) / 8;
+                    let byte_count = self.coil_values.len().div_ceil(8);
                     pdu.push(byte_count as u8);
                     let mut bytes = vec![0u8; byte_count];
                     for (i, &coil) in self.coil_values.iter().enumerate() {
@@ -259,17 +279,15 @@ impl ModbusBuilder {
                         }
                     }
                     pdu.extend_from_slice(&bytes);
-                } else {
-                    pdu.push(0); // byte count = 0
                 }
             },
             // Write Multiple Registers
             0x10 => {
                 let addr = self.start_addr.unwrap_or(0);
-                let qty = if !self.values.is_empty() {
-                    self.values.len() as u16
-                } else {
+                let qty = if self.values.is_empty() {
                     self.quantity.unwrap_or(0)
+                } else {
+                    self.values.len() as u16
                 };
                 pdu.extend_from_slice(&addr.to_be_bytes());
                 pdu.extend_from_slice(&qty.to_be_bytes());
@@ -318,6 +336,7 @@ impl ModbusBuilder {
     }
 
     /// Compute the header size for this builder.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         match self.frame_type {
             ModbusFrameType::Tcp => {
@@ -337,6 +356,7 @@ impl ModbusBuilder {
     }
 
     /// Build the Modbus frame into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let pdu = self.build_pdu();
 

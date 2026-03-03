@@ -25,11 +25,13 @@ pub struct Ipv4Route {
 
 impl Ipv4Route {
     /// Create an empty route (no routing info available).
+    #[must_use]
     pub fn none() -> Self {
         Self::default()
     }
 
     /// Create a route for a local destination.
+    #[must_use]
     pub fn local(interface: String, source: Ipv4Addr) -> Self {
         Self {
             interface: Some(interface),
@@ -42,6 +44,7 @@ impl Ipv4Route {
     }
 
     /// Create a route via a gateway.
+    #[must_use]
     pub fn via_gateway(interface: String, source: Ipv4Addr, gateway: Ipv4Addr) -> Self {
         Self {
             interface: Some(interface),
@@ -54,11 +57,13 @@ impl Ipv4Route {
     }
 
     /// Check if this route is valid (has interface).
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         self.interface.is_some()
     }
 
     /// Get the next-hop address (gateway or destination if local).
+    #[must_use]
     pub fn next_hop(&self, dst: Ipv4Addr) -> Ipv4Addr {
         self.gateway.unwrap_or(dst)
     }
@@ -74,6 +79,7 @@ pub trait Ipv4Router {
 ///
 /// This uses the system routing table to determine the interface,
 /// source address, and gateway for reaching a destination.
+#[must_use]
 pub fn get_route(dst: Ipv4Addr) -> Ipv4Route {
     // Handle special addresses
     if dst.is_loopback() {
@@ -135,6 +141,7 @@ pub fn get_route(dst: Ipv4Addr) -> Ipv4Route {
 }
 
 /// Get the default route (gateway).
+#[must_use]
 pub fn get_default_route() -> Option<Ipv4Route> {
     // Try to get default interface using default-net crate
     let default_iface = default_net::get_default_interface().ok()?;
@@ -170,21 +177,25 @@ pub fn get_default_route() -> Option<Ipv4Route> {
 /// Get the source IP address for a destination.
 ///
 /// This performs a routing lookup and returns the appropriate source.
+#[must_use]
 pub fn get_source_for_dst(dst: Ipv4Addr) -> Option<Ipv4Addr> {
     get_route(dst).source
 }
 
 /// Get the interface name for a destination.
+#[must_use]
 pub fn get_interface_for_dst(dst: Ipv4Addr) -> Option<String> {
     get_route(dst).interface
 }
 
 /// Check if a destination is on the local network.
+#[must_use]
 pub fn is_local_destination(dst: Ipv4Addr) -> bool {
     get_route(dst).is_local
 }
 
 /// Get all available IPv4 interfaces.
+#[must_use]
 pub fn get_ipv4_interfaces() -> Vec<Ipv4Interface> {
     pnet_datalink::interfaces()
         .into_iter()
@@ -268,11 +279,13 @@ pub struct Ipv4Interface {
 
 impl Ipv4Interface {
     /// Get the first (primary) IPv4 address.
+    #[must_use]
     pub fn primary_address(&self) -> Option<Ipv4Addr> {
         self.addresses.first().map(|a| a.address)
     }
 
     /// Check if an address is on this interface's network.
+    #[must_use]
     pub fn contains(&self, addr: Ipv4Addr) -> bool {
         self.addresses.iter().any(|a| {
             let mask = prefix_to_mask(a.prefix_len);
@@ -294,18 +307,21 @@ pub struct Ipv4InterfaceAddr {
 
 impl Ipv4InterfaceAddr {
     /// Get the network address.
+    #[must_use]
     pub fn network(&self) -> Ipv4Addr {
         let mask = prefix_to_mask(self.prefix_len);
         Ipv4Addr::from(u32::from(self.address) & mask)
     }
 
     /// Get the subnet mask.
+    #[must_use]
     pub fn netmask(&self) -> Ipv4Addr {
         Ipv4Addr::from(prefix_to_mask(self.prefix_len))
     }
 }
 
 /// Convert a prefix length to a subnet mask.
+#[must_use]
 pub fn prefix_to_mask(prefix: u8) -> u32 {
     if prefix >= 32 {
         0xFFFFFFFF
@@ -317,28 +333,32 @@ pub fn prefix_to_mask(prefix: u8) -> u32 {
 }
 
 /// Convert a subnet mask to a prefix length.
+#[must_use]
 pub fn mask_to_prefix(mask: Ipv4Addr) -> u8 {
     let mask_u32 = u32::from(mask);
     mask_u32.leading_ones() as u8
 }
 
 /// Check if an IP address matches a network/prefix.
+#[must_use]
 pub fn ip_in_network(ip: Ipv4Addr, network: Ipv4Addr, prefix: u8) -> bool {
     let mask = prefix_to_mask(prefix);
     (u32::from(ip) & mask) == (u32::from(network) & mask)
 }
 
 /// Calculate the broadcast address for a network.
+#[must_use]
 pub fn broadcast_address(network: Ipv4Addr, prefix: u8) -> Ipv4Addr {
     let mask = prefix_to_mask(prefix);
     Ipv4Addr::from(u32::from(network) | !mask)
 }
 
 /// Calculate the number of hosts in a network.
+#[must_use]
 pub fn network_host_count(prefix: u8) -> u32 {
     if prefix >= 31 {
         // /31 has 2 hosts, /32 has 1
-        2u32.saturating_sub(prefix as u32 - 30)
+        2u32.saturating_sub(u32::from(prefix) - 30)
     } else {
         (1u32 << (32 - prefix)) - 2 // Subtract network and broadcast
     }

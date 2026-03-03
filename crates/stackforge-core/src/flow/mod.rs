@@ -84,7 +84,7 @@ pub fn extract_flows_with_config(
 ///
 /// Z-Wave is a wireless protocol not carried over IP, so it needs its own
 /// flow extraction separate from the IP-based `extract_flows()`. Packets
-/// are grouped by home ID and canonical node pair (smaller node = node_a).
+/// are grouped by home ID and canonical node pair (smaller node = `node_a`).
 ///
 /// Non-Z-Wave packets are silently skipped.
 pub fn extract_zwave_flows(
@@ -111,10 +111,10 @@ pub fn extract_zwave_flows(
 
         let conv = conversations.entry(key.clone()).or_insert_with(|| {
             let mut state = ConversationState::new_zwave(key, timestamp);
-            if let ProtocolState::ZWave(ref mut zw) = state.protocol_state {
-                if let Some(zwave) = packet.zwave() {
-                    zw.home_id = zwave.home_id(buf).unwrap_or(0);
-                }
+            if let ProtocolState::ZWave(ref mut zw) = state.protocol_state
+                && let Some(zwave) = packet.zwave()
+            {
+                zw.home_id = zwave.home_id(buf).unwrap_or(0);
             }
             state
         });
@@ -122,13 +122,13 @@ pub fn extract_zwave_flows(
         conv.record_packet(direction, byte_count, timestamp, index);
 
         // Track ACK vs command frames
-        if let ProtocolState::ZWave(ref mut zw) = conv.protocol_state {
-            if let Some(zwave) = packet.zwave() {
-                if zwave.is_ack(buf) {
-                    zw.ack_count += 1;
-                } else {
-                    zw.command_count += 1;
-                }
+        if let ProtocolState::ZWave(ref mut zw) = conv.protocol_state
+            && let Some(zwave) = packet.zwave()
+        {
+            if zwave.is_ack(buf) {
+                zw.ack_count += 1;
+            } else {
+                zw.command_count += 1;
             }
         }
     }

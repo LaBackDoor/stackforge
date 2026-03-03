@@ -20,7 +20,12 @@
 //! assert_eq!(&pkt[0..2], &[0x0a, 0x04]); // length=10, type=CONNECT
 //! ```
 
-use super::*;
+use super::{
+    ADVERTISE, CONNACK, CONNECT, DISCONNECT, GWINFO, PINGREQ, PINGRESP, PUBACK, PUBCOMP, PUBLISH,
+    PUBREC, PUBREL, RC_ACCEPTED, REGACK, REGISTER, SEARCHGW, SUBACK, SUBSCRIBE, TID_PREDEF,
+    TID_SHORT, UNSUBACK, UNSUBSCRIBE, WILLMSG, WILLMSGREQ, WILLMSGRESP, WILLMSGUPD, WILLTOPIC,
+    WILLTOPICREQ, WILLTOPICRESP, WILLTOPICUPD,
+};
 
 /// Builder for MQTT-SN packets.
 ///
@@ -84,6 +89,7 @@ impl Default for MqttSnBuilder {
 
 impl MqttSnBuilder {
     /// Create a new builder with CONNECT defaults.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -93,6 +99,7 @@ impl MqttSnBuilder {
     // ========================================================================
 
     /// ADVERTISE message builder.
+    #[must_use]
     pub fn advertise() -> Self {
         Self {
             msg_type: ADVERTISE,
@@ -101,6 +108,7 @@ impl MqttSnBuilder {
     }
 
     /// SEARCHGW message builder.
+    #[must_use]
     pub fn searchgw() -> Self {
         Self {
             msg_type: SEARCHGW,
@@ -109,6 +117,7 @@ impl MqttSnBuilder {
     }
 
     /// GWINFO message builder.
+    #[must_use]
     pub fn gwinfo() -> Self {
         Self {
             msg_type: GWINFO,
@@ -117,6 +126,7 @@ impl MqttSnBuilder {
     }
 
     /// CONNECT message builder.
+    #[must_use]
     pub fn connect() -> Self {
         Self {
             msg_type: CONNECT,
@@ -125,6 +135,7 @@ impl MqttSnBuilder {
     }
 
     /// CONNACK message builder.
+    #[must_use]
     pub fn connack() -> Self {
         Self {
             msg_type: CONNACK,
@@ -133,6 +144,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLTOPICREQ message builder.
+    #[must_use]
     pub fn willtopicreq() -> Self {
         Self {
             msg_type: WILLTOPICREQ,
@@ -141,6 +153,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLTOPIC message builder.
+    #[must_use]
     pub fn willtopic() -> Self {
         Self {
             msg_type: WILLTOPIC,
@@ -149,6 +162,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLMSGREQ message builder.
+    #[must_use]
     pub fn willmsgreq() -> Self {
         Self {
             msg_type: WILLMSGREQ,
@@ -157,6 +171,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLMSG message builder.
+    #[must_use]
     pub fn willmsg() -> Self {
         Self {
             msg_type: WILLMSG,
@@ -165,6 +180,7 @@ impl MqttSnBuilder {
     }
 
     /// REGISTER message builder.
+    #[must_use]
     pub fn register() -> Self {
         Self {
             msg_type: REGISTER,
@@ -173,6 +189,7 @@ impl MqttSnBuilder {
     }
 
     /// REGACK message builder.
+    #[must_use]
     pub fn regack() -> Self {
         Self {
             msg_type: REGACK,
@@ -181,6 +198,7 @@ impl MqttSnBuilder {
     }
 
     /// PUBLISH message builder.
+    #[must_use]
     pub fn publish() -> Self {
         Self {
             msg_type: PUBLISH,
@@ -189,6 +207,7 @@ impl MqttSnBuilder {
     }
 
     /// PUBACK message builder.
+    #[must_use]
     pub fn puback() -> Self {
         Self {
             msg_type: PUBACK,
@@ -197,6 +216,7 @@ impl MqttSnBuilder {
     }
 
     /// PUBCOMP message builder.
+    #[must_use]
     pub fn pubcomp() -> Self {
         Self {
             msg_type: PUBCOMP,
@@ -205,6 +225,7 @@ impl MqttSnBuilder {
     }
 
     /// PUBREC message builder.
+    #[must_use]
     pub fn pubrec() -> Self {
         Self {
             msg_type: PUBREC,
@@ -213,6 +234,7 @@ impl MqttSnBuilder {
     }
 
     /// PUBREL message builder.
+    #[must_use]
     pub fn pubrel() -> Self {
         Self {
             msg_type: PUBREL,
@@ -221,6 +243,7 @@ impl MqttSnBuilder {
     }
 
     /// SUBSCRIBE message builder.
+    #[must_use]
     pub fn subscribe() -> Self {
         Self {
             msg_type: SUBSCRIBE,
@@ -229,6 +252,7 @@ impl MqttSnBuilder {
     }
 
     /// SUBACK message builder.
+    #[must_use]
     pub fn suback() -> Self {
         Self {
             msg_type: SUBACK,
@@ -237,6 +261,7 @@ impl MqttSnBuilder {
     }
 
     /// UNSUBSCRIBE message builder.
+    #[must_use]
     pub fn unsubscribe() -> Self {
         Self {
             msg_type: UNSUBSCRIBE,
@@ -245,6 +270,7 @@ impl MqttSnBuilder {
     }
 
     /// UNSUBACK message builder.
+    #[must_use]
     pub fn unsuback() -> Self {
         Self {
             msg_type: UNSUBACK,
@@ -253,6 +279,7 @@ impl MqttSnBuilder {
     }
 
     /// PINGREQ message builder.
+    #[must_use]
     pub fn pingreq() -> Self {
         Self {
             msg_type: PINGREQ,
@@ -261,6 +288,7 @@ impl MqttSnBuilder {
     }
 
     /// PINGRESP message builder.
+    #[must_use]
     pub fn pingresp() -> Self {
         Self {
             msg_type: PINGRESP,
@@ -269,6 +297,7 @@ impl MqttSnBuilder {
     }
 
     /// DISCONNECT message builder.
+    #[must_use]
     pub fn disconnect() -> Self {
         Self {
             msg_type: DISCONNECT,
@@ -277,6 +306,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLTOPICUPD message builder.
+    #[must_use]
     pub fn willtopicupd() -> Self {
         Self {
             msg_type: WILLTOPICUPD,
@@ -285,6 +315,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLTOPICRESP message builder.
+    #[must_use]
     pub fn willtopicresp() -> Self {
         Self {
             msg_type: WILLTOPICRESP,
@@ -293,6 +324,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLMSGUPD message builder.
+    #[must_use]
     pub fn willmsgupd() -> Self {
         Self {
             msg_type: WILLMSGUPD,
@@ -301,6 +333,7 @@ impl MqttSnBuilder {
     }
 
     /// WILLMSGRESP message builder.
+    #[must_use]
     pub fn willmsgresp() -> Self {
         Self {
             msg_type: WILLMSGRESP,
@@ -313,138 +346,161 @@ impl MqttSnBuilder {
     // ========================================================================
 
     /// Set the message type byte directly.
+    #[must_use]
     pub fn msg_type(mut self, v: u8) -> Self {
         self.msg_type = v;
         self
     }
 
     /// Set the DUP flag.
+    #[must_use]
     pub fn dup(mut self, v: bool) -> Self {
         self.dup = v;
         self
     }
 
-    /// Set the QoS level (0-3).
+    /// Set the `QoS` level (0-3).
+    #[must_use]
     pub fn qos(mut self, v: u8) -> Self {
         self.qos = v & 0x03;
         self
     }
 
     /// Set the Retain flag.
+    #[must_use]
     pub fn retain(mut self, v: bool) -> Self {
         self.retain = v;
         self
     }
 
     /// Set the Will flag.
+    #[must_use]
     pub fn will(mut self, v: bool) -> Self {
         self.will = v;
         self
     }
 
-    /// Set the CleanSession flag.
+    /// Set the `CleanSession` flag.
+    #[must_use]
     pub fn cleansess(mut self, v: bool) -> Self {
         self.cleansess = v;
         self
     }
 
-    /// Set the TopicIdType (0-3).
+    /// Set the `TopicIdType` (0-3).
+    #[must_use]
     pub fn tid_type(mut self, v: u8) -> Self {
         self.tid_type = v & 0x03;
         self
     }
 
     /// Set the Gateway ID.
+    #[must_use]
     pub fn gw_id(mut self, v: u8) -> Self {
         self.gw_id = v;
         self
     }
 
     /// Set the Duration.
+    #[must_use]
     pub fn duration(mut self, v: u16) -> Self {
         self.duration = v;
         self
     }
 
     /// Set the Radius.
+    #[must_use]
     pub fn radius(mut self, v: u8) -> Self {
         self.radius = v;
         self
     }
 
     /// Set the Gateway Address.
+    #[must_use]
     pub fn gw_addr(mut self, v: &[u8]) -> Self {
         self.gw_addr = v.to_vec();
         self
     }
 
     /// Set the Protocol ID.
+    #[must_use]
     pub fn prot_id(mut self, v: u8) -> Self {
         self.prot_id = v;
         self
     }
 
     /// Set the Client ID (byte slice).
+    #[must_use]
     pub fn client_id(mut self, v: &[u8]) -> Self {
         self.client_id = v.to_vec();
         self
     }
 
     /// Set the Client ID from a string.
+    #[must_use]
     pub fn client_id_str(mut self, v: &str) -> Self {
         self.client_id = v.as_bytes().to_vec();
         self
     }
 
     /// Set the Return Code.
+    #[must_use]
     pub fn return_code(mut self, v: u8) -> Self {
         self.return_code = v;
         self
     }
 
     /// Set the Topic ID.
+    #[must_use]
     pub fn tid(mut self, v: u16) -> Self {
         self.tid = v;
         self
     }
 
     /// Set the Message ID.
+    #[must_use]
     pub fn mid(mut self, v: u16) -> Self {
         self.mid = v;
         self
     }
 
     /// Set the Data / payload bytes.
+    #[must_use]
     pub fn data(mut self, v: &[u8]) -> Self {
         self.data = v.to_vec();
         self
     }
 
     /// Set the Topic Name.
+    #[must_use]
     pub fn topic_name(mut self, v: &[u8]) -> Self {
         self.topic_name = v.to_vec();
         self
     }
 
     /// Set the Topic Name from a string.
+    #[must_use]
     pub fn topic_name_str(mut self, v: &str) -> Self {
         self.topic_name = v.as_bytes().to_vec();
         self
     }
 
     /// Set the Will Topic.
+    #[must_use]
     pub fn will_topic_bytes(mut self, v: &[u8]) -> Self {
         self.will_topic = v.to_vec();
         self
     }
 
     /// Set the Will Topic from a string.
+    #[must_use]
     pub fn will_topic_str(mut self, v: &str) -> Self {
         self.will_topic = v.as_bytes().to_vec();
         self
     }
 
     /// Set the Will Message.
+    #[must_use]
     pub fn will_msg_bytes(mut self, v: &[u8]) -> Self {
         self.will_msg = v.to_vec();
         self
@@ -474,7 +530,7 @@ impl MqttSnBuilder {
         flags
     }
 
-    /// Build the body bytes (everything after the length + msg_type header).
+    /// Build the body bytes (everything after the length + `msg_type` header).
     fn build_body(&self) -> Vec<u8> {
         let mut body = Vec::new();
 
@@ -594,6 +650,7 @@ impl MqttSnBuilder {
     /// Automatically selects 1-byte or 3-byte extended length encoding:
     /// - If total length < 256 and >= 2: single byte
     /// - If total length >= 256: 0x01 prefix + 2-byte BE u16
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let body = self.build_body();
         // Total = length_header + msg_type(1) + body
