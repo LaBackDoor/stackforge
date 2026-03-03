@@ -131,16 +131,14 @@ pub static SMTP_FIELD_NAMES: &[&str] = &[
 // ============================================================================
 
 /// Returns true if `buf` looks like an SMTP control-connection payload.
+#[must_use]
 pub fn is_smtp_payload(buf: &[u8]) -> bool {
     if buf.len() < 3 {
         return false;
     }
     // Check for SMTP reply (3-digit code)
     if buf[0].is_ascii_digit() && buf[1].is_ascii_digit() && buf[2].is_ascii_digit() {
-        if buf.len() >= 4 {
-            return matches!(buf[3], b' ' | b'-' | b'\r' | b'\n');
-        }
-        return true;
+        return buf.len() < 4 || matches!(buf[3], b' ' | b'-' | b'\r' | b'\n');
     }
     // Check for SMTP commands
     if let Ok(text) = std::str::from_utf8(buf) {
@@ -156,6 +154,7 @@ pub fn is_smtp_payload(buf: &[u8]) -> bool {
 // ============================================================================
 
 /// A zero-copy view into an SMTP layer within a packet buffer.
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct SmtpLayer {
     pub index: LayerIndex,
@@ -211,7 +210,7 @@ impl SmtpLayer {
             });
         }
         if s[0].is_ascii_digit() && s[1].is_ascii_digit() && s[2].is_ascii_digit() {
-            Ok(((s[0] - b'0') as u16) * 100 + ((s[1] - b'0') as u16) * 10 + (s[2] - b'0') as u16)
+            Ok(u16::from(s[0] - b'0') * 100 + u16::from(s[1] - b'0') * 10 + u16::from(s[2] - b'0'))
         } else {
             Err(FieldError::InvalidValue(
                 "reply_code: not a valid 3-digit reply code".into(),

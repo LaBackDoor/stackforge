@@ -120,6 +120,7 @@ pub fn is_pop3_payload(buf: &[u8]) -> bool {
 // ============================================================================
 
 /// A zero-copy view into a POP3 layer within a packet buffer.
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct Pop3Layer {
     pub index: LayerIndex,
@@ -193,10 +194,10 @@ impl Pop3Layer {
             .map_err(|_| FieldError::InvalidValue("args: non-UTF8 payload".into()))?;
         let first_line = text.lines().next().unwrap_or("");
         let rest = first_line
-            .splitn(2, ' ')
-            .nth(1)
+            .split_once(' ')
+            .map(|(_, r)| r)
             .unwrap_or("")
-            .trim_end_matches(|c| c == '\r' || c == '\n');
+            .trim_end_matches(['\r', '\n']);
         Ok(rest.to_string())
     }
 
@@ -228,7 +229,7 @@ impl Layer for Pop3Layer {
         let s = self.slice(buf);
         let text = String::from_utf8_lossy(s);
         let first_line = text.lines().next().unwrap_or("").trim_end_matches('\r');
-        format!("POP3 {}", first_line)
+        format!("POP3 {first_line}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -249,6 +250,7 @@ impl Layer for Pop3Layer {
 }
 
 /// Returns a human-readable display of POP3 layer fields.
+#[must_use]
 pub fn pop3_show_fields(l: &Pop3Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
     if l.is_response(buf) {
@@ -259,10 +261,8 @@ pub fn pop3_show_fields(l: &Pop3Layer, buf: &[u8]) -> Vec<(&'static str, String)
         if let Ok(text) = l.response_text(buf) {
             fields.push(("response_text", text));
         }
-    } else {
-        if let Ok(cmd) = l.command(buf) {
-            fields.push(("command", cmd));
-        }
+    } else if let Ok(cmd) = l.command(buf) {
+        fields.push(("command", cmd));
         if let Ok(args) = l.args(buf) {
             if !args.is_empty() {
                 fields.push(("args", args));
