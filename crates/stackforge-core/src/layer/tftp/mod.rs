@@ -170,6 +170,10 @@ impl TftpLayer {
     }
 
     /// Returns the 2-byte opcode.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::BufferTooShort`] if fewer than 2 bytes are available.
     pub fn opcode(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let s = self.slice(buf);
         if s.len() < 2 {
@@ -183,6 +187,10 @@ impl TftpLayer {
     }
 
     /// Returns the opcode name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::BufferTooShort`] if fewer than 2 bytes are available.
     pub fn op_name(&self, buf: &[u8]) -> Result<String, FieldError> {
         self.opcode(buf).map(|op| opcode_name(op).to_string())
     }
@@ -190,6 +198,12 @@ impl TftpLayer {
     /// Returns the filename from a RRQ or WRQ packet.
     ///
     /// The filename is a null-terminated string starting at byte 2.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the opcode is not RRQ/WRQ or the
+    /// filename bytes are not valid UTF-8, or [`FieldError::BufferTooShort`] if
+    /// the buffer is too small.
     pub fn filename(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let opcode = self.opcode(buf)?;
@@ -217,6 +231,11 @@ impl TftpLayer {
     }
 
     /// Returns the mode string from a RRQ or WRQ packet ("netascii", "octet", "mail").
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the opcode is not RRQ/WRQ or the
+    /// mode bytes are not valid UTF-8.
     pub fn mode(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let opcode = self.opcode(buf)?;
@@ -244,6 +263,11 @@ impl TftpLayer {
     }
 
     /// Returns the block number from a DATA or ACK packet.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the opcode is not DATA/ACK, or
+    /// [`FieldError::BufferTooShort`] if fewer than 4 bytes are available.
     pub fn block_num(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let s = self.slice(buf);
         let opcode = self.opcode(buf)?;
@@ -263,6 +287,11 @@ impl TftpLayer {
     }
 
     /// Returns the data payload from a DATA packet.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the opcode is not DATA, or
+    /// [`FieldError::BufferTooShort`] if fewer than 4 bytes are available.
     pub fn data(&self, buf: &[u8]) -> Result<Vec<u8>, FieldError> {
         let s = self.slice(buf);
         let opcode = self.opcode(buf)?;
@@ -282,6 +311,11 @@ impl TftpLayer {
     }
 
     /// Returns the error code from an ERROR packet.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the opcode is not ERROR, or
+    /// [`FieldError::BufferTooShort`] if fewer than 4 bytes are available.
     pub fn error_code(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let s = self.slice(buf);
         let opcode = self.opcode(buf)?;
@@ -301,6 +335,12 @@ impl TftpLayer {
     }
 
     /// Returns the error message from an ERROR packet.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the opcode is not ERROR or the
+    /// message is not valid UTF-8, or [`FieldError::BufferTooShort`] if fewer
+    /// than 5 bytes are available.
     pub fn error_msg(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let opcode = self.opcode(buf)?;
@@ -389,9 +429,8 @@ impl Layer for TftpLayer {
         }
         let opcode = u16::from_be_bytes([s[0], s[1]]);
         match opcode {
-            OPCODE_RRQ | OPCODE_WRQ => s.len(),         // variable
-            OPCODE_DATA | OPCODE_ACK => 4.min(s.len()), // opcode + block#, data is payload
-            OPCODE_ERROR => s.len(),
+            OPCODE_RRQ | OPCODE_WRQ | OPCODE_ERROR => s.len(), // variable-length
+            OPCODE_DATA | OPCODE_ACK => 4.min(s.len()),        // opcode + block#, data is payload
             _ => 2,
         }
     }

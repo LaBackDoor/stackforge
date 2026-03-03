@@ -4,10 +4,10 @@
 //! for client commands, tagged responses, untagged responses, and continuation requests.
 
 use stackforge_core::layer::imap::{
-    CMD_CAPABILITY, CMD_CLOSE, CMD_COPY, CMD_CREATE, CMD_DELETE, CMD_EXAMINE, CMD_EXPUNGE,
-    CMD_FETCH, CMD_LOGIN, CMD_LOGOUT, CMD_NOOP, CMD_SEARCH, CMD_SELECT, CMD_STARTTLS, CMD_STORE,
-    CMD_SUBSCRIBE, CMD_UNSUBSCRIBE, IMAP_FIELD_NAMES, IMAP_MIN_HEADER_LEN, IMAP_PORT, ImapBuilder,
-    ImapLayer, STATUS_BAD, STATUS_BYE, STATUS_NO, STATUS_OK, STATUS_PREAUTH, is_imap_payload,
+    CMD_CAPABILITY, CMD_CLOSE, CMD_COPY, CMD_EXAMINE, CMD_EXPUNGE, CMD_FETCH, CMD_LOGIN,
+    CMD_LOGOUT, CMD_NOOP, CMD_SEARCH, CMD_SELECT, CMD_STARTTLS, CMD_STORE, IMAP_FIELD_NAMES,
+    IMAP_MIN_HEADER_LEN, IMAP_PORT, ImapBuilder, ImapLayer, STATUS_BAD, STATUS_BYE, STATUS_NO,
+    STATUS_OK, STATUS_PREAUTH, is_imap_payload,
 };
 use stackforge_core::layer::stack::{LayerStack, LayerStackEntry};
 use stackforge_core::layer::tcp::builder::TcpBuilder;

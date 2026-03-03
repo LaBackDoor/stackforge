@@ -251,6 +251,10 @@ impl FtpLayer {
     /// Returns the FTP command verb (for client messages).
     ///
     /// Returns `Err` if this is a server reply, not a command.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn command(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)
@@ -270,6 +274,10 @@ impl FtpLayer {
     }
 
     /// Returns the command arguments (everything after the verb on the first line).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn args(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)
@@ -284,6 +292,11 @@ impl FtpLayer {
     }
 
     /// Returns the 3-digit reply code (for server replies).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::BufferTooShort`] if fewer than 3 bytes are available,
+    /// or [`FieldError::InvalidValue`] if the first 3 bytes are not ASCII digits.
     pub fn reply_code(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let s = self.slice(buf);
         if s.len() < 3 {
@@ -305,6 +318,11 @@ impl FtpLayer {
     }
 
     /// Returns the reply text (text following the code, stripped of CR/LF).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8 or
+    /// does not begin with a valid 3-digit reply code.
     pub fn reply_text(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)

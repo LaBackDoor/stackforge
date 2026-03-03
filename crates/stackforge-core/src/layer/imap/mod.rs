@@ -292,6 +292,10 @@ impl ImapLayer {
     /// Returns the tag from a tagged command or response.
     ///
     /// Returns "*" for untagged, "+" for continuation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn tag(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         if s.starts_with(b"* ") {
@@ -307,6 +311,10 @@ impl ImapLayer {
     }
 
     /// Returns the command verb for a client command.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the IMAP line cannot be parsed.
     pub fn command(&self, buf: &[u8]) -> Result<String, FieldError> {
         let line = self.first_line(buf);
         // Untagged: "* <number> <command> ..." or "* <status> ..."
@@ -330,6 +338,10 @@ impl ImapLayer {
     }
 
     /// Returns the arguments / data portion of the line.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn args(&self, buf: &[u8]) -> Result<String, FieldError> {
         let line = self.first_line(buf);
         // Untagged
@@ -351,6 +363,10 @@ impl ImapLayer {
     }
 
     /// Returns the status from a tagged or untagged server response (OK/NO/BAD/BYE/PREAUTH).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the command verb is not a known status keyword.
     pub fn status(&self, buf: &[u8]) -> Result<String, FieldError> {
         let cmd = self.command(buf)?;
         if matches!(cmd.as_str(), "OK" | "NO" | "BAD" | "BYE" | "PREAUTH") {
@@ -363,6 +379,10 @@ impl ImapLayer {
     }
 
     /// Returns the text body of a server response (after the status code).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn text(&self, buf: &[u8]) -> Result<String, FieldError> {
         let args = self.args(buf)?;
         Ok(args)

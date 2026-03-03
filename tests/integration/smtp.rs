@@ -6,9 +6,8 @@
 use stackforge_core::layer::smtp::{
     CMD_AUTH, CMD_DATA, CMD_EHLO, CMD_HELO, CMD_MAIL, CMD_QUIT, CMD_RCPT, CMD_STARTTLS,
     REPLY_AUTH_FAILED, REPLY_AUTH_SUCCESS, REPLY_CLOSING, REPLY_DATA_INPUT, REPLY_OK,
-    REPLY_SERVICE_READY, REPLY_SERVICE_UNAVAIL, SMTP_FIELD_NAMES, SMTP_MIN_HEADER_LEN, SMTP_PORT,
-    SMTP_SUBMISSION_PORT, SMTPS_PORT, SmtpBuilder, SmtpLayer, is_smtp_payload,
-    reply_code_description,
+    REPLY_SERVICE_READY, SMTP_FIELD_NAMES, SMTP_MIN_HEADER_LEN, SMTP_PORT, SMTP_SUBMISSION_PORT,
+    SMTPS_PORT, SmtpBuilder, SmtpLayer, is_smtp_payload, reply_code_description,
 };
 use stackforge_core::layer::stack::{LayerStack, LayerStackEntry};
 use stackforge_core::layer::tcp::builder::TcpBuilder;

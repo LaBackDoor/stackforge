@@ -163,17 +163,20 @@ impl Pop3Layer {
     }
 
     /// Returns the response text after +OK or -ERR (trimmed).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8 or
+    /// does not begin with `+OK` or `-ERR`.
     pub fn response_text(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)
             .map_err(|_| FieldError::InvalidValue("response_text: non-UTF8 payload".into()))?;
         let first_line = text.lines().next().unwrap_or("").trim_end_matches('\r');
-        if first_line.starts_with("+OK") {
-            let rest = first_line[3..].trim_start_matches(' ');
-            Ok(rest.to_string())
-        } else if first_line.starts_with("-ERR") {
-            let rest = first_line[4..].trim_start_matches(' ');
-            Ok(rest.to_string())
+        if let Some(rest) = first_line.strip_prefix("+OK") {
+            Ok(rest.trim_start_matches(' ').to_string())
+        } else if let Some(rest) = first_line.strip_prefix("-ERR") {
+            Ok(rest.trim_start_matches(' ').to_string())
         } else {
             Err(FieldError::InvalidValue(
                 "response_text: not a POP3 response".into(),
@@ -182,6 +185,10 @@ impl Pop3Layer {
     }
 
     /// Returns the command verb (for client commands).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn command(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)
@@ -191,6 +198,10 @@ impl Pop3Layer {
     }
 
     /// Returns the command arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn args(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)

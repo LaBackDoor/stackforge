@@ -202,6 +202,11 @@ impl SmtpLayer {
     }
 
     /// Returns the 3-digit reply code.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::BufferTooShort`] if fewer than 3 bytes are available,
+    /// or [`FieldError::InvalidValue`] if the first 3 bytes are not ASCII digits.
     pub fn reply_code(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let s = self.slice(buf);
         if s.len() < 3 {
@@ -221,6 +226,11 @@ impl SmtpLayer {
     }
 
     /// Returns the reply text (after the code and separator).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload does not begin with a
+    /// valid 3-digit reply code.
     pub fn reply_text(&self, buf: &[u8]) -> Result<String, FieldError> {
         let line = self.first_line(buf);
         if line.len() >= 4 {
@@ -235,6 +245,10 @@ impl SmtpLayer {
     }
 
     /// Returns the command verb (for client commands).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn command(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)
@@ -244,6 +258,10 @@ impl SmtpLayer {
     }
 
     /// Returns the command arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not valid UTF-8.
     pub fn args(&self, buf: &[u8]) -> Result<String, FieldError> {
         let s = self.slice(buf);
         let text = std::str::from_utf8(s)
@@ -260,6 +278,10 @@ impl SmtpLayer {
     ///
     /// Input: `MAIL FROM:<user@example.com>`
     /// Output: `user@example.com`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not a `MAIL FROM` command.
     pub fn mailfrom(&self, buf: &[u8]) -> Result<String, FieldError> {
         let args = self.args(buf)?;
         let upper_args = args.to_ascii_uppercase();
@@ -276,6 +298,10 @@ impl SmtpLayer {
     ///
     /// Input: `RCPT TO:<user@example.com>`
     /// Output: `user@example.com`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FieldError::InvalidValue`] if the payload is not a `RCPT TO` command.
     pub fn rcptto(&self, buf: &[u8]) -> Result<String, FieldError> {
         let args = self.args(buf)?;
         let upper_args = args.to_ascii_uppercase();
