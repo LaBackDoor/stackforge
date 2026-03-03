@@ -35,6 +35,7 @@ pub struct FragmentInfo {
 
 impl FragmentInfo {
     /// Get the end offset (offset + length).
+    #[must_use]
     pub fn end_offset(&self) -> u32 {
         self.offset + self.length as u32
     }
@@ -71,11 +72,13 @@ impl Default for Ipv4Fragmenter {
 
 impl Ipv4Fragmenter {
     /// Create a new fragmenter with default MTU.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create a fragmenter with a specific MTU.
+    #[must_use]
     pub fn with_mtu(mtu: usize) -> Self {
         Self {
             mtu,
@@ -84,18 +87,21 @@ impl Ipv4Fragmenter {
     }
 
     /// Set the MTU.
+    #[must_use]
     pub fn mtu(mut self, mtu: usize) -> Self {
         self.mtu = mtu;
         self
     }
 
     /// Set whether to copy options to non-first fragments.
+    #[must_use]
     pub fn copy_options(mut self, copy: bool) -> Self {
         self.copy_options = copy;
         self
     }
 
     /// Check if a packet needs fragmentation.
+    #[must_use]
     pub fn needs_fragmentation(&self, packet: &[u8]) -> bool {
         packet.len() > self.mtu
     }
@@ -168,7 +174,7 @@ impl Ipv4Fragmenter {
         let mut is_first = true;
 
         // Original fragment offset (in case we're fragmenting a fragment)
-        let original_offset = layer.frag_offset(packet).unwrap_or(0) as u32 * 8;
+        let original_offset = u32::from(layer.frag_offset(packet).unwrap_or(0)) * 8;
         let original_mf = flags.mf;
 
         while remaining > 0 {
@@ -187,10 +193,10 @@ impl Ipv4Fragmenter {
             let is_last = frag_payload_len == remaining && !original_mf;
 
             // Ensure non-last fragments have payload that's multiple of 8
-            let actual_payload_len = if !is_last {
-                (frag_payload_len / 8) * 8
-            } else {
+            let actual_payload_len = if is_last {
                 frag_payload_len
+            } else {
+                (frag_payload_len / 8) * 8
             };
 
             if actual_payload_len == 0 {
@@ -241,7 +247,9 @@ impl Ipv4Fragmenter {
         let frag_options = if is_first {
             options.clone()
         } else if self.copy_options {
-            options.as_ref().map(|o| o.copied_options())
+            options
+                .as_ref()
+                .map(super::options::Ipv4Options::copied_options)
         } else {
             None
         };
@@ -322,18 +330,16 @@ impl std::fmt::Display for FragmentError {
             Self::DontFragmentSet { packet_size, mtu } => {
                 write!(
                     f,
-                    "packet size {} exceeds MTU {} but DF flag is set",
-                    packet_size, mtu
+                    "packet size {packet_size} exceeds MTU {mtu} but DF flag is set"
                 )
             },
             Self::MtuTooSmall { mtu, min_required } => {
                 write!(
                     f,
-                    "MTU {} is too small, minimum required is {}",
-                    mtu, min_required
+                    "MTU {mtu} is too small, minimum required is {min_required}"
                 )
             },
-            Self::ParseError(msg) => write!(f, "parse error: {}", msg),
+            Self::ParseError(msg) => write!(f, "parse error: {msg}"),
         }
     }
 }
@@ -379,6 +385,7 @@ pub struct FragmentGroup {
 
 impl FragmentGroup {
     /// Create a new fragment group.
+    #[must_use]
     pub fn new(key: FragmentKey) -> Self {
         Self {
             key,
@@ -395,7 +402,7 @@ impl FragmentGroup {
         let header_len = layer.calculate_header_len(packet);
         let total_len = layer.total_len(packet)? as usize;
         let flags = layer.flags(packet)?;
-        let offset = layer.frag_offset(packet)? as u32 * 8;
+        let offset = u32::from(layer.frag_offset(packet)?) * 8;
         let payload_len = total_len.saturating_sub(header_len);
 
         // Store first fragment header
@@ -420,6 +427,7 @@ impl FragmentGroup {
     }
 
     /// Check if all fragments have been received.
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         let total = match self.total_length {
             Some(t) => t,
@@ -520,7 +528,7 @@ impl std::fmt::Display for ReassemblyError {
             Self::Incomplete => write!(f, "not all fragments received"),
             Self::MissingFirstFragment => write!(f, "first fragment not received"),
             Self::Overlap => write!(f, "fragment overlap detected"),
-            Self::ParseError(msg) => write!(f, "parse error: {}", msg),
+            Self::ParseError(msg) => write!(f, "parse error: {msg}"),
             Self::Timeout => write!(f, "timeout waiting for fragments"),
         }
     }

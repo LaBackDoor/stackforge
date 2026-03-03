@@ -1,16 +1,17 @@
 //! TLS Finished message (type 20).
 //!
-//! Contains verify_data computed from the handshake transcript.
+//! Contains `verify_data` computed from the handshake transcript.
 
 /// TLS Finished message.
 #[derive(Debug, Clone)]
 pub struct Finished {
-    /// The verify_data (12 bytes for TLS 1.2, hash_len for TLS 1.3).
+    /// The `verify_data` (12 bytes for TLS 1.2, `hash_len` for TLS 1.3).
     pub verify_data: Vec<u8>,
 }
 
 impl Finished {
     /// Parse Finished message from body bytes.
+    #[must_use]
     pub fn parse(data: &[u8]) -> Self {
         Self {
             verify_data: data.to_vec(),
@@ -18,6 +19,7 @@ impl Finished {
     }
 
     /// Build Finished message body.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         self.verify_data.clone()
     }

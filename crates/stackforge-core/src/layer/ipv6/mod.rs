@@ -44,6 +44,7 @@ pub struct Ipv6Layer {
 impl Ipv6Layer {
     /// Create a new IPv6 layer view with specified bounds.
     #[inline]
+    #[must_use]
     pub const fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Ipv6, start, end),
@@ -52,12 +53,14 @@ impl Ipv6Layer {
 
     /// Create a layer at offset 0 with IPv6 header length.
     #[inline]
+    #[must_use]
     pub const fn at_start() -> Self {
         Self::new(0, IPV6_HEADER_LEN)
     }
 
     /// Create a layer at the specified offset.
     #[inline]
+    #[must_use]
     pub const fn at_offset(offset: usize) -> Self {
         Self::new(offset, offset + IPV6_HEADER_LEN)
     }
@@ -103,7 +106,8 @@ impl Ipv6Layer {
                 have: slice.len(),
             });
         }
-        let fl = ((slice[1] as u32 & 0x0F) << 16) | ((slice[2] as u32) << 8) | (slice[3] as u32);
+        let fl =
+            ((u32::from(slice[1]) & 0x0F) << 16) | (u32::from(slice[2]) << 8) | u32::from(slice[3]);
         Ok(fl)
     }
 
@@ -313,6 +317,7 @@ impl Ipv6Layer {
     }
 
     /// Get the list of field names for this layer.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &["version", "tc", "fl", "plen", "nh", "hlim", "src", "dst"]
     }
@@ -320,24 +325,25 @@ impl Ipv6Layer {
     // ========== Utility Methods ==========
 
     /// Generate a human-readable summary string.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let src = self
             .src(buf)
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| "?".to_string());
+            .map_or_else(|_| "?".to_string(), |a| a.to_string());
         let dst = self
             .dst(buf)
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| "?".to_string());
-        format!("IPv6 {} > {}", src, dst)
+            .map_or_else(|_| "?".to_string(), |a| a.to_string());
+        format!("IPv6 {src} > {dst}")
     }
 
     /// Get the header length (always 40 for IPv6 base header).
+    #[must_use]
     pub fn header_len(&self, _buf: &[u8]) -> usize {
         IPV6_HEADER_LEN
     }
 
     /// Determine the next layer kind based on next header value.
+    #[must_use]
     pub fn next_layer(&self, buf: &[u8]) -> Option<LayerKind> {
         use crate::layer::ipv4::protocol;
         self.next_header(buf).ok().and_then(|nh| match nh {
@@ -349,6 +355,7 @@ impl Ipv6Layer {
     }
 
     /// Compute hash for packet matching (like Scapy's hashret).
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let src = self.src(buf).map(|ip| ip.octets()).unwrap_or([0; 16]);
         let dst = self.dst(buf).map(|ip| ip.octets()).unwrap_or([0; 16]);
@@ -362,7 +369,8 @@ impl Ipv6Layer {
         result
     }
 
-    /// Check if this packet answers another (for sr() matching).
+    /// Check if this packet answers another (for `sr()` matching).
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &Ipv6Layer, other_buf: &[u8]) -> bool {
         let self_src = self.src(buf).ok();
         let self_dst = self.dst(buf).ok();

@@ -1,10 +1,10 @@
-//! SSLv2 record format parsing.
+//! `SSLv2` record format parsing.
 //!
-//! SSLv2 has two record header formats:
+//! `SSLv2` has two record header formats:
 //! - 2-byte header (MSB set): length = (byte0 & 0x7F) << 8 | byte1, no padding
 //! - 3-byte header (MSB clear): length = (byte0 & 0x3F) << 8 | byte1, padding = byte2
 
-/// Parsed SSLv2 record.
+/// Parsed `SSLv2` record.
 #[derive(Debug, Clone)]
 pub struct Sslv2Record {
     /// Header length (2 or 3 bytes).
@@ -17,9 +17,10 @@ pub struct Sslv2Record {
     pub data: Vec<u8>,
 }
 
-/// Parse an SSLv2 record from raw bytes.
+/// Parse an `SSLv2` record from raw bytes.
 ///
 /// Returns the record and number of bytes consumed.
+#[must_use]
 pub fn parse_sslv2_record(data: &[u8]) -> Option<(Sslv2Record, usize)> {
     if data.len() < 2 {
         return None;
@@ -58,7 +59,8 @@ pub fn parse_sslv2_record(data: &[u8]) -> Option<(Sslv2Record, usize)> {
 }
 
 impl Sslv2Record {
-    /// Build SSLv2 record with 2-byte header.
+    /// Build `SSLv2` record with 2-byte header.
+    #[must_use]
     pub fn build(data: &[u8]) -> Vec<u8> {
         let length = data.len();
         let mut buf = Vec::with_capacity(2 + length);
@@ -69,6 +71,7 @@ impl Sslv2Record {
     }
 
     /// Get the message type byte (first byte of data).
+    #[must_use]
     pub fn msg_type(&self) -> Option<u8> {
         self.data.first().copied()
     }

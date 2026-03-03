@@ -9,7 +9,7 @@ use crate::layer::{Layer, LayerIndex, LayerKind, ethertype};
 /// Ethernet header length in bytes.
 pub const ETHERNET_HEADER_LEN: usize = 14;
 
-/// Maximum value for 802.3 length field (values > 1500 are EtherTypes)
+/// Maximum value for 802.3 length field (values > 1500 are `EtherTypes`)
 pub const DOT3_MAX_LENGTH: u16 = 1500;
 
 /// Field offsets within Ethernet header.
@@ -36,7 +36,7 @@ pub static DOT3_FIELDS: &[FieldDesc] = &[
 /// Frame type discrimination result
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EthernetFrameType {
-    /// Ethernet II (EtherType > 1500)
+    /// Ethernet II (`EtherType` > 1500)
     EthernetII,
     /// IEEE 802.3 (length field <= 1500)
     Dot3,
@@ -44,6 +44,7 @@ pub enum EthernetFrameType {
 
 /// Dispatch hook to determine frame type (Ethernet II vs 802.3)
 #[inline]
+#[must_use]
 pub fn dispatch_hook(buf: &[u8], offset: usize) -> EthernetFrameType {
     if buf.len() < offset + ETHERNET_HEADER_LEN {
         return EthernetFrameType::EthernetII;
@@ -60,12 +61,14 @@ pub fn dispatch_hook(buf: &[u8], offset: usize) -> EthernetFrameType {
 
 /// Check if a frame at offset is 802.3 (not Ethernet II)
 #[inline]
+#[must_use]
 pub fn is_dot3(buf: &[u8], offset: usize) -> bool {
     dispatch_hook(buf, offset) == EthernetFrameType::Dot3
 }
 
 /// Check if a frame at offset is Ethernet II
 #[inline]
+#[must_use]
 pub fn is_ethernet_ii(buf: &[u8], offset: usize) -> bool {
     dispatch_hook(buf, offset) == EthernetFrameType::EthernetII
 }
@@ -78,6 +81,7 @@ pub struct EthernetLayer {
 
 impl EthernetLayer {
     #[inline]
+    #[must_use]
     pub const fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Ethernet, start, end),
@@ -85,11 +89,13 @@ impl EthernetLayer {
     }
 
     #[inline]
+    #[must_use]
     pub const fn at_start() -> Self {
         Self::new(0, ETHERNET_HEADER_LEN)
     }
 
     #[inline]
+    #[must_use]
     pub const fn at_offset(offset: usize) -> Self {
         Self::new(offset, offset + ETHERNET_HEADER_LEN)
     }
@@ -107,6 +113,7 @@ impl EthernetLayer {
     }
 
     /// Dispatch hook: returns appropriate layer type based on type/length field
+    #[must_use]
     pub fn dispatch(buf: &[u8], offset: usize) -> EthernetFrameType {
         dispatch_hook(buf, offset)
     }
@@ -144,6 +151,7 @@ impl EthernetLayer {
     }
 
     // ========== Dynamic Field Access ==========
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         FIELDS
             .iter()
@@ -172,12 +180,14 @@ impl EthernetLayer {
         self.set_field(buf, name, value.into())
     }
 
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &["dst", "src", "type"]
     }
 
     /// Compute hash for packet matching.
     /// Returns type field + payload hash for matching request/response pairs.
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let etype = self.ethertype(buf).unwrap_or(0);
         etype.to_be_bytes().to_vec()
@@ -186,6 +196,7 @@ impl EthernetLayer {
 
     /// Check if this packet answers another.
     /// For Ethernet, this delegates to payload matching.
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &EthernetLayer, other_buf: &[u8]) -> bool {
         // Types must match
         if self.ethertype(buf) != other.ethertype(other_buf) {
@@ -197,6 +208,7 @@ impl EthernetLayer {
     }
 
     /// Extract padding (Ethernet II has no padding concept at this layer)
+    #[must_use]
     pub fn extract_padding<'a>(&self, buf: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         let payload_start = self.index.end.min(buf.len());
         (&buf[payload_start..], &[])
@@ -204,15 +216,18 @@ impl EthernetLayer {
 
     // ========== Utility Methods ==========
     #[inline]
+    #[must_use]
     pub fn payload<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         &buf[self.index.end..]
     }
 
     #[inline]
+    #[must_use]
     pub fn payload_copy(&self, buf: &[u8]) -> Vec<u8> {
         buf[self.index.end..].to_vec()
     }
 
+    #[must_use]
     pub fn next_layer(&self, buf: &[u8]) -> Option<LayerKind> {
         self.ethertype(buf).ok().and_then(|t| match t {
             ethertype::IPV4 => Some(LayerKind::Ipv4),
@@ -224,31 +239,36 @@ impl EthernetLayer {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_broadcast(&self, buf: &[u8]) -> bool {
         self.dst(buf).map(|m| m.is_broadcast()).unwrap_or(false)
     }
 
     #[inline]
+    #[must_use]
     pub fn is_multicast(&self, buf: &[u8]) -> bool {
         self.dst(buf).map(|m| m.is_multicast()).unwrap_or(false)
     }
 
     #[inline]
+    #[must_use]
     pub fn is_unicast(&self, buf: &[u8]) -> bool {
         self.dst(buf).map(|m| m.is_unicast()).unwrap_or(false)
     }
 
     #[inline]
+    #[must_use]
     pub fn header_bytes<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         &buf[self.index.start..self.index.end.min(buf.len())]
     }
 
     #[inline]
+    #[must_use]
     pub fn header_copy(&self, buf: &[u8]) -> Vec<u8> {
         self.header_bytes(buf).to_vec()
     }
 
-    /// Get EtherType name
+    /// Get `EtherType` name
     pub fn ethertype_name(&self, buf: &[u8]) -> &'static str {
         self.ethertype(buf)
             .map(ethertype::name)
@@ -256,6 +276,7 @@ impl EthernetLayer {
     }
 
     /// Routing for Ethernet layer
+    #[must_use]
     pub fn route(&self, _buf: &[u8]) -> Option<String> {
         // Would delegate to payload for actual routing
         // For now, return None - caller must use payload's route()
@@ -269,14 +290,8 @@ impl Layer for EthernetLayer {
     }
 
     fn summary(&self, buf: &[u8]) -> String {
-        let dst = self
-            .dst(buf)
-            .map(|m| m.to_string())
-            .unwrap_or_else(|_| "?".into());
-        let src = self
-            .src(buf)
-            .map(|m| m.to_string())
-            .unwrap_or_else(|_| "?".into());
+        let dst = self.dst(buf).map_or_else(|_| "?".into(), |m| m.to_string());
+        let src = self.src(buf).map_or_else(|_| "?".into(), |m| m.to_string());
         let etype = self.ethertype(buf).unwrap_or(0);
         format!("{} > {} ({})", src, dst, ethertype::name(etype))
     }
@@ -302,7 +317,7 @@ impl Layer for EthernetLayer {
 // IEEE 802.3 Layer
 // ============================================================================
 
-/// IEEE 802.3 frame (uses length field instead of EtherType)
+/// IEEE 802.3 frame (uses length field instead of `EtherType`)
 #[derive(Debug, Clone)]
 pub struct Dot3Layer {
     pub index: LayerIndex,
@@ -310,6 +325,7 @@ pub struct Dot3Layer {
 
 impl Dot3Layer {
     #[inline]
+    #[must_use]
     pub const fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Raw, start, end),
@@ -317,11 +333,13 @@ impl Dot3Layer {
     }
 
     #[inline]
+    #[must_use]
     pub const fn at_start() -> Self {
         Self::new(0, ETHERNET_HEADER_LEN)
     }
 
     #[inline]
+    #[must_use]
     pub const fn at_offset(offset: usize) -> Self {
         Self::new(offset, offset + ETHERNET_HEADER_LEN)
     }
@@ -349,7 +367,7 @@ impl Dot3Layer {
         MacAddress::read(buf, self.index.start + offsets::SRC)
     }
 
-    /// Length field (not EtherType!)
+    /// Length field (not `EtherType`!)
     #[inline]
     pub fn len_field(&self, buf: &[u8]) -> Result<u16, FieldError> {
         u16::read(buf, self.index.start + offsets::TYPE)
@@ -372,6 +390,7 @@ impl Dot3Layer {
     }
 
     /// Extract padding based on length field
+    #[must_use]
     pub fn extract_padding<'a>(&self, buf: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         let len = self.len_field(buf).unwrap_or(0) as usize;
         let payload_start = self.index.end;
@@ -381,30 +400,28 @@ impl Dot3Layer {
     }
 
     /// Hash for packet matching
+    #[must_use]
     pub fn hashret(&self, _buf: &[u8]) -> Vec<u8> {
         // 802.3 hashret delegates to payload
         vec![]
     }
 
     /// Check if this answers another packet
+    #[must_use]
     pub fn answers(&self, _buf: &[u8], _other: &Dot3Layer, _other_buf: &[u8]) -> bool {
         // Delegates to payload
         true
     }
 
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
-        let dst = self
-            .dst(buf)
-            .map(|m| m.to_string())
-            .unwrap_or_else(|_| "?".into());
-        let src = self
-            .src(buf)
-            .map(|m| m.to_string())
-            .unwrap_or_else(|_| "?".into());
-        format!("802.3 {} > {}", src, dst)
+        let dst = self.dst(buf).map_or_else(|_| "?".into(), |m| m.to_string());
+        let src = self.src(buf).map_or_else(|_| "?".into(), |m| m.to_string());
+        format!("802.3 {src} > {dst}")
     }
 
     // ========== Dynamic Field Access ==========
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         DOT3_FIELDS
             .iter()
@@ -424,6 +441,7 @@ impl Dot3Layer {
             .map(|desc| value.write(buf, &desc.with_offset(self.index.start)))
     }
 
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &["dst", "src", "len"]
     }
@@ -451,23 +469,28 @@ impl Default for EthernetBuilder {
 }
 
 impl EthernetBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn dst(mut self, mac: MacAddress) -> Self {
         self.dst = mac;
         self
     }
+    #[must_use]
     pub fn src(mut self, mac: MacAddress) -> Self {
         self.src = mac;
         self
     }
+    #[must_use]
     pub fn ethertype(mut self, etype: u16) -> Self {
         self.ethertype = etype;
         self
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = vec![0u8; ETHERNET_HEADER_LEN];
         self.build_into(&mut buf)
@@ -483,6 +506,7 @@ impl EthernetBuilder {
         Ok(())
     }
 
+    #[must_use]
     pub fn build_with_payload(&self, payload_kind: LayerKind) -> Vec<u8> {
         let etype = match payload_kind {
             LayerKind::Ipv4 => ethertype::IPV4,
@@ -522,23 +546,28 @@ impl Default for Dot3Builder {
 }
 
 impl Dot3Builder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn dst(mut self, mac: MacAddress) -> Self {
         self.dst = mac;
         self
     }
+    #[must_use]
     pub fn src(mut self, mac: MacAddress) -> Self {
         self.src = mac;
         self
     }
+    #[must_use]
     pub fn len(mut self, len: u16) -> Self {
         self.len = Some(len);
         self
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = vec![0u8; ETHERNET_HEADER_LEN];
         self.build_into(&mut buf)
@@ -555,6 +584,7 @@ impl Dot3Builder {
     }
 
     /// Build with auto-calculated length based on payload
+    #[must_use]
     pub fn build_with_payload(&self, payload_len: usize) -> Vec<u8> {
         let mut buf = vec![0u8; ETHERNET_HEADER_LEN];
         let layer = Dot3Layer::at_start();

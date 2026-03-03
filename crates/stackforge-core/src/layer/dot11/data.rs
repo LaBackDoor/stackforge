@@ -1,25 +1,25 @@
-//! IEEE 802.11 data frame subtypes and QoS handling.
+//! IEEE 802.11 data frame subtypes and `QoS` handling.
 //!
 //! Data frames carry the actual payload data in 802.11 networks.
-//! QoS data frames include a 2-byte QoS Control field after the
+//! `QoS` data frames include a 2-byte `QoS` Control field after the
 //! 802.11 header (and before the payload/security headers).
 
 use crate::layer::field::FieldError;
 
-/// QoS Control field length.
+/// `QoS` Control field length.
 pub const QOS_CTRL_LEN: usize = 2;
 
 /// LLC/SNAP header length.
 pub const LLC_SNAP_LEN: usize = 8;
 
-/// LLC/SNAP header: AA:AA:03:00:00:00 followed by 2-byte EtherType.
+/// LLC/SNAP header: AA:AA:03:00:00:00 followed by 2-byte `EtherType`.
 pub const LLC_SNAP_PREFIX: [u8; 6] = [0xAA, 0xAA, 0x03, 0x00, 0x00, 0x00];
 
 // ============================================================================
 // Dot11QoS
 // ============================================================================
 
-/// 802.11 QoS Control field (2 bytes).
+/// 802.11 `QoS` Control field (2 bytes).
 ///
 /// Layout (Scapy bit ordering for byte 0):
 /// ```text
@@ -27,13 +27,14 @@ pub const LLC_SNAP_PREFIX: [u8; 6] = [0xAA, 0xAA, 0x03, 0x00, 0x00, 0x00];
 /// Byte 1: TXOP Limit / Queue Size
 /// ```
 ///
-/// Present in QoS Data frames (subtype >= 8).
+/// Present in `QoS` Data frames (subtype >= 8).
 #[derive(Debug, Clone)]
 pub struct Dot11QoS {
     pub offset: usize,
 }
 
 impl Dot11QoS {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -50,7 +51,7 @@ impl Dot11QoS {
         Ok(())
     }
 
-    /// Raw QoS Control field (2 bytes, little-endian).
+    /// Raw `QoS` Control field (2 bytes, little-endian).
     pub fn raw(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let off = self.offset;
         if buf.len() < off + 2 {
@@ -129,11 +130,13 @@ impl Dot11QoS {
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         QOS_CTRL_LEN
     }
 
-    /// Build QoS Control field bytes.
+    /// Build `QoS` Control field bytes.
+    #[must_use]
     pub fn build(tid: u8, eosp: bool, ack_policy: u8, a_msdu: bool, txop: u8) -> Vec<u8> {
         let byte0 = (tid & 0x0F)
             | (if eosp { 0x10 } else { 0 })
@@ -148,6 +151,7 @@ impl Dot11QoS {
 // ============================================================================
 
 /// Check if the data at the given offset starts with an LLC/SNAP header.
+#[must_use]
 pub fn is_llc_snap(buf: &[u8], offset: usize) -> bool {
     if buf.len() < offset + LLC_SNAP_LEN {
         return false;
@@ -155,7 +159,7 @@ pub fn is_llc_snap(buf: &[u8], offset: usize) -> bool {
     buf[offset..offset + 6] == LLC_SNAP_PREFIX
 }
 
-/// Extract the EtherType from an LLC/SNAP header at the given offset.
+/// Extract the `EtherType` from an LLC/SNAP header at the given offset.
 pub fn llc_snap_ethertype(buf: &[u8], offset: usize) -> Result<u16, FieldError> {
     if buf.len() < offset + LLC_SNAP_LEN {
         return Err(FieldError::BufferTooShort {
@@ -227,6 +231,7 @@ impl AMsduSubframe {
     }
 
     /// Build an A-MSDU subframe.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let length = self.data.len() as u16;
         let mut out = Vec::with_capacity(AMSDU_SUBFRAME_HEADER_LEN + self.data.len() + 3);
@@ -236,7 +241,7 @@ impl AMsduSubframe {
         out.extend_from_slice(&self.data);
         // Add padding to 4-byte boundary
         let padding = (4 - (out.len() % 4)) % 4;
-        out.extend(std::iter::repeat(0u8).take(padding));
+        out.extend(std::iter::repeat_n(0u8, padding));
         out
     }
 }

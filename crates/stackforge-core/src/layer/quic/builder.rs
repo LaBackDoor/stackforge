@@ -52,6 +52,7 @@ impl Default for QuicBuilder {
 impl QuicBuilder {
     /// Create a bare builder.  Most callers should use [`initial`], [`handshake`],
     /// or [`one_rtt`] instead.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             is_long_header: true,
@@ -66,6 +67,7 @@ impl QuicBuilder {
     }
 
     /// Create a builder pre-configured for a QUIC Initial packet (RFC 9000 Section 17.2.2).
+    #[must_use]
     pub fn initial() -> Self {
         Self {
             is_long_header: true,
@@ -76,6 +78,7 @@ impl QuicBuilder {
     }
 
     /// Create a builder pre-configured for a QUIC Handshake packet (RFC 9000 Section 17.2.4).
+    #[must_use]
     pub fn handshake() -> Self {
         Self {
             is_long_header: true,
@@ -87,6 +90,7 @@ impl QuicBuilder {
 
     /// Create a builder pre-configured for a QUIC 1-RTT (short header) packet
     /// (RFC 9000 Section 17.3).
+    #[must_use]
     pub fn one_rtt() -> Self {
         Self {
             is_long_header: false,
@@ -97,36 +101,42 @@ impl QuicBuilder {
     }
 
     /// Set the destination connection ID.
+    #[must_use]
     pub fn dst_conn_id(mut self, id: Vec<u8>) -> Self {
         self.dst_conn_id = id;
         self
     }
 
     /// Set the source connection ID (ignored for short-header packets).
+    #[must_use]
     pub fn src_conn_id(mut self, id: Vec<u8>) -> Self {
         self.src_conn_id = id;
         self
     }
 
     /// Set the QUIC version.
+    #[must_use]
     pub fn version(mut self, v: u32) -> Self {
         self.version = v;
         self
     }
 
     /// Set the token (Initial packets only).
+    #[must_use]
     pub fn token(mut self, t: Vec<u8>) -> Self {
         self.token = t;
         self
     }
 
     /// Set the (plaintext) payload bytes.
+    #[must_use]
     pub fn payload(mut self, p: Vec<u8>) -> Self {
         self.payload = p;
         self
     }
 
     /// Set the packet number.
+    #[must_use]
     pub fn packet_number(mut self, n: u32) -> Self {
         self.packet_number = n;
         self
@@ -136,6 +146,7 @@ impl QuicBuilder {
     ///
     /// The packet number is encoded in the minimum number of bytes needed
     /// (1 through 4) according to RFC 9000 Section 17.1.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         if self.is_long_header {
             self.build_long()

@@ -13,7 +13,8 @@ pub struct KeyShareEntry {
     pub key_exchange: Vec<u8>,
 }
 
-/// Parse key share entries from ClientHello extension data.
+/// Parse key share entries from `ClientHello` extension data.
+#[must_use]
 pub fn parse_key_share_client(data: &[u8]) -> Vec<KeyShareEntry> {
     if data.len() < 2 {
         return Vec::new();
@@ -41,7 +42,8 @@ pub fn parse_key_share_client(data: &[u8]) -> Vec<KeyShareEntry> {
     entries
 }
 
-/// Parse key share entry from ServerHello extension data.
+/// Parse key share entry from `ServerHello` extension data.
+#[must_use]
 pub fn parse_key_share_server(data: &[u8]) -> Option<KeyShareEntry> {
     if data.len() < 4 {
         return None;
@@ -58,7 +60,8 @@ pub fn parse_key_share_server(data: &[u8]) -> Option<KeyShareEntry> {
     }
 }
 
-/// Build key_share extension for ClientHello.
+/// Build `key_share` extension for `ClientHello`.
+#[must_use]
 pub fn build_key_share_client(entries: &[KeyShareEntry]) -> Extension {
     let entries_len: usize = entries.iter().map(|e| 4 + e.key_exchange.len()).sum();
     let mut data = Vec::with_capacity(2 + entries_len);
@@ -71,7 +74,8 @@ pub fn build_key_share_client(entries: &[KeyShareEntry]) -> Extension {
     Extension::new(0x0033, data)
 }
 
-/// Build key_share extension for ServerHello.
+/// Build `key_share` extension for `ServerHello`.
+#[must_use]
 pub fn build_key_share_server(entry: &KeyShareEntry) -> Extension {
     let mut data = Vec::with_capacity(4 + entry.key_exchange.len());
     data.extend_from_slice(&entry.group.to_be_bytes());

@@ -1,6 +1,6 @@
 //! L2TP packet builder.
 //!
-//! Provides a fluent API for constructing L2TPv2 packets (RFC 2661).
+//! Provides a fluent API for constructing `L2TPv2` packets (RFC 2661).
 //!
 //! # Examples
 //!
@@ -11,17 +11,17 @@
 //! let pkt = L2tpBuilder::new().build();
 //! assert_eq!(pkt, b"\x00\x02\x00\x00\x00\x00");
 //!
-//! // Control + length message
+//! // Control + length message (T=1, L=1, ver=2; header = 8 bytes)
 //! let pkt = L2tpBuilder::new()
 //!     .control()
 //!     .with_length()
 //!     .tunnel_id(1)
 //!     .session_id(2)
 //!     .build();
-//! assert_eq!(pkt, b"\xc0\x02\x00\x0c\x00\x01\x00\x02\x00\x00\x00\x00");
+//! assert_eq!(pkt, b"\xc0\x02\x00\x08\x00\x01\x00\x02");
 //! ```
 
-/// Builder for L2TPv2 packets.
+/// Builder for `L2TPv2` packets.
 ///
 /// The builder encodes the header flags and optional fields according to
 /// RFC 2661.  Fields:
@@ -29,8 +29,8 @@
 /// - L bit: when set a 2-byte Length field appears after the flags word
 /// - S bit: when set Ns and Nr (2 bytes each) appear after Session ID
 /// - O bit: when set Offset Size + Offset Pad appear after Nr (or Session ID)
-/// - Ver nibble: always 2 for L2TPv2
-#[derive(Debug, Clone)]
+/// - Ver nibble: always 2 for `L2TPv2`
+#[derive(Debug, Clone, Default)]
 pub struct L2tpBuilder {
     /// Message type: 0 = data, 1 = control (T bit)
     msg_type: u8,
@@ -56,27 +56,10 @@ pub struct L2tpBuilder {
     payload: Vec<u8>,
 }
 
-impl Default for L2tpBuilder {
-    fn default() -> Self {
-        Self {
-            msg_type: 0,
-            has_length: false,
-            has_sequence: false,
-            has_offset: false,
-            priority: false,
-            tunnel_id: 0,
-            session_id: 0,
-            ns: 0,
-            nr: 0,
-            offset_size: 0,
-            payload: Vec::new(),
-        }
-    }
-}
-
 impl L2tpBuilder {
     /// Create a new L2TP data message builder with minimal defaults.
     /// Produces a 6-byte header: `\x00\x02\x00\x00\x00\x00` (ver=2, tid=0, sid=0).
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -84,36 +67,42 @@ impl L2tpBuilder {
     // ========== Type / flags setters ==========
 
     /// Set the T bit — makes this a control message.
+    #[must_use]
     pub fn control(mut self) -> Self {
         self.msg_type = 1;
         self
     }
 
     /// Set the T bit to 0 — data message (default).
+    #[must_use]
     pub fn data(mut self) -> Self {
         self.msg_type = 0;
         self
     }
 
     /// Set the L (length) bit so a Length field will be included in the header.
+    #[must_use]
     pub fn with_length(mut self) -> Self {
         self.has_length = true;
         self
     }
 
     /// Set the S (sequence) bit so Ns and Nr will be included.
+    #[must_use]
     pub fn with_sequence(mut self) -> Self {
         self.has_sequence = true;
         self
     }
 
     /// Set the O (offset) bit so Offset Size + Offset Pad will be included.
+    #[must_use]
     pub fn with_offset(mut self) -> Self {
         self.has_offset = true;
         self
     }
 
     /// Set the P (priority) bit for data messages.
+    #[must_use]
     pub fn priority(mut self) -> Self {
         self.priority = true;
         self
@@ -122,12 +111,14 @@ impl L2tpBuilder {
     // ========== Field setters ==========
 
     /// Set the Tunnel ID.
+    #[must_use]
     pub fn tunnel_id(mut self, id: u16) -> Self {
         self.tunnel_id = id;
         self
     }
 
     /// Set the Session ID.
+    #[must_use]
     pub fn session_id(mut self, id: u16) -> Self {
         self.session_id = id;
         self
@@ -135,6 +126,7 @@ impl L2tpBuilder {
 
     /// Set the Ns (send sequence number) field.
     /// Automatically enables the S bit.
+    #[must_use]
     pub fn ns(mut self, ns: u16) -> Self {
         self.has_sequence = true;
         self.ns = ns;
@@ -143,6 +135,7 @@ impl L2tpBuilder {
 
     /// Set the Nr (receive sequence number) field.
     /// Automatically enables the S bit.
+    #[must_use]
     pub fn nr(mut self, nr: u16) -> Self {
         self.has_sequence = true;
         self.nr = nr;
@@ -151,6 +144,7 @@ impl L2tpBuilder {
 
     /// Set the Offset Size field.
     /// Automatically enables the O bit.
+    #[must_use]
     pub fn offset_size(mut self, size: u16) -> Self {
         self.has_offset = true;
         self.offset_size = size;
@@ -167,6 +161,7 @@ impl L2tpBuilder {
 
     /// Create a control message with the Length bit set (matching Scapy's
     /// `L2TP(hdr="control+length")` default).
+    #[must_use]
     pub fn control_length() -> Self {
         Self::new().control().with_length().with_sequence()
     }
@@ -174,6 +169,7 @@ impl L2tpBuilder {
     // ========== Size / header helpers ==========
 
     /// Compute the header length in bytes.
+    #[must_use]
     pub fn header_size(&self) -> usize {
         let mut len = 2; // flags word
         if self.has_length {
@@ -190,6 +186,7 @@ impl L2tpBuilder {
     }
 
     /// Compute the total packet size (header + payload).
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         self.header_size() + self.payload.len()
     }
@@ -197,6 +194,7 @@ impl L2tpBuilder {
     // ========== Build ==========
 
     /// Serialize the L2TP header (and payload if any) into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total = self.packet_size();
         let mut buf = vec![0u8; total];

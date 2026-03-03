@@ -27,6 +27,7 @@ impl NamedGroup {
     pub const X25519_KYBER768_DRAFT00: Self = Self(0x6399);
 
     /// Get the human-readable name.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self.0 {
             0x0017 => "secp256r1",
@@ -47,21 +48,25 @@ impl NamedGroup {
     }
 
     /// Check if this is an elliptic curve group.
+    #[must_use]
     pub fn is_ecdh(&self) -> bool {
         matches!(self.0, 0x0017..=0x001E)
     }
 
     /// Check if this is a finite-field DH group.
+    #[must_use]
     pub fn is_ffdh(&self) -> bool {
         matches!(self.0, 0x0100..=0x0104)
     }
 
     /// Check if this is a post-quantum hybrid group.
+    #[must_use]
     pub fn is_post_quantum(&self) -> bool {
         matches!(self.0, 0x11EB | 0x11EC | 0x6399)
     }
 
     /// Get the key share length for this group.
+    #[must_use]
     pub fn key_share_len(&self) -> Option<usize> {
         match self.0 {
             0x0017 => Some(65),  // secp256r1 uncompressed point

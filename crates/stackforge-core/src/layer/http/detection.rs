@@ -21,18 +21,21 @@ const HTTP_METHODS: &[&[u8]] = &[
 ///
 /// The check is a fast `starts_with` on the first few bytes and does **not**
 /// validate the rest of the request line.
+#[must_use]
 pub fn is_http_request(buf: &[u8]) -> bool {
     HTTP_METHODS.iter().any(|m| buf.starts_with(m))
 }
 
 /// Returns `true` if `buf` begins with the HTTP response status-line prefix
 /// `"HTTP/"`.
+#[must_use]
 pub fn is_http_response(buf: &[u8]) -> bool {
     buf.starts_with(b"HTTP/")
 }
 
 /// Returns `true` if `buf` looks like any HTTP/1.x traffic (request or
 /// response).
+#[must_use]
 pub fn is_http(buf: &[u8]) -> bool {
     is_http_request(buf) || is_http_response(buf)
 }

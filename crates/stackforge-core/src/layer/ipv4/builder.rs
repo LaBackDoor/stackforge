@@ -70,8 +70,8 @@ impl Default for Ipv4Builder {
             ttl: 64,
             protocol: 0,
             checksum: None,
-            src: Ipv4Addr::new(127, 0, 0, 1),
-            dst: Ipv4Addr::new(127, 0, 0, 1),
+            src: Ipv4Addr::LOCALHOST,
+            dst: Ipv4Addr::LOCALHOST,
             options: Ipv4Options::new(),
             payload: Vec::new(),
             auto_checksum: true,
@@ -83,6 +83,7 @@ impl Default for Ipv4Builder {
 
 impl Ipv4Builder {
     /// Create a new IPv4 builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -128,6 +129,7 @@ impl Ipv4Builder {
     // ========== Header Field Setters ==========
 
     /// Set the IP version (should normally be 4).
+    #[must_use]
     pub fn version(mut self, version: u8) -> Self {
         self.version = version;
         self
@@ -135,6 +137,7 @@ impl Ipv4Builder {
 
     /// Set the Internet Header Length (in 32-bit words).
     /// If not set, will be calculated automatically.
+    #[must_use]
     pub fn ihl(mut self, ihl: u8) -> Self {
         self.ihl = Some(ihl);
         self.auto_ihl = false;
@@ -142,18 +145,21 @@ impl Ipv4Builder {
     }
 
     /// Set the Type of Service field.
+    #[must_use]
     pub fn tos(mut self, tos: u8) -> Self {
         self.tos = tos;
         self
     }
 
     /// Set the DSCP (Differentiated Services Code Point).
+    #[must_use]
     pub fn dscp(mut self, dscp: u8) -> Self {
         self.tos = (self.tos & 0x03) | ((dscp & 0x3F) << 2);
         self
     }
 
     /// Set the ECN (Explicit Congestion Notification).
+    #[must_use]
     pub fn ecn(mut self, ecn: u8) -> Self {
         self.tos = (self.tos & 0xFC) | (ecn & 0x03);
         self
@@ -161,84 +167,98 @@ impl Ipv4Builder {
 
     /// Set the total length field.
     /// If not set, will be calculated automatically.
+    #[must_use]
     pub fn total_len(mut self, len: u16) -> Self {
         self.total_len = Some(len);
         self.auto_length = false;
         self
     }
 
-    /// Alias for total_len (Scapy compatibility).
+    /// Alias for `total_len` (Scapy compatibility).
+    #[must_use]
     pub fn len(self, len: u16) -> Self {
         self.total_len(len)
     }
 
     /// Set the identification field.
+    #[must_use]
     pub fn id(mut self, id: u16) -> Self {
         self.id = id;
         self
     }
 
     /// Set the flags field.
+    #[must_use]
     pub fn flags(mut self, flags: Ipv4Flags) -> Self {
         self.flags = flags;
         self
     }
 
     /// Set the Don't Fragment flag.
+    #[must_use]
     pub fn dont_fragment(mut self) -> Self {
         self.flags.df = true;
         self
     }
 
     /// Clear the Don't Fragment flag.
+    #[must_use]
     pub fn allow_fragment(mut self) -> Self {
         self.flags.df = false;
         self
     }
 
     /// Set the More Fragments flag.
+    #[must_use]
     pub fn more_fragments(mut self) -> Self {
         self.flags.mf = true;
         self
     }
 
     /// Set the reserved/evil bit.
+    #[must_use]
     pub fn evil(mut self) -> Self {
         self.flags.reserved = true;
         self
     }
 
     /// Set the fragment offset (in 8-byte units).
+    #[must_use]
     pub fn frag_offset(mut self, offset: u16) -> Self {
         self.frag_offset = offset & 0x1FFF;
         self
     }
 
     /// Set the fragment offset in bytes (will be divided by 8).
+    #[must_use]
     pub fn frag_offset_bytes(mut self, offset: u32) -> Self {
         self.frag_offset = ((offset / 8) & 0x1FFF) as u16;
         self
     }
 
     /// Set the TTL (Time to Live).
+    #[must_use]
     pub fn ttl(mut self, ttl: u8) -> Self {
         self.ttl = ttl;
         self
     }
 
     /// Set the protocol number.
+    #[must_use]
     pub fn protocol(mut self, protocol: u8) -> Self {
         self.protocol = protocol;
         self
     }
 
     /// Alias for protocol (Scapy compatibility).
+    #[must_use]
     pub fn proto(self, protocol: u8) -> Self {
         self.protocol(protocol)
     }
 
     /// Set the checksum manually.
     /// If not set, will be calculated automatically.
+    #[must_use]
     pub fn checksum(mut self, checksum: u16) -> Self {
         self.checksum = Some(checksum);
         self.auto_checksum = false;
@@ -246,17 +266,20 @@ impl Ipv4Builder {
     }
 
     /// Alias for checksum (Scapy compatibility).
+    #[must_use]
     pub fn chksum(self, checksum: u16) -> Self {
         self.checksum(checksum)
     }
 
     /// Set the source IP address.
+    #[must_use]
     pub fn src(mut self, src: Ipv4Addr) -> Self {
         self.src = src;
         self
     }
 
     /// Set the destination IP address.
+    #[must_use]
     pub fn dst(mut self, dst: Ipv4Addr) -> Self {
         self.dst = dst;
         self
@@ -265,12 +288,14 @@ impl Ipv4Builder {
     // ========== Options ==========
 
     /// Set the options.
+    #[must_use]
     pub fn options(mut self, options: Ipv4Options) -> Self {
         self.options = options;
         self
     }
 
     /// Add a single option.
+    #[must_use]
     pub fn option(mut self, option: Ipv4Option) -> Self {
         self.options.push(option);
         self
@@ -286,6 +311,7 @@ impl Ipv4Builder {
     }
 
     /// Add a Record Route option.
+    #[must_use]
     pub fn record_route(mut self, slots: usize) -> Self {
         self.options.push(Ipv4Option::RecordRoute {
             pointer: 4,
@@ -295,18 +321,21 @@ impl Ipv4Builder {
     }
 
     /// Add a Loose Source Route option.
+    #[must_use]
     pub fn lsrr(mut self, route: Vec<Ipv4Addr>) -> Self {
         self.options.push(Ipv4Option::Lsrr { pointer: 4, route });
         self
     }
 
     /// Add a Strict Source Route option.
+    #[must_use]
     pub fn ssrr(mut self, route: Vec<Ipv4Addr>) -> Self {
         self.options.push(Ipv4Option::Ssrr { pointer: 4, route });
         self
     }
 
     /// Add a Router Alert option.
+    #[must_use]
     pub fn router_alert(mut self, value: u16) -> Self {
         self.options.push(Ipv4Option::RouterAlert { value });
         self
@@ -321,6 +350,7 @@ impl Ipv4Builder {
     }
 
     /// Append data to the payload.
+    #[must_use]
     pub fn append_payload(mut self, data: &[u8]) -> Self {
         self.payload.extend_from_slice(data);
         self
@@ -329,18 +359,21 @@ impl Ipv4Builder {
     // ========== Build Options ==========
 
     /// Enable or disable automatic checksum calculation.
+    #[must_use]
     pub fn auto_checksum(mut self, enabled: bool) -> Self {
         self.auto_checksum = enabled;
         self
     }
 
     /// Enable or disable automatic length calculation.
+    #[must_use]
     pub fn auto_length(mut self, enabled: bool) -> Self {
         self.auto_length = enabled;
         self
     }
 
     /// Enable or disable automatic IHL calculation.
+    #[must_use]
     pub fn auto_ihl(mut self, enabled: bool) -> Self {
         self.auto_ihl = enabled;
         self
@@ -349,6 +382,7 @@ impl Ipv4Builder {
     // ========== Build Methods ==========
 
     /// Calculate the header size (including options).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         if let Some(ihl) = self.ihl {
             (ihl as usize) * 4
@@ -359,11 +393,13 @@ impl Ipv4Builder {
     }
 
     /// Calculate the total packet size.
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         self.header_size() + self.payload.len()
     }
 
     /// Build the IPv4 packet.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let _header_size = self.header_size();
         let total_size = self.packet_size();
@@ -416,7 +452,7 @@ impl Ipv4Builder {
         buf[offsets::ID + 1] = (self.id & 0xFF) as u8;
 
         // Flags + Fragment Offset
-        let flags_frag = (self.flags.to_byte() as u16) << 8 | self.frag_offset;
+        let flags_frag = u16::from(self.flags.to_byte()) << 8 | self.frag_offset;
         buf[offsets::FLAGS_FRAG] = (flags_frag >> 8) as u8;
         buf[offsets::FLAGS_FRAG + 1] = (flags_frag & 0xFF) as u8;
 
@@ -465,6 +501,7 @@ impl Ipv4Builder {
     }
 
     /// Build only the header (no payload).
+    #[must_use]
     pub fn build_header(&self) -> Vec<u8> {
         let header_size = self.header_size();
         let mut buf = vec![0u8; header_size];
@@ -490,36 +527,43 @@ impl Ipv4Builder {
 
 impl Ipv4Builder {
     /// Create an ICMP packet builder.
+    #[must_use]
     pub fn icmp() -> Self {
         Self::new().protocol(protocol::ICMP)
     }
 
     /// Create a TCP packet builder.
+    #[must_use]
     pub fn tcp() -> Self {
         Self::new().protocol(protocol::TCP)
     }
 
     /// Create a UDP packet builder.
+    #[must_use]
     pub fn udp() -> Self {
         Self::new().protocol(protocol::UDP)
     }
 
     /// Create an IP-in-IP tunnel packet builder.
+    #[must_use]
     pub fn ipip() -> Self {
         Self::new().protocol(protocol::IPV4)
     }
 
     /// Create a GRE tunnel packet builder.
+    #[must_use]
     pub fn gre() -> Self {
         Self::new().protocol(protocol::GRE)
     }
 
     /// Create a packet destined for a specific address.
+    #[must_use]
     pub fn to(dst: Ipv4Addr) -> Self {
         Self::new().dst(dst)
     }
 
     /// Create a packet from a specific source.
+    #[must_use]
     pub fn from(src: Ipv4Addr) -> Self {
         Self::new().src(src)
     }
@@ -530,6 +574,7 @@ impl Ipv4Builder {
 #[cfg(feature = "rand")]
 impl Ipv4Builder {
     /// Set a random ID.
+    #[must_use]
     pub fn random_id(mut self) -> Self {
         use rand::Rng;
         self.id = rand::rng().random();

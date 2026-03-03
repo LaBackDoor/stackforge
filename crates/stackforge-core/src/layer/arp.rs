@@ -30,6 +30,7 @@ pub mod hardware_type {
     pub const SERIAL_LINE: u16 = 20;
     pub const ATM_3: u16 = 21;
 
+    #[must_use]
     pub fn name(t: u16) -> &'static str {
         match t {
             ETHERNET => "Ethernet (10Mb)",
@@ -56,22 +57,25 @@ pub mod hardware_type {
     }
 
     #[inline]
+    #[must_use]
     pub const fn is_ethernet_like(t: u16) -> bool {
         matches!(t, ETHERNET | EXPERIMENTAL_ETHERNET | IEEE802)
     }
 }
 
-/// Protocol types (EtherType values).
+/// Protocol types (`EtherType` values).
 pub mod protocol_type {
     pub const IPV4: u16 = 0x0800;
     pub const IPV6: u16 = 0x86DD;
     pub const ARP: u16 = 0x0806;
 
     #[inline]
+    #[must_use]
     pub const fn is_ipv4(t: u16) -> bool {
         t == IPV4
     }
     #[inline]
+    #[must_use]
     pub const fn is_ipv6(t: u16) -> bool {
         t == IPV6
     }
@@ -89,6 +93,7 @@ pub mod opcode {
     pub const INARP_REQUEST: u16 = 8;
     pub const INARP_REPLY: u16 = 9;
 
+    #[must_use]
     pub fn name(op: u16) -> &'static str {
         match op {
             REQUEST => "who-has",
@@ -104,6 +109,7 @@ pub mod opcode {
         }
     }
 
+    #[must_use]
     pub fn from_name(name: &str) -> Option<u16> {
         match name.to_lowercase().as_str() {
             "who-has" | "request" | "1" => Some(REQUEST),
@@ -120,14 +126,17 @@ pub mod opcode {
     }
 
     #[inline]
+    #[must_use]
     pub const fn is_request(op: u16) -> bool {
         op % 2 == 1
     }
     #[inline]
+    #[must_use]
     pub const fn is_reply(op: u16) -> bool {
-        op % 2 == 0 && op > 0
+        op.is_multiple_of(2) && op > 0
     }
     #[inline]
+    #[must_use]
     pub const fn reply_for(request_op: u16) -> u16 {
         request_op + 1
     }
@@ -159,6 +168,7 @@ pub enum HardwareAddr {
 }
 
 impl HardwareAddr {
+    #[must_use]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         if bytes.len() == 6 {
             Self::Mac(MacAddress::new([
@@ -169,6 +179,7 @@ impl HardwareAddr {
         }
     }
 
+    #[must_use]
     pub fn as_mac(&self) -> Option<MacAddress> {
         match self {
             Self::Mac(mac) => Some(*mac),
@@ -179,6 +190,7 @@ impl HardwareAddr {
         }
     }
 
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             Self::Mac(mac) => mac.as_bytes(),
@@ -186,6 +198,7 @@ impl HardwareAddr {
         }
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             Self::Mac(_) => 6,
@@ -193,12 +206,15 @@ impl HardwareAddr {
         }
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    #[must_use]
     pub fn is_zero(&self) -> bool {
         self.as_bytes().iter().all(|&b| b == 0)
     }
+    #[must_use]
     pub fn is_broadcast(&self) -> bool {
         self.as_bytes().iter().all(|&b| b == 0xff)
     }
@@ -207,13 +223,13 @@ impl HardwareAddr {
 impl std::fmt::Display for HardwareAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Mac(mac) => write!(f, "{}", mac),
+            Self::Mac(mac) => write!(f, "{mac}"),
             Self::Raw(bytes) => {
                 for (i, b) in bytes.iter().enumerate() {
                     if i > 0 {
                         write!(f, ":")?;
                     }
-                    write!(f, "{:02x}", b)?;
+                    write!(f, "{b:02x}")?;
                 }
                 Ok(())
             },
@@ -242,9 +258,10 @@ pub enum ProtocolAddr {
 }
 
 impl ProtocolAddr {
+    #[must_use]
     pub fn from_bytes(bytes: &[u8], ptype: u16) -> Self {
         match (bytes.len(), ptype) {
-            (4, protocol_type::IPV4) | (4, _) => {
+            (4, protocol_type::IPV4 | _) => {
                 Self::Ipv4(Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]))
             },
             (16, protocol_type::IPV6) => {
@@ -256,6 +273,7 @@ impl ProtocolAddr {
         }
     }
 
+    #[must_use]
     pub fn as_ipv4(&self) -> Option<Ipv4Addr> {
         match self {
             Self::Ipv4(ip) => Some(*ip),
@@ -266,6 +284,7 @@ impl ProtocolAddr {
         }
     }
 
+    #[must_use]
     pub fn as_ipv6(&self) -> Option<Ipv6Addr> {
         match self {
             Self::Ipv6(ip) => Some(*ip),
@@ -278,6 +297,7 @@ impl ProtocolAddr {
         }
     }
 
+    #[must_use]
     pub fn as_bytes(&self) -> Vec<u8> {
         match self {
             Self::Ipv4(ip) => ip.octets().to_vec(),
@@ -286,6 +306,7 @@ impl ProtocolAddr {
         }
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             Self::Ipv4(_) => 4,
@@ -294,6 +315,7 @@ impl ProtocolAddr {
         }
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -302,12 +324,12 @@ impl ProtocolAddr {
 impl std::fmt::Display for ProtocolAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Ipv4(ip) => write!(f, "{}", ip),
-            Self::Ipv6(ip) => write!(f, "{}", ip),
+            Self::Ipv4(ip) => write!(f, "{ip}"),
+            Self::Ipv6(ip) => write!(f, "{ip}"),
             Self::Raw(bytes) => {
                 write!(f, "0x")?;
                 for b in bytes {
-                    write!(f, "{:02x}", b)?;
+                    write!(f, "{b:02x}")?;
                 }
                 Ok(())
             },
@@ -332,7 +354,7 @@ impl From<Vec<u8>> for ProtocolAddr {
 }
 
 /// Routing information for ARP layer
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ArpRoute {
     /// Outgoing interface name
     pub interface: Option<String>,
@@ -340,16 +362,6 @@ pub struct ArpRoute {
     pub source_ip: Option<String>,
     /// Gateway IP if needed
     pub gateway: Option<String>,
-}
-
-impl Default for ArpRoute {
-    fn default() -> Self {
-        Self {
-            interface: None,
-            source_ip: None,
-            gateway: None,
-        }
-    }
 }
 
 /// A view into an ARP packet.
@@ -360,6 +372,7 @@ pub struct ArpLayer {
 
 impl ArpLayer {
     #[inline]
+    #[must_use]
     pub const fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Arp, start, end),
@@ -367,6 +380,7 @@ impl ArpLayer {
     }
 
     #[inline]
+    #[must_use]
     pub const fn at_offset(offset: usize) -> Self {
         Self::new(offset, offset + ARP_HEADER_LEN)
     }
@@ -400,6 +414,7 @@ impl ArpLayer {
         Ok(())
     }
 
+    #[must_use]
     pub fn calculate_len(&self, buf: &[u8]) -> usize {
         let hwlen = self.hwlen(buf).unwrap_or(6) as usize;
         let plen = self.plen(buf).unwrap_or(4) as usize;
@@ -686,6 +701,7 @@ impl ArpLayer {
         }
     }
 
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &[
             "hwtype", "ptype", "hwlen", "plen", "op", "hwsrc", "psrc", "hwdst", "pdst",
@@ -703,6 +719,7 @@ impl ArpLayer {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_who_has(&self, buf: &[u8]) -> bool {
         self.op(buf)
             .map(|op| op == opcode::REQUEST)
@@ -710,16 +727,18 @@ impl ArpLayer {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_is_at(&self, buf: &[u8]) -> bool {
         self.op(buf).map(|op| op == opcode::REPLY).unwrap_or(false)
     }
 
     /// Compute hash for packet matching.
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let hwtype = self.hwtype(buf).unwrap_or(0);
         let ptype = self.ptype(buf).unwrap_or(0);
         let op = self.op(buf).unwrap_or(0);
-        let op_group = (op + 1) / 2;
+        let op_group = op.div_ceil(2);
 
         let mut result = Vec::with_capacity(6);
         result.extend_from_slice(&hwtype.to_be_bytes());
@@ -728,7 +747,8 @@ impl ArpLayer {
         result
     }
 
-    /// Check if this packet answers another (for sr() matching).
+    /// Check if this packet answers another (for `sr()` matching).
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &ArpLayer, other_buf: &[u8]) -> bool {
         let self_op = match self.op(buf) {
             Ok(op) => op,
@@ -757,12 +777,14 @@ impl ArpLayer {
     }
 
     /// Extract padding: ARP has no payload, remaining bytes are padding.
+    #[must_use]
     pub fn extract_padding<'a>(&self, buf: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         let end = self.index.end.min(buf.len());
         (&[], &buf[end..])
     }
 
     /// Get routing information for this ARP packet.
+    #[must_use]
     pub fn route(&self, buf: &[u8]) -> ArpRoute {
         let pdst_ip = match self.pdst_raw(buf) {
             Ok(ProtocolAddr::Ipv4(ip)) => IpAddr::V4(ip),
@@ -788,27 +810,28 @@ impl ArpLayer {
             }
         }
 
-        if let Ok(default_iface) = default_net::get_default_interface() {
-            if let Some(iface) = interfaces.iter().find(|i| i.name == default_iface.name) {
-                let src_ip = iface
-                    .ips
-                    .iter()
-                    .find(|ip| ip.is_ipv4())
-                    .map(|ip| ip.ip().to_string());
-                let gw_ip = default_iface.gateway.map(|gw| gw.ip_addr.to_string());
+        if let Ok(default_iface) = default_net::get_default_interface()
+            && let Some(iface) = interfaces.iter().find(|i| i.name == default_iface.name)
+        {
+            let src_ip = iface
+                .ips
+                .iter()
+                .find(|ip| ip.is_ipv4())
+                .map(|ip| ip.ip().to_string());
+            let gw_ip = default_iface.gateway.map(|gw| gw.ip_addr.to_string());
 
-                return ArpRoute {
-                    interface: Some(iface.name.clone()),
-                    source_ip: src_ip,
-                    gateway: gw_ip,
-                };
-            }
+            return ArpRoute {
+                interface: Some(iface.name.clone()),
+                source_ip: src_ip,
+                gateway: gw_ip,
+            };
         }
 
         ArpRoute::default()
     }
 
     /// Resolve the destination MAC for this ARP packet.
+    #[must_use]
     pub fn resolve_dst_mac(&self, buf: &[u8]) -> Option<MacAddress> {
         let op = self.op(buf).ok()?;
         match op {
@@ -819,11 +842,13 @@ impl ArpLayer {
     }
 
     #[inline]
+    #[must_use]
     pub fn header_bytes<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         &buf[self.index.start..self.index.end.min(buf.len())]
     }
 
     #[inline]
+    #[must_use]
     pub fn header_copy(&self, buf: &[u8]) -> Vec<u8> {
         self.header_bytes(buf).to_vec()
     }
@@ -848,21 +873,18 @@ impl Layer for ArpLayer {
         let op = self.op(buf).unwrap_or(0);
         let psrc = self
             .psrc_raw(buf)
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| "?".into());
+            .map_or_else(|_| "?".into(), |a| a.to_string());
         let pdst = self
             .pdst_raw(buf)
-            .map(|a| a.to_string())
-            .unwrap_or_else(|_| "?".into());
+            .map_or_else(|_| "?".into(), |a| a.to_string());
 
         match op {
-            opcode::REQUEST => format!("ARP who has {} says {}", pdst, psrc),
+            opcode::REQUEST => format!("ARP who has {pdst} says {psrc}"),
             opcode::REPLY => {
                 let hwsrc = self
                     .hwsrc_raw(buf)
-                    .map(|a| a.to_string())
-                    .unwrap_or_else(|_| "?".into());
-                format!("ARP {} is at {}", psrc, hwsrc)
+                    .map_or_else(|_| "?".into(), |a| a.to_string());
+                format!("ARP {psrc} is at {hwsrc}")
             },
             _ => format!("ARP {} {} > {}", opcode::name(op), psrc, pdst),
         }
@@ -905,7 +927,7 @@ pub struct ArpBuilder {
 /// Get the default interface's MAC address and IPv4 address.
 fn get_local_mac_and_ip() -> (MacAddress, Ipv4Addr) {
     let default_mac = MacAddress::ZERO;
-    let default_ip = Ipv4Addr::new(0, 0, 0, 0);
+    let default_ip = Ipv4Addr::UNSPECIFIED;
 
     let default_iface = match default_net::get_default_interface() {
         Ok(iface) => iface,
@@ -920,8 +942,7 @@ fn get_local_mac_and_ip() -> (MacAddress, Ipv4Addr) {
 
     let mac = iface
         .mac
-        .map(|m| MacAddress::new(m.octets()))
-        .unwrap_or(default_mac);
+        .map_or(default_mac, |m| MacAddress::new(m.octets()));
 
     let ip = iface
         .ips
@@ -950,45 +971,54 @@ impl Default for ArpBuilder {
             hwsrc: HardwareAddr::Mac(local_mac),
             psrc: ProtocolAddr::Ipv4(local_ip),
             hwdst: HardwareAddr::Mac(MacAddress::ZERO),
-            pdst: ProtocolAddr::Ipv4(Ipv4Addr::new(0, 0, 0, 0)),
+            pdst: ProtocolAddr::Ipv4(Ipv4Addr::UNSPECIFIED),
         }
     }
 }
 
 impl ArpBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn who_has(pdst: Ipv4Addr) -> Self {
         Self::default().op(opcode::REQUEST).pdst(pdst)
     }
 
+    #[must_use]
     pub fn is_at(psrc: Ipv4Addr, hwsrc: MacAddress) -> Self {
         Self::default().op(opcode::REPLY).psrc(psrc).hwsrc(hwsrc)
     }
 
+    #[must_use]
     pub fn hwtype(mut self, v: u16) -> Self {
         self.hwtype = v;
         self
     }
+    #[must_use]
     pub fn ptype(mut self, v: u16) -> Self {
         self.ptype = v;
         self
     }
+    #[must_use]
     pub fn hwlen(mut self, v: u8) -> Self {
         self.hwlen = Some(v);
         self
     }
+    #[must_use]
     pub fn plen(mut self, v: u8) -> Self {
         self.plen = Some(v);
         self
     }
+    #[must_use]
     pub fn op(mut self, v: u16) -> Self {
         self.op = v;
         self
     }
 
+    #[must_use]
     pub fn op_name(mut self, name: &str) -> Self {
         if let Some(op) = opcode::from_name(name) {
             self.op = op;
@@ -996,55 +1026,67 @@ impl ArpBuilder {
         self
     }
 
+    #[must_use]
     pub fn hwsrc(mut self, v: MacAddress) -> Self {
         self.hwsrc = HardwareAddr::Mac(v);
         self
     }
+    #[must_use]
     pub fn hwsrc_raw(mut self, v: HardwareAddr) -> Self {
         self.hwsrc = v;
         self
     }
+    #[must_use]
     pub fn psrc(mut self, v: Ipv4Addr) -> Self {
         self.psrc = ProtocolAddr::Ipv4(v);
         self
     }
+    #[must_use]
     pub fn psrc_v6(mut self, v: Ipv6Addr) -> Self {
         self.psrc = ProtocolAddr::Ipv6(v);
         self.ptype = protocol_type::IPV6;
         self
     }
+    #[must_use]
     pub fn psrc_raw(mut self, v: ProtocolAddr) -> Self {
         self.psrc = v;
         self
     }
+    #[must_use]
     pub fn hwdst(mut self, v: MacAddress) -> Self {
         self.hwdst = HardwareAddr::Mac(v);
         self
     }
+    #[must_use]
     pub fn hwdst_raw(mut self, v: HardwareAddr) -> Self {
         self.hwdst = v;
         self
     }
+    #[must_use]
     pub fn pdst(mut self, v: Ipv4Addr) -> Self {
         self.pdst = ProtocolAddr::Ipv4(v);
         self
     }
+    #[must_use]
     pub fn pdst_v6(mut self, v: Ipv6Addr) -> Self {
         self.pdst = ProtocolAddr::Ipv6(v);
         self.ptype = protocol_type::IPV6;
         self
     }
+    #[must_use]
     pub fn pdst_raw(mut self, v: ProtocolAddr) -> Self {
         self.pdst = v;
         self
     }
 
+    #[must_use]
     pub fn size(&self) -> usize {
         let hwlen = self.hwlen.unwrap_or(self.hwsrc.len() as u8) as usize;
         let plen = self.plen.unwrap_or(self.psrc.len() as u8) as usize;
         ARP_FIXED_HEADER_LEN + 2 * hwlen + 2 * plen
     }
 
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut buf = vec![0u8; self.size()];
         self.build_into(&mut buf)

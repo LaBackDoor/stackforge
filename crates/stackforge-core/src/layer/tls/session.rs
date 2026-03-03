@@ -29,6 +29,7 @@ pub struct ConnState {
 }
 
 impl ConnState {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             seq_num: 0,
@@ -71,7 +72,7 @@ pub struct TlsSession {
     pub write_state: ConnState,
     /// Our connection end.
     pub connection_end: ConnectionEnd,
-    /// Handshake transcript (for verify_data and TLS 1.3).
+    /// Handshake transcript (for `verify_data` and TLS 1.3).
     pub transcript: Vec<u8>,
     /// Whether the handshake is complete.
     pub handshake_complete: bool,
@@ -83,6 +84,7 @@ pub struct TlsSession {
 
 impl TlsSession {
     /// Create a new client session.
+    #[must_use]
     pub fn new_client() -> Self {
         Self {
             version: 0x0303,
@@ -101,6 +103,7 @@ impl TlsSession {
     }
 
     /// Create a new server session.
+    #[must_use]
     pub fn new_server() -> Self {
         let mut session = Self::new_client();
         session.connection_end = ConnectionEnd::Server;
@@ -189,7 +192,7 @@ impl TlsSession {
 /// for TLS session decryption.
 #[derive(Debug, Clone)]
 pub struct NssKeyLogEntry {
-    /// Label (e.g., "CLIENT_RANDOM", "CLIENT_HANDSHAKE_TRAFFIC_SECRET").
+    /// Label (e.g., "`CLIENT_RANDOM`", "`CLIENT_HANDSHAKE_TRAFFIC_SECRET`").
     pub label: String,
     /// Client random or other identifier (hex-encoded in the file, decoded here).
     pub client_random: Vec<u8>,
@@ -198,6 +201,7 @@ pub struct NssKeyLogEntry {
 }
 
 /// Parse an NSS key log file.
+#[must_use]
 pub fn parse_nss_key_log(content: &str) -> Vec<NssKeyLogEntry> {
     let mut entries = Vec::new();
 
@@ -234,7 +238,7 @@ pub fn parse_nss_key_log(content: &str) -> Vec<NssKeyLogEntry> {
 
 /// Simple hex decoder.
 fn hex_decode(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     let mut result = Vec::with_capacity(s.len() / 2);

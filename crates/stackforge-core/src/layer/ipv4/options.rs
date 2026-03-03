@@ -26,6 +26,7 @@ pub enum Ipv4OptionClass {
 
 impl Ipv4OptionClass {
     #[inline]
+    #[must_use]
     pub fn from_type(opt_type: u8) -> Self {
         match (opt_type >> 5) & 0x03 {
             0 => Self::Control,
@@ -81,6 +82,7 @@ pub enum Ipv4OptionType {
 
 impl Ipv4OptionType {
     /// Create from raw option type byte.
+    #[must_use]
     pub fn from_byte(b: u8) -> Self {
         match b {
             0 => Self::EndOfList,
@@ -105,6 +107,7 @@ impl Ipv4OptionType {
     }
 
     /// Convert to raw option type byte.
+    #[must_use]
     pub fn to_byte(self) -> u8 {
         match self {
             Self::EndOfList => 0,
@@ -129,6 +132,7 @@ impl Ipv4OptionType {
     }
 
     /// Get the name of the option.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::EndOfList => "EOL",
@@ -154,12 +158,14 @@ impl Ipv4OptionType {
 
     /// Check if this option should be copied on fragmentation.
     #[inline]
+    #[must_use]
     pub fn is_copied(&self) -> bool {
         (self.to_byte() & 0x80) != 0
     }
 
     /// Check if this is a single-byte option (no length/value).
     #[inline]
+    #[must_use]
     pub fn is_single_byte(&self) -> bool {
         matches!(self, Self::EndOfList | Self::Nop)
     }
@@ -168,7 +174,7 @@ impl Ipv4OptionType {
 impl std::fmt::Display for Ipv4OptionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unknown(x) => write!(f, "Unknown({})", x),
+            Self::Unknown(x) => write!(f, "Unknown({x})"),
             _ => write!(f, "{}", self.name()),
         }
     }
@@ -240,6 +246,7 @@ pub enum Ipv4Option {
 
 impl Ipv4Option {
     /// Get the option type.
+    #[must_use]
     pub fn option_type(&self) -> Ipv4OptionType {
         match self {
             Self::EndOfList => Ipv4OptionType::EndOfList,
@@ -260,6 +267,7 @@ impl Ipv4Option {
     }
 
     /// Get the serialized length of this option.
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             Self::EndOfList => 1,
@@ -279,11 +287,13 @@ impl Ipv4Option {
     }
 
     /// Check if the option is empty (for variants with data).
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Serialize the option to bytes.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Self::EndOfList => vec![0],
@@ -411,31 +421,37 @@ pub struct Ipv4Options {
 
 impl Ipv4Options {
     /// Create empty options.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create from a list of options.
+    #[must_use]
     pub fn from_vec(options: Vec<Ipv4Option>) -> Self {
         Self { options }
     }
 
     /// Check if there are no options.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.options.is_empty()
     }
 
     /// Get the number of options.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.options.len()
     }
 
     /// Get the total serialized length.
+    #[must_use]
     pub fn byte_len(&self) -> usize {
-        self.options.iter().map(|o| o.len()).sum()
+        self.options.iter().map(Ipv4Option::len).sum()
     }
 
     /// Get the padded length (aligned to 4 bytes).
+    #[must_use]
     pub fn padded_len(&self) -> usize {
         let len = self.byte_len();
         (len + 3) & !3
@@ -447,6 +463,7 @@ impl Ipv4Options {
     }
 
     /// Get source route options (LSRR or SSRR).
+    #[must_use]
     pub fn source_route(&self) -> Option<&Ipv4Option> {
         self.options
             .iter()
@@ -454,6 +471,7 @@ impl Ipv4Options {
     }
 
     /// Get the final destination from source route options.
+    #[must_use]
     pub fn final_destination(&self) -> Option<Ipv4Addr> {
         self.source_route().and_then(|opt| match opt {
             Ipv4Option::Lsrr { route, .. } | Ipv4Option::Ssrr { route, .. } => {
@@ -464,6 +482,7 @@ impl Ipv4Options {
     }
 
     /// Serialize all options to bytes (with padding).
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
         for opt in &self.options {
@@ -472,12 +491,13 @@ impl Ipv4Options {
 
         // Pad to 4-byte boundary
         let pad = (4 - (buf.len() % 4)) % 4;
-        buf.extend(std::iter::repeat(0u8).take(pad));
+        buf.extend(std::iter::repeat_n(0u8, pad));
 
         buf
     }
 
     /// Filter options that should be copied on fragmentation.
+    #[must_use]
     pub fn copied_options(&self) -> Self {
         Self {
             options: self
@@ -540,8 +560,7 @@ pub fn parse_options(data: &[u8]) -> Result<Ipv4Options, FieldError> {
                 let length = data[offset + 1] as usize;
                 if length < 2 {
                     return Err(FieldError::InvalidValue(format!(
-                        "option length {} is less than minimum (2)",
-                        length
+                        "option length {length} is less than minimum (2)"
                     )));
                 }
 
@@ -631,8 +650,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         130 => {
             if length != 11 {
                 return Err(FieldError::InvalidValue(format!(
-                    "Security option length {} != 11",
-                    length
+                    "Security option length {length} != 11"
                 )));
             }
             let security = u16::from_be_bytes([data[2], data[3]]);
@@ -653,8 +671,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         136 => {
             if length != 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "Stream ID option length {} != 4",
-                    length
+                    "Stream ID option length {length} != 4"
                 )));
             }
             let id = u16::from_be_bytes([data[2], data[3]]);
@@ -665,8 +682,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         11 => {
             if length != 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "MTU Probe option length {} != 4",
-                    length
+                    "MTU Probe option length {length} != 4"
                 )));
             }
             let mtu = u16::from_be_bytes([data[2], data[3]]);
@@ -677,8 +693,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         12 => {
             if length != 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "MTU Reply option length {} != 4",
-                    length
+                    "MTU Reply option length {length} != 4"
                 )));
             }
             let mtu = u16::from_be_bytes([data[2], data[3]]);
@@ -689,8 +704,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         82 => {
             if length != 12 {
                 return Err(FieldError::InvalidValue(format!(
-                    "Traceroute option length {} != 12",
-                    length
+                    "Traceroute option length {length} != 12"
                 )));
             }
             let id = u16::from_be_bytes([data[2], data[3]]);
@@ -710,8 +724,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         148 => {
             if length != 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "Router Alert option length {} != 4",
-                    length
+                    "Router Alert option length {length} != 4"
                 )));
             }
             let value = u16::from_be_bytes([data[2], data[3]]);
@@ -722,8 +735,7 @@ fn parse_single_option(opt_type: u8, data: &[u8]) -> Result<Ipv4Option, FieldErr
         147 => {
             if length != 10 {
                 return Err(FieldError::InvalidValue(format!(
-                    "Address Extension option length {} != 10",
-                    length
+                    "Address Extension option length {length} != 10"
                 )));
             }
             let src_ext = Ipv4Addr::new(data[2], data[3], data[4], data[5]);
@@ -763,7 +775,7 @@ fn parse_timestamps(data: &[u8], flag: u8) -> Result<Vec<(Option<Ipv4Addr>, u32)
 
         // IP + Timestamp pairs
         1 | 3 => {
-            if data.len() % 8 != 0 {
+            if !data.len().is_multiple_of(8) {
                 return Err(FieldError::InvalidValue(
                     "Timestamp data not aligned to 8 bytes".to_string(),
                 ));
@@ -780,8 +792,7 @@ fn parse_timestamps(data: &[u8], flag: u8) -> Result<Vec<(Option<Ipv4Addr>, u32)
         },
 
         _ => Err(FieldError::InvalidValue(format!(
-            "Unknown timestamp flag: {}",
-            flag
+            "Unknown timestamp flag: {flag}"
         ))),
     }
 }
@@ -794,23 +805,27 @@ pub struct Ipv4OptionsBuilder {
 
 impl Ipv4OptionsBuilder {
     /// Create a new builder.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Add an End of Option List marker.
+    #[must_use]
     pub fn eol(mut self) -> Self {
         self.options.push(Ipv4Option::EndOfList);
         self
     }
 
     /// Add a NOP (padding).
+    #[must_use]
     pub fn nop(mut self) -> Self {
         self.options.push(Ipv4Option::Nop);
         self
     }
 
     /// Add a Record Route option.
+    #[must_use]
     pub fn record_route(mut self, route: Vec<Ipv4Addr>) -> Self {
         self.options.push(Ipv4Option::RecordRoute {
             pointer: 4, // First slot
@@ -820,18 +835,21 @@ impl Ipv4OptionsBuilder {
     }
 
     /// Add a Loose Source Route option.
+    #[must_use]
     pub fn lsrr(mut self, route: Vec<Ipv4Addr>) -> Self {
         self.options.push(Ipv4Option::Lsrr { pointer: 4, route });
         self
     }
 
     /// Add a Strict Source Route option.
+    #[must_use]
     pub fn ssrr(mut self, route: Vec<Ipv4Addr>) -> Self {
         self.options.push(Ipv4Option::Ssrr { pointer: 4, route });
         self
     }
 
     /// Add a Timestamp option (timestamps only).
+    #[must_use]
     pub fn timestamp(mut self) -> Self {
         self.options.push(Ipv4Option::Timestamp {
             pointer: 5,
@@ -843,6 +861,7 @@ impl Ipv4OptionsBuilder {
     }
 
     /// Add a Timestamp option with IP addresses.
+    #[must_use]
     pub fn timestamp_with_addresses(mut self, prespecified: bool) -> Self {
         self.options.push(Ipv4Option::Timestamp {
             pointer: 9,
@@ -854,18 +873,21 @@ impl Ipv4OptionsBuilder {
     }
 
     /// Add a Router Alert option.
+    #[must_use]
     pub fn router_alert(mut self, value: u16) -> Self {
         self.options.push(Ipv4Option::RouterAlert { value });
         self
     }
 
     /// Add a custom option.
+    #[must_use]
     pub fn option(mut self, option: Ipv4Option) -> Self {
         self.options.push(option);
         self
     }
 
     /// Build the options.
+    #[must_use]
     pub fn build(self) -> Ipv4Options {
         Ipv4Options {
             options: self.options,

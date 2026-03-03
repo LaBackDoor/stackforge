@@ -18,6 +18,7 @@ pub enum TlsHash {
 
 impl TlsHash {
     /// Returns the hash output length in bytes.
+    #[must_use]
     pub fn hash_len(&self) -> usize {
         match self {
             Self::Null => 0,
@@ -31,6 +32,7 @@ impl TlsHash {
     }
 
     /// Returns the internal block size in bytes.
+    #[must_use]
     pub fn block_len(&self) -> usize {
         match self {
             Self::Null => 0,
@@ -44,6 +46,7 @@ impl TlsHash {
     }
 
     /// Compute the hash of the given data.
+    #[must_use]
     pub fn digest(&self, data: &[u8]) -> Vec<u8> {
         match self {
             Self::Null => vec![],
@@ -80,7 +83,8 @@ impl TlsHash {
         }
     }
 
-    /// Get a TlsHash from a name string (case-insensitive).
+    /// Get a `TlsHash` from a name string (case-insensitive).
+    #[must_use]
     pub fn from_name(name: &str) -> Option<Self> {
         match name.to_lowercase().as_str() {
             "null" => Some(Self::Null),
@@ -95,6 +99,7 @@ impl TlsHash {
     }
 
     /// Name of this hash algorithm.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Null => "NULL",

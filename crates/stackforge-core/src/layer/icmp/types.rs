@@ -63,6 +63,7 @@ pub const ICMP_ANSWERS: &[(u8, u8)] = &[
 ];
 
 /// Get human-readable name for ICMP type.
+#[must_use]
 pub fn type_name(icmp_type: u8) -> &'static str {
     match icmp_type {
         types::ECHO_REPLY => "echo-reply",
@@ -85,6 +86,7 @@ pub fn type_name(icmp_type: u8) -> &'static str {
 }
 
 /// Get human-readable name for ICMP code given type.
+#[must_use]
 pub fn code_name(icmp_type: u8, code: u8) -> &'static str {
     match icmp_type {
         types::DEST_UNREACH => match code {

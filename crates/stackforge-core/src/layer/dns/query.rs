@@ -30,6 +30,7 @@ pub struct DnsQuestion {
 
 impl DnsQuestion {
     /// Create a new question with default type A and class IN.
+    #[must_use]
     pub fn new(qname: DnsName) -> Self {
         Self {
             qname,
@@ -48,11 +49,13 @@ impl DnsQuestion {
     }
 
     /// Whether this is an mDNS unicast-response question.
+    #[must_use]
     pub fn unicast_response(&self) -> bool {
         self.qclass & 0x8000 != 0
     }
 
     /// Get the actual class (without the mDNS unicast-response bit).
+    #[must_use]
     pub fn actual_class(&self) -> u16 {
         self.qclass & 0x7FFF
     }
@@ -98,6 +101,7 @@ impl DnsQuestion {
     }
 
     /// Build the question record without compression.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut out = self.qname.encode();
         out.extend_from_slice(&self.qtype.to_be_bytes());
@@ -120,6 +124,7 @@ impl DnsQuestion {
     }
 
     /// Human-readable summary.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "{} {} {}",

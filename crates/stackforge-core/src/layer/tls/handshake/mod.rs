@@ -41,6 +41,7 @@ impl Handshake {
     /// Parse a handshake message from raw bytes.
     ///
     /// Returns the parsed handshake and the number of bytes consumed.
+    #[must_use]
     pub fn parse(data: &[u8]) -> Option<(Self, usize)> {
         if data.len() < HANDSHAKE_HEADER_LEN {
             return None;
@@ -68,6 +69,7 @@ impl Handshake {
     }
 
     /// Build the handshake message into bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let length = if self.length > 0 {
             self.length
@@ -84,6 +86,7 @@ impl Handshake {
     }
 
     /// Parse the body as a specific handshake message type.
+    #[must_use]
     pub fn parse_body(&self) -> HandshakeBody {
         match self.msg_type {
             HandshakeType::CLIENT_HELLO => match ClientHello::parse(&self.body) {
@@ -112,6 +115,7 @@ impl Handshake {
     }
 
     /// Get a human-readable summary.
+    #[must_use]
     pub fn summary(&self) -> String {
         format!("Handshake {} (len={})", self.msg_type.name(), self.length)
     }
@@ -136,6 +140,7 @@ pub enum HandshakeBody {
 /// Parse all handshake messages from a TLS record fragment.
 ///
 /// A single TLS record can contain multiple handshake messages.
+#[must_use]
 pub fn parse_handshakes(data: &[u8]) -> Vec<Handshake> {
     let mut messages = Vec::new();
     let mut offset = 0;

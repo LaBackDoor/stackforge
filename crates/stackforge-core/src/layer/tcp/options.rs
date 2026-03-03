@@ -62,6 +62,7 @@ pub enum TcpOptionKind {
 
 impl TcpOptionKind {
     /// Create from raw option kind byte.
+    #[must_use]
     pub fn from_byte(b: u8) -> Self {
         match b {
             0 => Self::Eol,
@@ -83,6 +84,7 @@ impl TcpOptionKind {
     }
 
     /// Convert to raw option kind byte.
+    #[must_use]
     pub fn to_byte(self) -> u8 {
         match self {
             Self::Eol => 0,
@@ -104,6 +106,7 @@ impl TcpOptionKind {
     }
 
     /// Get the name of the option.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Eol => "EOL",
@@ -126,12 +129,14 @@ impl TcpOptionKind {
 
     /// Check if this is a single-byte option (no length/data).
     #[inline]
+    #[must_use]
     pub fn is_single_byte(&self) -> bool {
         matches!(self, Self::Eol | Self::Nop)
     }
 
     /// Get the expected fixed length for this option (if any).
     /// Returns None for variable-length options.
+    #[must_use]
     pub fn expected_len(&self) -> Option<usize> {
         match self {
             Self::Eol | Self::Nop => Some(1),
@@ -152,7 +157,7 @@ impl TcpOptionKind {
 impl std::fmt::Display for TcpOptionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unknown(x) => write!(f, "Unknown({})", x),
+            Self::Unknown(x) => write!(f, "Unknown({x})"),
             _ => write!(f, "{}", self.name()),
         }
     }
@@ -169,6 +174,7 @@ pub struct TcpSackBlock {
 
 impl TcpSackBlock {
     /// Create a new SACK block.
+    #[must_use]
     pub fn new(left: u32, right: u32) -> Self {
         Self { left, right }
     }
@@ -185,6 +191,7 @@ pub struct TcpTimestamp {
 
 impl TcpTimestamp {
     /// Create a new timestamp.
+    #[must_use]
     pub fn new(ts_val: u32, ts_ecr: u32) -> Self {
         Self { ts_val, ts_ecr }
     }
@@ -203,6 +210,7 @@ pub struct TcpAoValue {
 
 impl TcpAoValue {
     /// Create a new AO value.
+    #[must_use]
     pub fn new(key_id: u8, rnext_key_id: u8, mac: Vec<u8>) -> Self {
         Self {
             key_id,
@@ -266,6 +274,7 @@ pub enum TcpOption {
 
 impl TcpOption {
     /// Get the option kind.
+    #[must_use]
     pub fn kind(&self) -> TcpOptionKind {
         match self {
             Self::Eol => TcpOptionKind::Eol,
@@ -287,6 +296,7 @@ impl TcpOption {
     }
 
     /// Get the serialized length of this option.
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             Self::Eol => 1,
@@ -309,11 +319,13 @@ impl TcpOption {
     }
 
     /// Check if the option has data (for variants with data).
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Serialize the option to bytes.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Self::Eol => vec![0],
@@ -398,21 +410,25 @@ impl TcpOption {
     }
 
     /// Create an MSS option.
+    #[must_use]
     pub fn mss(mss: u16) -> Self {
         Self::Mss(mss)
     }
 
     /// Create a Window Scale option.
+    #[must_use]
     pub fn wscale(scale: u8) -> Self {
         Self::WScale(scale)
     }
 
     /// Create a Timestamp option.
+    #[must_use]
     pub fn timestamp(ts_val: u32, ts_ecr: u32) -> Self {
         Self::Timestamp(TcpTimestamp::new(ts_val, ts_ecr))
     }
 
     /// Create a SACK option.
+    #[must_use]
     pub fn sack(blocks: Vec<TcpSackBlock>) -> Self {
         Self::Sack(blocks)
     }
@@ -426,31 +442,37 @@ pub struct TcpOptions {
 
 impl TcpOptions {
     /// Create empty options.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create from a list of options.
+    #[must_use]
     pub fn from_vec(options: Vec<TcpOption>) -> Self {
         Self { options }
     }
 
     /// Check if there are no options.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.options.is_empty()
     }
 
     /// Get the number of options.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.options.len()
     }
 
     /// Get the total serialized length.
+    #[must_use]
     pub fn byte_len(&self) -> usize {
-        self.options.iter().map(|o| o.len()).sum()
+        self.options.iter().map(TcpOption::len).sum()
     }
 
     /// Get the padded length (aligned to 4 bytes).
+    #[must_use]
     pub fn padded_len(&self) -> usize {
         let len = self.byte_len();
         (len + 3) & !3
@@ -462,11 +484,13 @@ impl TcpOptions {
     }
 
     /// Get an option by kind.
+    #[must_use]
     pub fn get(&self, kind: TcpOptionKind) -> Option<&TcpOption> {
         self.options.iter().find(|o| o.kind() == kind)
     }
 
     /// Get the MSS value if present.
+    #[must_use]
     pub fn mss(&self) -> Option<u16> {
         self.options.iter().find_map(|o| match o {
             TcpOption::Mss(mss) => Some(*mss),
@@ -475,6 +499,7 @@ impl TcpOptions {
     }
 
     /// Get the Window Scale value if present.
+    #[must_use]
     pub fn wscale(&self) -> Option<u8> {
         self.options.iter().find_map(|o| match o {
             TcpOption::WScale(scale) => Some(*scale),
@@ -483,6 +508,7 @@ impl TcpOptions {
     }
 
     /// Get the Timestamp if present.
+    #[must_use]
     pub fn timestamp(&self) -> Option<TcpTimestamp> {
         self.options.iter().find_map(|o| match o {
             TcpOption::Timestamp(ts) => Some(*ts),
@@ -491,11 +517,13 @@ impl TcpOptions {
     }
 
     /// Check if SACK is permitted.
+    #[must_use]
     pub fn sack_permitted(&self) -> bool {
         self.options.iter().any(|o| matches!(o, TcpOption::SackOk))
     }
 
     /// Get the SACK blocks if present.
+    #[must_use]
     pub fn sack_blocks(&self) -> Option<&[TcpSackBlock]> {
         self.options.iter().find_map(|o| match o {
             TcpOption::Sack(blocks) => Some(blocks.as_slice()),
@@ -504,6 +532,7 @@ impl TcpOptions {
     }
 
     /// Get the Authentication Option if present.
+    #[must_use]
     pub fn ao(&self) -> Option<&TcpAoValue> {
         self.options.iter().find_map(|o| match o {
             TcpOption::Ao(ao) => Some(ao),
@@ -512,6 +541,7 @@ impl TcpOptions {
     }
 
     /// Get the TFO cookie if present.
+    #[must_use]
     pub fn tfo_cookie(&self) -> Option<&[u8]> {
         self.options.iter().find_map(|o| match o {
             TcpOption::Tfo { cookie: Some(c) } => Some(c.as_slice()),
@@ -520,6 +550,7 @@ impl TcpOptions {
     }
 
     /// Serialize all options to bytes (with padding).
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::new();
         for opt in &self.options {
@@ -528,12 +559,13 @@ impl TcpOptions {
 
         // Pad to 4-byte boundary
         let pad = (4 - (buf.len() % 4)) % 4;
-        buf.extend(std::iter::repeat(0u8).take(pad));
+        buf.extend(std::iter::repeat_n(0u8, pad));
 
         buf
     }
 
     /// Serialize to bytes without padding.
+    #[must_use]
     pub fn to_bytes_unpadded(&self) -> Vec<u8> {
         let mut buf = Vec::new();
         for opt in &self.options {
@@ -593,8 +625,7 @@ pub fn parse_options(data: &[u8]) -> Result<TcpOptions, FieldError> {
                 let length = data[offset + 1] as usize;
                 if length < 2 {
                     return Err(FieldError::InvalidValue(format!(
-                        "option length {} is less than minimum (2)",
-                        length
+                        "option length {length} is less than minimum (2)"
                     )));
                 }
 
@@ -628,8 +659,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         2 => {
             if length != 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "MSS option length {} != 4",
-                    length
+                    "MSS option length {length} != 4"
                 )));
             }
             let mss = u16::from_be_bytes([value[0], value[1]]);
@@ -640,8 +670,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         3 => {
             if length != 3 {
                 return Err(FieldError::InvalidValue(format!(
-                    "WScale option length {} != 3",
-                    length
+                    "WScale option length {length} != 3"
                 )));
             }
             Ok(TcpOption::WScale(value[0]))
@@ -651,8 +680,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         4 => {
             if length != 2 {
                 return Err(FieldError::InvalidValue(format!(
-                    "SAckOK option length {} != 2",
-                    length
+                    "SAckOK option length {length} != 2"
                 )));
             }
             Ok(TcpOption::SackOk)
@@ -676,8 +704,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         8 => {
             if length != 10 {
                 return Err(FieldError::InvalidValue(format!(
-                    "Timestamp option length {} != 10",
-                    length
+                    "Timestamp option length {length} != 10"
                 )));
             }
             let ts_val = u32::from_be_bytes([value[0], value[1], value[2], value[3]]);
@@ -689,8 +716,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         14 => {
             if length < 3 {
                 return Err(FieldError::InvalidValue(format!(
-                    "AltChkSum option length {} < 3",
-                    length
+                    "AltChkSum option length {length} < 3"
                 )));
             }
             let algorithm = value[0];
@@ -712,8 +738,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         19 => {
             if length != 18 {
                 return Err(FieldError::InvalidValue(format!(
-                    "MD5 option length {} != 18",
-                    length
+                    "MD5 option length {length} != 18"
                 )));
             }
             let mut sig = [0u8; 16];
@@ -731,8 +756,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         28 => {
             if length != 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "UTO option length {} != 4",
-                    length
+                    "UTO option length {length} != 4"
                 )));
             }
             let timeout = u16::from_be_bytes([value[0], value[1]]);
@@ -743,8 +767,7 @@ fn parse_single_option(kind: u8, data: &[u8]) -> Result<TcpOption, FieldError> {
         29 => {
             if length < 4 {
                 return Err(FieldError::InvalidValue(format!(
-                    "AO option length {} < 4",
-                    length
+                    "AO option length {length} < 4"
                 )));
             }
             let key_id = value[0];
@@ -779,47 +802,55 @@ pub struct TcpOptionsBuilder {
 
 impl TcpOptionsBuilder {
     /// Create a new builder.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Add a NOP (padding).
+    #[must_use]
     pub fn nop(mut self) -> Self {
         self.options.push(TcpOption::Nop);
         self
     }
 
     /// Add an End of Option List marker.
+    #[must_use]
     pub fn eol(mut self) -> Self {
         self.options.push(TcpOption::Eol);
         self
     }
 
     /// Add an MSS option.
+    #[must_use]
     pub fn mss(mut self, mss: u16) -> Self {
         self.options.push(TcpOption::Mss(mss));
         self
     }
 
     /// Add a Window Scale option.
+    #[must_use]
     pub fn wscale(mut self, scale: u8) -> Self {
         self.options.push(TcpOption::WScale(scale));
         self
     }
 
     /// Add SACK Permitted option.
+    #[must_use]
     pub fn sack_ok(mut self) -> Self {
         self.options.push(TcpOption::SackOk);
         self
     }
 
     /// Add a SACK option.
+    #[must_use]
     pub fn sack(mut self, blocks: Vec<TcpSackBlock>) -> Self {
         self.options.push(TcpOption::Sack(blocks));
         self
     }
 
     /// Add a Timestamp option.
+    #[must_use]
     pub fn timestamp(mut self, ts_val: u32, ts_ecr: u32) -> Self {
         self.options
             .push(TcpOption::Timestamp(TcpTimestamp::new(ts_val, ts_ecr)));
@@ -827,12 +858,14 @@ impl TcpOptionsBuilder {
     }
 
     /// Add a TFO (TCP Fast Open) option with cookie.
+    #[must_use]
     pub fn tfo(mut self, cookie: Option<Vec<u8>>) -> Self {
         self.options.push(TcpOption::Tfo { cookie });
         self
     }
 
     /// Add an Authentication Option.
+    #[must_use]
     pub fn ao(mut self, key_id: u8, rnext_key_id: u8, mac: Vec<u8>) -> Self {
         self.options
             .push(TcpOption::Ao(TcpAoValue::new(key_id, rnext_key_id, mac)));
@@ -840,18 +873,21 @@ impl TcpOptionsBuilder {
     }
 
     /// Add an MD5 signature option.
+    #[must_use]
     pub fn md5(mut self, signature: [u8; 16]) -> Self {
         self.options.push(TcpOption::Md5(signature));
         self
     }
 
     /// Add a custom option.
+    #[must_use]
     pub fn option(mut self, option: TcpOption) -> Self {
         self.options.push(option);
         self
     }
 
     /// Build the options.
+    #[must_use]
     pub fn build(self) -> TcpOptions {
         TcpOptions {
             options: self.options,
@@ -860,6 +896,7 @@ impl TcpOptionsBuilder {
 }
 
 /// Get the TCP-AO (Authentication Option) from a parsed options list.
+#[must_use]
 pub fn get_tcp_ao(options: &TcpOptions) -> Option<&TcpAoValue> {
     options.ao()
 }

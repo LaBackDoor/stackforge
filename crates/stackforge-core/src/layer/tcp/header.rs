@@ -86,6 +86,7 @@ pub struct TcpLayer {
 impl TcpLayer {
     /// Create a new TCP layer view with specified bounds.
     #[inline]
+    #[must_use]
     pub const fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Tcp, start, end),
@@ -94,12 +95,14 @@ impl TcpLayer {
 
     /// Create a layer at offset 0 with minimum header length.
     #[inline]
+    #[must_use]
     pub const fn at_start() -> Self {
         Self::new(0, TCP_MIN_HEADER_LEN)
     }
 
     /// Create a layer at the specified offset with minimum header length.
     #[inline]
+    #[must_use]
     pub const fn at_offset(offset: usize) -> Self {
         Self::new(offset, offset + TCP_MIN_HEADER_LEN)
     }
@@ -119,8 +122,7 @@ impl TcpLayer {
 
         if header_len < TCP_MIN_HEADER_LEN {
             return Err(FieldError::InvalidValue(format!(
-                "Data offset {} is less than minimum (5)",
-                data_offset
+                "Data offset {data_offset} is less than minimum (5)"
             )));
         }
 
@@ -148,8 +150,7 @@ impl TcpLayer {
         let data_offset = ((buf[offset + offsets::DATA_OFFSET] >> 4) & 0x0F) as usize;
         if data_offset < 5 {
             return Err(FieldError::InvalidValue(format!(
-                "Data offset {} is less than minimum (5)",
-                data_offset
+                "Data offset {data_offset} is less than minimum (5)"
             )));
         }
 
@@ -166,6 +167,7 @@ impl TcpLayer {
     }
 
     /// Calculate the actual header length from the buffer.
+    #[must_use]
     pub fn calculate_header_len(&self, buf: &[u8]) -> usize {
         self.data_offset(buf)
             .map(|doff| (doff as usize) * 4)
@@ -173,6 +175,7 @@ impl TcpLayer {
     }
 
     /// Get the options length (header length - 20).
+    #[must_use]
     pub fn options_len(&self, buf: &[u8]) -> usize {
         self.calculate_header_len(buf)
             .saturating_sub(TCP_MIN_HEADER_LEN)
@@ -186,7 +189,7 @@ impl TcpLayer {
         u16::read(buf, self.index.start + offsets::SRC_PORT)
     }
 
-    /// Alias for src_port (Scapy compatibility).
+    /// Alias for `src_port` (Scapy compatibility).
     #[inline]
     pub fn sport(&self, buf: &[u8]) -> Result<u16, FieldError> {
         self.src_port(buf)
@@ -198,7 +201,7 @@ impl TcpLayer {
         u16::read(buf, self.index.start + offsets::DST_PORT)
     }
 
-    /// Alias for dst_port (Scapy compatibility).
+    /// Alias for `dst_port` (Scapy compatibility).
     #[inline]
     pub fn dport(&self, buf: &[u8]) -> Result<u16, FieldError> {
         self.dst_port(buf)
@@ -223,7 +226,7 @@ impl TcpLayer {
         Ok((b >> 4) & 0x0F)
     }
 
-    /// Alias for data_offset (Scapy compatibility).
+    /// Alias for `data_offset` (Scapy compatibility).
     #[inline]
     pub fn dataofs(&self, buf: &[u8]) -> Result<u8, FieldError> {
         self.data_offset(buf)
@@ -274,7 +277,7 @@ impl TcpLayer {
         u16::read(buf, self.index.start + offsets::URG_PTR)
     }
 
-    /// Alias for urgent_ptr (Scapy compatibility).
+    /// Alias for `urgent_ptr` (Scapy compatibility).
     #[inline]
     pub fn urgptr(&self, buf: &[u8]) -> Result<u16, FieldError> {
         self.urgent_ptr(buf)
@@ -311,7 +314,7 @@ impl TcpLayer {
         port.write(buf, self.index.start + offsets::SRC_PORT)
     }
 
-    /// Alias for set_src_port (Scapy compatibility).
+    /// Alias for `set_src_port` (Scapy compatibility).
     #[inline]
     pub fn set_sport(&self, buf: &mut [u8], port: u16) -> Result<(), FieldError> {
         self.set_src_port(buf, port)
@@ -323,7 +326,7 @@ impl TcpLayer {
         port.write(buf, self.index.start + offsets::DST_PORT)
     }
 
-    /// Alias for set_dst_port (Scapy compatibility).
+    /// Alias for `set_dst_port` (Scapy compatibility).
     #[inline]
     pub fn set_dport(&self, buf: &mut [u8], port: u16) -> Result<(), FieldError> {
         self.set_dst_port(buf, port)
@@ -350,7 +353,7 @@ impl TcpLayer {
         new_val.write(buf, idx)
     }
 
-    /// Alias for set_data_offset (Scapy compatibility).
+    /// Alias for `set_data_offset` (Scapy compatibility).
     #[inline]
     pub fn set_dataofs(&self, buf: &mut [u8], offset: u8) -> Result<(), FieldError> {
         self.set_data_offset(buf, offset)
@@ -398,7 +401,7 @@ impl TcpLayer {
         checksum.write(buf, self.index.start + offsets::CHECKSUM)
     }
 
-    /// Alias for set_checksum (Scapy compatibility).
+    /// Alias for `set_checksum` (Scapy compatibility).
     #[inline]
     pub fn set_chksum(&self, buf: &mut [u8], checksum: u16) -> Result<(), FieldError> {
         self.set_checksum(buf, checksum)
@@ -410,7 +413,7 @@ impl TcpLayer {
         urgptr.write(buf, self.index.start + offsets::URG_PTR)
     }
 
-    /// Alias for set_urgent_ptr (Scapy compatibility).
+    /// Alias for `set_urgent_ptr` (Scapy compatibility).
     #[inline]
     pub fn set_urgptr(&self, buf: &mut [u8], urgptr: u16) -> Result<(), FieldError> {
         self.set_urgent_ptr(buf, urgptr)
@@ -458,6 +461,7 @@ impl TcpLayer {
     }
 
     /// Get list of field names.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &[
             "sport", "dport", "seq", "ack", "dataofs", "reserved", "flags", "window", "chksum",
@@ -469,12 +473,14 @@ impl TcpLayer {
 
     /// Get the payload length from IP total length.
     /// Note: TCP doesn't have its own length field; it relies on IP layer.
+    #[must_use]
     pub fn payload_len(&self, buf: &[u8], ip_payload_len: usize) -> usize {
         let header_len = self.calculate_header_len(buf);
         ip_payload_len.saturating_sub(header_len)
     }
 
     /// Get a slice of the payload data.
+    #[must_use]
     pub fn payload<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         let header_len = self.calculate_header_len(buf);
         let payload_start = self.index.start + header_len;
@@ -488,6 +494,7 @@ impl TcpLayer {
 
     /// Get the header bytes.
     #[inline]
+    #[must_use]
     pub fn header_bytes<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         let header_len = self.calculate_header_len(buf);
         let end = (self.index.start + header_len).min(buf.len());
@@ -509,6 +516,7 @@ impl TcpLayer {
     }
 
     /// Compute hash for packet matching (like Scapy's hashret).
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let sport = self.src_port(buf).unwrap_or(0);
         let dport = self.dst_port(buf).unwrap_or(0);
@@ -520,7 +528,8 @@ impl TcpLayer {
         xored.to_be_bytes().to_vec()
     }
 
-    /// Check if this packet answers another (for sr() matching).
+    /// Check if this packet answers another (for `sr()` matching).
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &TcpLayer, other_buf: &[u8]) -> bool {
         let self_flags = self.flags(buf).unwrap_or(TcpFlags::NONE);
         let other_flags = other.flags(other_buf).unwrap_or(TcpFlags::NONE);
@@ -536,10 +545,8 @@ impl TcpLayer {
         }
 
         // SYN+ACK answers SYN
-        if self_flags.syn && self_flags.ack {
-            if !other_flags.syn {
-                return false;
-            }
+        if self_flags.syn && self_flags.ack && !other_flags.syn {
+            return false;
         }
 
         // Check ports
@@ -560,11 +567,7 @@ impl TcpLayer {
 
         // For SYN packets without ACK, don't check ack value
         if !(other_flags.syn && !other_flags.ack) {
-            let diff = if other_ack > self_seq {
-                other_ack - self_seq
-            } else {
-                self_seq - other_ack
-            };
+            let diff = other_ack.abs_diff(self_seq);
             if diff > 2 {
                 return false;
             }
@@ -577,11 +580,7 @@ impl TcpLayer {
 
         // Check ack vs seq with payload length tolerance
         let other_payload_len = other.payload(other_buf).len() as u32;
-        let diff = if other_seq > self_ack {
-            other_seq - self_ack
-        } else {
-            self_ack - other_seq
-        };
+        let diff = other_seq.abs_diff(self_ack);
         if diff > 2 + other_payload_len {
             return false;
         }
@@ -600,7 +599,7 @@ impl Layer for TcpLayer {
         let dport = self.dst_port(buf).unwrap_or(0);
         let flags = self.flags(buf).unwrap_or(TcpFlags::NONE);
 
-        format!("TCP {} > {} {}", sport, dport, flags)
+        format!("TCP {sport} > {dport} {flags}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {

@@ -1,0 +1,126 @@
+# POP3 layer unit tests
+# Tests for the Post Office Protocol version 3 (RFC 1939) layer.
+# POP3 operates over TCP port 110 (or 995 for POP3S).
+
++ Syntax check
+= Import the POP3 layer
+from scapy.contrib.pop3 import *
+
+
++ POP3 server reply builder tests
+
+= POP3 +OK server ready
+p = POP3(ok=True, text="POP3 server ready")
+assert bytes(p) == b"+OK POP3 server ready\r\n"
+
+= POP3 +OK empty
+p = POP3(ok=True, text="")
+assert bytes(p) == b"+OK\r\n"
+
+= POP3 -ERR permission denied
+p = POP3(ok=False, text="Permission denied")
+assert bytes(p) == b"-ERR Permission denied\r\n"
+
+= POP3 -ERR empty
+p = POP3(ok=False, text="")
+assert bytes(p) == b"-ERR\r\n"
+
+= POP3 +OK password required (user accepted)
+p = POP3(ok=True, text="Password required")
+assert bytes(p) == b"+OK Password required\r\n"
+
+= POP3 +OK logged in
+p = POP3(ok=True, text="logged in")
+assert bytes(p) == b"+OK logged in\r\n"
+
+= POP3 +OK stat response
+p = POP3(ok=True, text="3 1024")
+assert bytes(p) == b"+OK 3 1024\r\n"
+
+= POP3 -ERR unknown command
+p = POP3(ok=False, text="Unknown command")
+assert bytes(p) == b"-ERR Unknown command\r\n"
+
+
++ POP3 packet dissection tests
+
+= POP3 +OK server ready dissection
+s = b"+OK POP3 server ready\r\n"
+p = POP3(s)
+assert p.is_ok is True
+assert p.is_err is False
+assert p.is_response is True
+assert p.response_text == "POP3 server ready"
+
+= POP3 -ERR dissection
+s = b"-ERR Permission denied\r\n"
+p = POP3(s)
+assert p.is_ok is False
+assert p.is_err is True
+assert p.is_response is True
+assert p.response_text == "Permission denied"
+
+= POP3 USER command dissection
+s = b"USER alice\r\n"
+p = POP3(s)
+assert p.is_response is False
+assert p.command == "USER"
+assert p.args == "alice"
+
+= POP3 PASS command dissection
+s = b"PASS secret\r\n"
+p = POP3(s)
+assert p.command == "PASS"
+assert p.args == "secret"
+
+= POP3 STAT command dissection (no args)
+s = b"STAT\r\n"
+p = POP3(s)
+assert p.command == "STAT"
+assert p.args == ""
+
+= POP3 RETR command dissection
+s = b"RETR 1\r\n"
+p = POP3(s)
+assert p.command == "RETR"
+assert p.args == "1"
+
+= POP3 DELE command dissection
+s = b"DELE 2\r\n"
+p = POP3(s)
+assert p.command == "DELE"
+assert p.args == "2"
+
+= POP3 QUIT command dissection
+s = b"QUIT\r\n"
+p = POP3(s)
+assert p.command == "QUIT"
+assert p.args == ""
+
+= POP3 LIST command dissection (no arg)
+s = b"LIST\r\n"
+p = POP3(s)
+assert p.command == "LIST"
+assert p.args == ""
+
+= POP3 TOP command with args
+s = b"TOP 1 5\r\n"
+p = POP3(s)
+assert p.command == "TOP"
+assert p.args == "1 5"
+
+= POP3 UIDL command dissection
+s = b"UIDL\r\n"
+p = POP3(s)
+assert p.command == "UIDL"
+
+= POP3 CAPA command dissection
+s = b"CAPA\r\n"
+p = POP3(s)
+assert p.command == "CAPA"
+
+= POP3 +OK stat response dissection
+s = b"+OK 3 1024\r\n"
+p = POP3(s)
+assert p.is_ok is True
+assert p.response_text == "3 1024"

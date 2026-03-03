@@ -1,11 +1,12 @@
 //! Supported Versions extension (type 0x002B).
 //!
-//! ClientHello: list of versions.
-//! ServerHello: single selected version.
+//! `ClientHello`: list of versions.
+//! `ServerHello`: single selected version.
 
 use super::Extension;
 
-/// Parse supported versions from ClientHello extension data.
+/// Parse supported versions from `ClientHello` extension data.
+#[must_use]
 pub fn parse_supported_versions_client(data: &[u8]) -> Vec<u16> {
     if data.is_empty() {
         return Vec::new();
@@ -20,7 +21,8 @@ pub fn parse_supported_versions_client(data: &[u8]) -> Vec<u16> {
     versions
 }
 
-/// Parse supported version from ServerHello extension data.
+/// Parse supported version from `ServerHello` extension data.
+#[must_use]
 pub fn parse_supported_versions_server(data: &[u8]) -> Option<u16> {
     if data.len() >= 2 {
         Some(u16::from_be_bytes([data[0], data[1]]))
@@ -29,7 +31,8 @@ pub fn parse_supported_versions_server(data: &[u8]) -> Option<u16> {
     }
 }
 
-/// Build supported_versions extension for ClientHello.
+/// Build `supported_versions` extension for `ClientHello`.
+#[must_use]
 pub fn build_supported_versions_client(versions: &[u16]) -> Extension {
     let list_len = (versions.len() * 2) as u8;
     let mut data = Vec::with_capacity(1 + versions.len() * 2);
@@ -40,7 +43,8 @@ pub fn build_supported_versions_client(versions: &[u16]) -> Extension {
     Extension::new(0x002B, data)
 }
 
-/// Build supported_versions extension for ServerHello.
+/// Build `supported_versions` extension for `ServerHello`.
+#[must_use]
 pub fn build_supported_versions_server(version: u16) -> Extension {
     Extension::new(0x002B, version.to_be_bytes().to_vec())
 }

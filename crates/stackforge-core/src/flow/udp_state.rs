@@ -14,6 +14,7 @@ pub struct UdpFlowState {
 }
 
 impl UdpFlowState {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             status: ConversationStatus::Active,
@@ -26,6 +27,7 @@ impl UdpFlowState {
     }
 
     /// Check whether this flow has timed out.
+    #[must_use]
     pub fn check_timeout(&self, last_seen: Duration, now: Duration, config: &FlowConfig) -> bool {
         now.saturating_sub(last_seen) > config.udp_timeout
     }

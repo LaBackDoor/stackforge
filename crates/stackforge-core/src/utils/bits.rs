@@ -2,6 +2,7 @@
 
 /// Extract bits from a byte.
 #[inline]
+#[must_use]
 pub fn extract_bits(byte: u8, start: u8, len: u8) -> u8 {
     (byte >> (8 - start - len)) & ((1 << len) - 1)
 }
@@ -15,24 +16,28 @@ pub fn set_bits(byte: &mut u8, start: u8, len: u8, value: u8) {
 
 /// Convert a u16 to big-endian bytes.
 #[inline]
+#[must_use]
 pub const fn u16_to_be(value: u16) -> [u8; 2] {
     value.to_be_bytes()
 }
 
 /// Convert a u32 to big-endian bytes.
 #[inline]
+#[must_use]
 pub const fn u32_to_be(value: u32) -> [u8; 4] {
     value.to_be_bytes()
 }
 
 /// Convert big-endian bytes to u16.
 #[inline]
+#[must_use]
 pub const fn be_to_u16(bytes: [u8; 2]) -> u16 {
     u16::from_be_bytes(bytes)
 }
 
 /// Convert big-endian bytes to u32.
 #[inline]
+#[must_use]
 pub const fn be_to_u32(bytes: [u8; 4]) -> u32 {
     u32::from_be_bytes(bytes)
 }

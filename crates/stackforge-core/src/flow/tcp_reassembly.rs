@@ -8,7 +8,7 @@ use super::error::FlowError;
 pub enum ReassemblyAction {
     /// Segment was in-order and appended; value is bytes added to reassembled buffer.
     DataReady(usize),
-    /// Segment was out-of-order and cached in the BTreeMap.
+    /// Segment was out-of-order and cached in the `BTreeMap`.
     Buffered,
     /// Segment was a total duplicate (already fully received).
     Duplicate,
@@ -18,7 +18,7 @@ pub enum ReassemblyAction {
     Empty,
 }
 
-/// TCP stream reassembly engine using a BTreeMap for out-of-order segment management.
+/// TCP stream reassembly engine using a `BTreeMap` for out-of-order segment management.
 ///
 /// Mirrors Wireshark's reassemble.c logic: segments are keyed by absolute TCP
 /// sequence number. In-order segments are immediately appended to the contiguous
@@ -41,6 +41,7 @@ pub struct TcpReassembler {
 
 impl TcpReassembler {
     /// Create a new uninitialized reassembler.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             segments: BTreeMap::new(),
@@ -59,11 +60,13 @@ impl TcpReassembler {
     }
 
     /// Whether this reassembler has been initialized.
+    #[must_use]
     pub fn is_initialized(&self) -> bool {
         self.initialized
     }
 
     /// Get the contiguous reassembled data accumulated so far.
+    #[must_use]
     pub fn reassembled_data(&self) -> &[u8] {
         &self.reassembled
     }
@@ -74,11 +77,13 @@ impl TcpReassembler {
     }
 
     /// Total bytes in the out-of-order buffer.
+    #[must_use]
     pub fn buffered_bytes(&self) -> usize {
         self.total_buffered
     }
 
     /// Number of out-of-order fragments.
+    #[must_use]
     pub fn fragment_count(&self) -> usize {
         self.fragment_count
     }
@@ -151,7 +156,7 @@ impl TcpReassembler {
         Ok(ReassemblyAction::Buffered)
     }
 
-    /// Drain contiguous segments from the BTreeMap that can now be appended.
+    /// Drain contiguous segments from the `BTreeMap` that can now be appended.
     fn try_drain_buffered(&mut self) {
         // Collect keys to drain (can't mutate while iterating)
         loop {

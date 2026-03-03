@@ -39,6 +39,7 @@ pub enum QuicPacketType {
 
 impl QuicPacketType {
     /// Human-readable name for this packet type.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Initial => "Initial",
@@ -57,6 +58,7 @@ impl QuicPacketType {
 /// packet).  For short-header detection the caller can pass 0.
 ///
 /// Returns `None` if the buffer has fewer than 1 byte.
+#[must_use]
 pub fn packet_type(first_byte: u8, _version: u32) -> QuicPacketType {
     let is_long = first_byte & 0x80 != 0;
     if !is_long {
@@ -108,6 +110,7 @@ impl QuicLongHeader {
     /// - the buffer is too short,
     /// - bit 7 of the first byte is 0 (short header), or
     /// - the connection ID lengths extend beyond the buffer.
+    #[must_use]
     pub fn parse(buf: &[u8]) -> Option<Self> {
         if buf.len() < Self::MIN_LEN {
             return None;
@@ -176,11 +179,13 @@ impl QuicShortHeader {
     ///
     /// Returns `None` if the buffer is too short or bit 7 of the first byte is
     /// set (long header).
+    #[must_use]
     pub fn parse(buf: &[u8]) -> Option<Self> {
         Self::parse_with_conn_id_len(buf, 0)
     }
 
     /// Parse a QUIC Short Header, specifying the known connection ID length.
+    #[must_use]
     pub fn parse_with_conn_id_len(buf: &[u8], conn_id_len: usize) -> Option<Self> {
         if buf.is_empty() {
             return None;
@@ -197,7 +202,7 @@ impl QuicShortHeader {
             return None;
         }
 
-        let dst_conn_id = buf[1..1 + conn_id_len].to_vec();
+        let dst_conn_id = buf[1..=conn_id_len].to_vec();
 
         Some(Self {
             dst_conn_id,

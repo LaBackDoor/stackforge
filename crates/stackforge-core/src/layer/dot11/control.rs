@@ -18,11 +18,13 @@ pub struct Dot11Ack {
 }
 
 impl Dot11Ack {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
     /// Header length (no additional fields beyond the main Dot11 header).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }
@@ -41,11 +43,13 @@ pub struct Dot11RTS {
 }
 
 impl Dot11RTS {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
     /// Header length (no additional fields).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }
@@ -64,11 +68,13 @@ pub struct Dot11CTS {
 }
 
 impl Dot11CTS {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
     /// Header length (no additional fields).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }
@@ -91,6 +97,7 @@ pub struct Dot11BlockAckReq {
 pub const BAR_FIXED_LEN: usize = 4;
 
 impl Dot11BlockAckReq {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
@@ -100,7 +107,7 @@ impl Dot11BlockAckReq {
     /// Bits 0: BAR Ack Policy
     /// Bits 1-3: BAR Type
     /// Bits 4-11: Reserved
-    /// Bits 12-15: TID_INFO
+    /// Bits 12-15: `TID_INFO`
     pub fn bar_control(&self, buf: &[u8]) -> Result<u16, FieldError> {
         let off = self.offset;
         if buf.len() < off + 2 {
@@ -152,11 +159,13 @@ impl Dot11BlockAckReq {
     }
 
     /// Header length.
+    #[must_use]
     pub fn header_len(&self) -> usize {
         BAR_FIXED_LEN
     }
 
     /// Build BAR body.
+    #[must_use]
     pub fn build(bar_control: u16, start_seq_ctrl: u16) -> Vec<u8> {
         let mut out = Vec::with_capacity(BAR_FIXED_LEN);
         out.extend_from_slice(&bar_control.to_le_bytes());
@@ -185,6 +194,7 @@ pub const BA_MIN_FIXED_LEN: usize = 4;
 pub const BA_BASIC_BITMAP_LEN: usize = 128;
 
 impl Dot11BlockAck {
+    #[must_use]
     pub fn new(offset: usize, len: usize) -> Self {
         Self { offset, len }
     }
@@ -250,11 +260,13 @@ impl Dot11BlockAck {
     }
 
     /// Header length (entire BA body including bitmap).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         self.len
     }
 
     /// Build a basic BA body with 128-byte bitmap.
+    #[must_use]
     pub fn build_basic(ba_control: u16, start_seq_ctrl: u16, bitmap: &[u8; 128]) -> Vec<u8> {
         let mut out = Vec::with_capacity(BA_MIN_FIXED_LEN + BA_BASIC_BITMAP_LEN);
         out.extend_from_slice(&ba_control.to_le_bytes());
@@ -278,11 +290,13 @@ pub struct Dot11PSPoll {
 }
 
 impl Dot11PSPoll {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
     /// Header length (no additional fields).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }
@@ -301,11 +315,13 @@ pub struct Dot11CFEnd {
 }
 
 impl Dot11CFEnd {
+    #[must_use]
     pub fn new(offset: usize) -> Self {
         Self { offset }
     }
 
     /// Header length (no additional fields).
+    #[must_use]
     pub fn header_len(&self) -> usize {
         0
     }

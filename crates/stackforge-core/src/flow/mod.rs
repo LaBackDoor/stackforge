@@ -37,13 +37,20 @@ pub mod udp_state;
 // Re-exports
 pub use config::FlowConfig;
 pub use error::FlowError;
-pub use key::{CanonicalKey, FlowDirection, TransportProtocol, extract_key};
-pub use state::{ConversationState, ConversationStatus, DirectionStats, ProtocolState};
+pub use key::{
+    CanonicalKey, FlowDirection, TransportProtocol, ZWaveKey, extract_key, extract_zwave_key,
+};
+pub use state::{
+    ConversationState, ConversationStatus, DirectionStats, ProtocolState, ZWaveFlowState,
+};
 pub use table::ConversationTable;
 pub use tcp_reassembly::{ReassemblyAction, TcpReassembler};
 pub use tcp_state::{TcpConnectionState, TcpConversationState, TcpEndpointState};
 pub use udp_state::UdpFlowState;
 
+use std::collections::HashMap;
+
+use crate::layer::LayerKind;
 use crate::pcap::CapturedPacket;
 
 /// Extract bidirectional conversations from a list of captured packets.
@@ -71,6 +78,64 @@ pub fn extract_flows_with_config(
     }
 
     Ok(table.into_conversations())
+}
+
+/// Extract Z-Wave conversations from a list of captured packets.
+///
+/// Z-Wave is a wireless protocol not carried over IP, so it needs its own
+/// flow extraction separate from the IP-based `extract_flows()`. Packets
+/// are grouped by home ID and canonical node pair (smaller node = `node_a`).
+///
+/// Non-Z-Wave packets are silently skipped.
+pub fn extract_zwave_flows(
+    packets: &[CapturedPacket],
+) -> Result<Vec<ConversationState>, FlowError> {
+    let mut conversations: HashMap<ZWaveKey, ConversationState> = HashMap::new();
+
+    for (index, captured) in packets.iter().enumerate() {
+        let timestamp = captured.metadata.timestamp;
+        let packet = &captured.packet;
+
+        // Skip packets without a Z-Wave layer
+        if packet.get_layer(LayerKind::ZWave).is_none() {
+            continue;
+        }
+
+        let (key, direction) = match extract_zwave_key(packet) {
+            Ok(result) => result,
+            Err(_) => continue,
+        };
+
+        let byte_count = packet.as_bytes().len() as u64;
+        let buf = packet.as_bytes();
+
+        let conv = conversations.entry(key.clone()).or_insert_with(|| {
+            let mut state = ConversationState::new_zwave(key, timestamp);
+            if let ProtocolState::ZWave(ref mut zw) = state.protocol_state
+                && let Some(zwave) = packet.zwave()
+            {
+                zw.home_id = zwave.home_id(buf).unwrap_or(0);
+            }
+            state
+        });
+
+        conv.record_packet(direction, byte_count, timestamp, index);
+
+        // Track ACK vs command frames
+        if let ProtocolState::ZWave(ref mut zw) = conv.protocol_state
+            && let Some(zwave) = packet.zwave()
+        {
+            if zwave.is_ack(buf) {
+                zw.ack_count += 1;
+            } else {
+                zw.command_count += 1;
+            }
+        }
+    }
+
+    let mut result: Vec<ConversationState> = conversations.into_values().collect();
+    result.sort_by_key(|c| c.start_time);
+    Ok(result)
 }
 
 #[cfg(test)]

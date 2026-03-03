@@ -40,6 +40,7 @@ pub enum FrameType {
 impl FrameType {
     /// Return the canonical wire byte for this frame type (the lowest byte in
     /// any range, e.g. `Stream` → `0x08`).
+    #[must_use]
     pub fn as_u8(&self) -> u8 {
         match self {
             Self::Padding => 0x00,
@@ -77,6 +78,7 @@ impl FrameType {
     /// Stream frames in the range 0x08-0x0F are all mapped to `Stream`;
     /// the low 3 bits carry flags (OFF, LEN, FIN) and are preserved in the
     /// raw byte but collapsed to the `Stream` variant here.
+    #[must_use]
     pub fn from_u8(t: u8) -> Self {
         match t {
             0x00 => Self::Padding,
@@ -108,6 +110,7 @@ impl FrameType {
     }
 
     /// Return a human-readable name for this frame type.
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             Self::Padding => "PADDING",
@@ -158,6 +161,7 @@ pub struct QuicFrame {
 /// This is a best-effort parser: it stops at the first parse error or unknown
 /// frame type rather than returning an error.  The returned `Vec` may therefore
 /// be incomplete if the payload is malformed or encrypted.
+#[must_use]
 pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
     let mut frames = Vec::new();
     let mut pos = 0;
@@ -401,16 +405,15 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
             FrameType::ResetStream => {
                 // RESET_STREAM: stream_id(varint) + app_error_code(varint) + final_size(varint)
                 for _ in 0..3 {
-                    let (_, n) = match varint::decode(&buf[pos..]) {
-                        Some(v) => v,
-                        None => {
-                            frames.push(QuicFrame {
-                                frame_type,
-                                offset: frame_start,
-                                length: pos - frame_start,
-                            });
-                            return frames;
-                        },
+                    let (_, n) = if let Some(v) = varint::decode(&buf[pos..]) {
+                        v
+                    } else {
+                        frames.push(QuicFrame {
+                            frame_type,
+                            offset: frame_start,
+                            length: pos - frame_start,
+                        });
+                        return frames;
                     };
                     pos += n;
                 }
@@ -424,16 +427,15 @@ pub fn parse_frames(buf: &[u8]) -> Vec<QuicFrame> {
             FrameType::StopSending => {
                 // STOP_SENDING: stream_id(varint) + app_error_code(varint)
                 for _ in 0..2 {
-                    let (_, n) = match varint::decode(&buf[pos..]) {
-                        Some(v) => v,
-                        None => {
-                            frames.push(QuicFrame {
-                                frame_type,
-                                offset: frame_start,
-                                length: pos - frame_start,
-                            });
-                            return frames;
-                        },
+                    let (_, n) = if let Some(v) = varint::decode(&buf[pos..]) {
+                        v
+                    } else {
+                        frames.push(QuicFrame {
+                            frame_type,
+                            offset: frame_start,
+                            length: pos - frame_start,
+                        });
+                        return frames;
                     };
                     pos += n;
                 }

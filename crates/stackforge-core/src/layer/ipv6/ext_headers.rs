@@ -2,7 +2,7 @@
 //!
 //! IPv6 extension headers form a chain: each header contains a "Next Header"
 //! field pointing to the next header type. The chain terminates at a
-//! transport-layer protocol (TCP, UDP, ICMPv6) or "No Next Header" (59).
+//! transport-layer protocol (TCP, UDP, `ICMPv6`) or "No Next Header" (59).
 //!
 //! # Extension Header Length Encoding
 //!
@@ -27,7 +27,7 @@ pub enum ExtHeaderKind {
     Routing = 43,
     /// Fragment Header
     Fragment = 44,
-    /// ICMPv6
+    /// `ICMPv6`
     Icmpv6 = 58,
     /// No Next Header
     NoNextHeader = 59,
@@ -36,7 +36,8 @@ pub enum ExtHeaderKind {
 }
 
 impl ExtHeaderKind {
-    /// Convert a raw next-header byte to an ExtHeaderKind.
+    /// Convert a raw next-header byte to an `ExtHeaderKind`.
+    #[must_use]
     pub fn from_nh(nh: u8) -> Option<Self> {
         match nh {
             0 => Some(Self::HopByHop),
@@ -52,6 +53,7 @@ impl ExtHeaderKind {
     }
 
     /// Returns true if this is a terminal protocol (not an extension header).
+    #[must_use]
     pub fn is_terminal(self) -> bool {
         matches!(
             self,
@@ -60,6 +62,7 @@ impl ExtHeaderKind {
     }
 
     /// Returns the protocol number (next-header value) for this kind.
+    #[must_use]
     pub fn as_u8(self) -> u8 {
         self as u8
     }
@@ -77,17 +80,20 @@ pub struct ExtHeader {
 }
 
 impl ExtHeader {
-    /// Create a new ExtHeader.
+    /// Create a new `ExtHeader`.
+    #[must_use]
     pub const fn new(kind: ExtHeaderKind, start: usize, end: usize) -> Self {
         Self { kind, start, end }
     }
 
     /// Get the length of this extension header in bytes.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.end - self.start
     }
 
     /// Check if this extension header is empty (zero length).
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.start == self.end
     }
@@ -98,7 +104,7 @@ impl ExtHeader {
 /// Starting at `start` in `buf` with `first_nh` as the initial "Next Header"
 /// value, walks the chain of extension headers and returns a list of all
 /// extension headers found. Stops when a terminal protocol is encountered
-/// (TCP, UDP, ICMPv6, NoNextHeader) or the buffer runs out.
+/// (TCP, UDP, `ICMPv6`, `NoNextHeader`) or the buffer runs out.
 ///
 /// # Arguments
 ///
@@ -111,6 +117,7 @@ impl ExtHeader {
 /// A `Vec<ExtHeader>` containing each extension header (and terminal protocol)
 /// found in the chain. The last entry in the vec is the terminal header
 /// (TCP/UDP/ICMPv6/NoNextHeader) if the buffer is large enough.
+#[must_use]
 pub fn parse_ext_headers(buf: &[u8], start: usize, first_nh: u8) -> Vec<ExtHeader> {
     let mut headers = Vec::new();
     let mut current_nh = first_nh;

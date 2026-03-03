@@ -18,11 +18,18 @@ use crate::layer::{
     RawLayer, SshLayer, TcpLayer, TlsLayer, UdpLayer,
     arp::ArpLayer,
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
-    ethertype, http,
+    ethertype,
+    ftp::{FTP_CONTROL_PORT, is_ftp_payload},
+    http,
     http2::{Http2Layer, is_http2_payload},
-    icmp, ip_protocol,
+    icmp,
+    imap::{IMAP_PORT, is_imap_payload},
+    ip_protocol,
     ipv4::Ipv4Layer,
+    pop3::{POP3_PORT, is_pop3_payload},
+    smtp::{SMTP_PORT, SMTP_SUBMISSION_PORT, SMTPS_PORT, is_smtp_payload},
     ssh::{SSH_PORT, is_ssh_payload},
+    tftp::{TFTP_PORT, is_tftp_payload},
     tls::is_tls_payload,
 };
 
@@ -52,6 +59,7 @@ impl Packet {
 
     /// Creates an empty packet with no data.
     #[inline]
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             data: Bytes::new(),
@@ -72,6 +80,7 @@ impl Packet {
 
     /// Creates a packet from a byte slice by copying the data.
     #[inline]
+    #[must_use]
     pub fn from_slice(data: &[u8]) -> Self {
         Self {
             data: Bytes::copy_from_slice(data),
@@ -82,6 +91,7 @@ impl Packet {
 
     /// Creates a new packet with pre-allocated capacity.
     #[inline]
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             data: Bytes::from(BytesMut::with_capacity(capacity)),
@@ -158,8 +168,7 @@ impl Packet {
     pub fn payload(&self) -> &[u8] {
         self.layers
             .last()
-            .map(|l| &self.data[l.end..])
-            .unwrap_or(&self.data)
+            .map_or(&self.data, |l| &self.data[l.end..])
     }
 
     // ========================================================================
@@ -214,7 +223,61 @@ impl Packet {
             .map(|idx| TlsLayer { index: *idx })
     }
 
-    /// Get a LayerEnum for a given LayerIndex.
+    /// Get the MQTT layer view if present.
+    pub fn mqtt(&self) -> Option<crate::layer::mqtt::MqttLayer> {
+        self.get_layer(LayerKind::Mqtt)
+            .map(|idx| crate::layer::mqtt::MqttLayer::new(*idx))
+    }
+
+    /// Get the MQTT-SN layer view if present.
+    pub fn mqttsn(&self) -> Option<crate::layer::mqttsn::MqttSnLayer> {
+        self.get_layer(LayerKind::MqttSn)
+            .map(|idx| crate::layer::mqttsn::MqttSnLayer::new(*idx))
+    }
+
+    /// Get the Modbus layer view if present.
+    pub fn modbus(&self) -> Option<crate::layer::modbus::ModbusLayer> {
+        self.get_layer(LayerKind::Modbus)
+            .map(|idx| crate::layer::modbus::ModbusLayer::new(*idx))
+    }
+
+    /// Get the Z-Wave layer view if present.
+    pub fn zwave(&self) -> Option<crate::layer::zwave::ZWaveLayer> {
+        self.get_layer(LayerKind::ZWave)
+            .map(|idx| crate::layer::zwave::ZWaveLayer::new(*idx))
+    }
+
+    /// Get the FTP layer view if present.
+    pub fn ftp(&self) -> Option<crate::layer::ftp::FtpLayer> {
+        self.get_layer(LayerKind::Ftp)
+            .map(|idx| crate::layer::ftp::FtpLayer::new(*idx))
+    }
+
+    /// Get the TFTP layer view if present.
+    pub fn tftp(&self) -> Option<crate::layer::tftp::TftpLayer> {
+        self.get_layer(LayerKind::Tftp)
+            .map(|idx| crate::layer::tftp::TftpLayer::new(*idx))
+    }
+
+    /// Get the SMTP layer view if present.
+    pub fn smtp(&self) -> Option<crate::layer::smtp::SmtpLayer> {
+        self.get_layer(LayerKind::Smtp)
+            .map(|idx| crate::layer::smtp::SmtpLayer::new(*idx))
+    }
+
+    /// Get the POP3 layer view if present.
+    pub fn pop3(&self) -> Option<crate::layer::pop3::Pop3Layer> {
+        self.get_layer(LayerKind::Pop3)
+            .map(|idx| crate::layer::pop3::Pop3Layer::new(*idx))
+    }
+
+    /// Get the IMAP layer view if present.
+    pub fn imap(&self) -> Option<crate::layer::imap::ImapLayer> {
+        self.get_layer(LayerKind::Imap)
+            .map(|idx| crate::layer::imap::ImapLayer::new(*idx))
+    }
+
+    /// Get a `LayerEnum` for a given `LayerIndex`.
     pub fn layer_enum(&self, idx: &LayerIndex) -> LayerEnum {
         match idx.kind {
             LayerKind::Ethernet => LayerEnum::Ethernet(EthernetLayer::new(idx.start, idx.end)),
@@ -242,6 +305,15 @@ impl Packet {
             LayerKind::Http2 => LayerEnum::Http2(Http2Layer::new(idx.start, idx.end, false)),
             LayerKind::Quic => LayerEnum::Quic(crate::layer::quic::QuicLayer::from_index(*idx)),
             LayerKind::L2tp => LayerEnum::L2tp(crate::layer::l2tp::L2tpLayer::new(*idx)),
+            LayerKind::Mqtt => LayerEnum::Mqtt(crate::layer::mqtt::MqttLayer::new(*idx)),
+            LayerKind::MqttSn => LayerEnum::MqttSn(crate::layer::mqttsn::MqttSnLayer::new(*idx)),
+            LayerKind::Modbus => LayerEnum::Modbus(crate::layer::modbus::ModbusLayer::new(*idx)),
+            LayerKind::ZWave => LayerEnum::ZWave(crate::layer::zwave::ZWaveLayer::new(*idx)),
+            LayerKind::Ftp => LayerEnum::Ftp(crate::layer::ftp::FtpLayer::new(*idx)),
+            LayerKind::Tftp => LayerEnum::Tftp(crate::layer::tftp::TftpLayer::new(*idx)),
+            LayerKind::Smtp => LayerEnum::Smtp(crate::layer::smtp::SmtpLayer::new(*idx)),
+            LayerKind::Pop3 => LayerEnum::Pop3(crate::layer::pop3::Pop3Layer::new(*idx)),
+            LayerKind::Imap => LayerEnum::Imap(crate::layer::imap::ImapLayer::new(*idx)),
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
@@ -252,7 +324,7 @@ impl Packet {
         }
     }
 
-    /// Get all layers as LayerEnum objects.
+    /// Get all layers as `LayerEnum` objects.
     pub fn layer_enums(&self) -> Vec<LayerEnum> {
         self.layers.iter().map(|idx| self.layer_enum(idx)).collect()
     }
@@ -306,7 +378,7 @@ impl Packet {
         if header_len < min_size {
             return Err(PacketError::ParseError {
                 offset,
-                message: format!("invalid IHL: {}", ihl),
+                message: format!("invalid IHL: {ihl}"),
             });
         }
 
@@ -422,6 +494,37 @@ impl Packet {
             let payload = &self.data[tcp_end..];
             if (src_port == SSH_PORT || dst_port == SSH_PORT) && is_ssh_payload(payload) {
                 self.parse_ssh(tcp_end)?;
+            } else if (src_port == 502 || dst_port == 502)
+                && crate::layer::modbus::is_modbus_tcp_payload(payload)
+            {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Modbus, tcp_end, self.data.len()));
+            } else if (src_port == 1883 || dst_port == 1883)
+                && crate::layer::mqtt::is_mqtt_payload(payload)
+            {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Mqtt, tcp_end, self.data.len()));
+            } else if (src_port == FTP_CONTROL_PORT || dst_port == FTP_CONTROL_PORT)
+                && is_ftp_payload(payload)
+            {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Ftp, tcp_end, self.data.len()));
+            } else if (src_port == SMTP_PORT
+                || dst_port == SMTP_PORT
+                || src_port == SMTP_SUBMISSION_PORT
+                || dst_port == SMTP_SUBMISSION_PORT
+                || src_port == SMTPS_PORT
+                || dst_port == SMTPS_PORT)
+                && is_smtp_payload(payload)
+            {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Smtp, tcp_end, self.data.len()));
+            } else if (src_port == POP3_PORT || dst_port == POP3_PORT) && is_pop3_payload(payload) {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Pop3, tcp_end, self.data.len()));
+            } else if (src_port == IMAP_PORT || dst_port == IMAP_PORT) && is_imap_payload(payload) {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Imap, tcp_end, self.data.len()));
             } else if is_tls_payload(payload) {
                 self.parse_tls(tcp_end)?;
             } else if is_http2_payload(payload) {
@@ -474,6 +577,18 @@ impl Packet {
             // L2TPv2: version nibble (low 4 bits of second byte) must be 2
             self.layers
                 .push(LayerIndex::new(LayerKind::L2tp, udp_end, self.data.len()));
+        } else if (dst_port == 1883 || src_port == 1883)
+            && udp_end < self.data.len()
+            && crate::layer::mqttsn::is_mqttsn_payload(&self.data[udp_end..])
+        {
+            self.layers
+                .push(LayerIndex::new(LayerKind::MqttSn, udp_end, self.data.len()));
+        } else if (dst_port == TFTP_PORT || src_port == TFTP_PORT)
+            && udp_end < self.data.len()
+            && is_tftp_payload(&self.data[udp_end..])
+        {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Tftp, udp_end, self.data.len()));
         } else if udp_end < self.data.len() {
             self.layers
                 .push(LayerIndex::new(LayerKind::Raw, udp_end, self.data.len()));
@@ -532,8 +647,7 @@ impl Packet {
             let end = remaining
                 .windows(2)
                 .position(|w| w == b"\r\n")
-                .map(|p| offset + p + 2)
-                .unwrap_or(self.data.len());
+                .map_or(self.data.len(), |p| offset + p + 2);
             self.layers
                 .push(LayerIndex::new(LayerKind::Ssh, offset, end));
             if end < self.data.len() {

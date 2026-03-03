@@ -5,6 +5,7 @@ use rand::Rng;
 
 /// Generate random bytes.
 #[cfg(feature = "rand")]
+#[must_use]
 pub fn random_bytes(len: usize) -> Vec<u8> {
     let mut rng = rand::rng();
     (0..len).map(|_| rng.random()).collect()
@@ -12,6 +13,7 @@ pub fn random_bytes(len: usize) -> Vec<u8> {
 
 /// Generate a random MAC address.
 #[cfg(feature = "rand")]
+#[must_use]
 pub fn random_mac() -> crate::MacAddress {
     let mut rng = rand::rng();
     let mut bytes = [0u8; 6];

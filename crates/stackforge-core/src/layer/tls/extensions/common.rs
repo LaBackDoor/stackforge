@@ -7,6 +7,7 @@ use super::Extension;
 /// Parse ALPN extension data.
 ///
 /// Returns list of protocol name strings.
+#[must_use]
 pub fn parse_alpn(data: &[u8]) -> Vec<String> {
     if data.len() < 2 {
         return Vec::new();
@@ -33,6 +34,7 @@ pub fn parse_alpn(data: &[u8]) -> Vec<String> {
 }
 
 /// Build ALPN extension.
+#[must_use]
 pub fn build_alpn(protocols: &[&str]) -> Extension {
     let total_len: usize = protocols.iter().map(|p| 1 + p.len()).sum();
     let mut data = Vec::with_capacity(2 + total_len);
@@ -44,7 +46,8 @@ pub fn build_alpn(protocols: &[&str]) -> Extension {
     Extension::new(0x0010, data)
 }
 
-/// Parse Supported Groups (formerly "elliptic_curves") extension.
+/// Parse Supported Groups (formerly "`elliptic_curves`") extension.
+#[must_use]
 pub fn parse_supported_groups(data: &[u8]) -> Vec<u16> {
     if data.len() < 2 {
         return Vec::new();
@@ -61,6 +64,7 @@ pub fn parse_supported_groups(data: &[u8]) -> Vec<u16> {
 }
 
 /// Build Supported Groups extension.
+#[must_use]
 pub fn build_supported_groups(groups: &[u16]) -> Extension {
     let list_len = (groups.len() * 2) as u16;
     let mut data = Vec::with_capacity(2 + groups.len() * 2);
@@ -72,19 +76,21 @@ pub fn build_supported_groups(groups: &[u16]) -> Extension {
 }
 
 /// Parse EC Point Formats extension.
+#[must_use]
 pub fn parse_ec_point_formats(data: &[u8]) -> Vec<u8> {
     if data.is_empty() {
         return Vec::new();
     }
     let list_len = data[0] as usize;
-    if data.len() >= 1 + list_len {
-        data[1..1 + list_len].to_vec()
+    if data.len() > list_len {
+        data[1..=list_len].to_vec()
     } else {
         data[1..].to_vec()
     }
 }
 
 /// Build EC Point Formats extension.
+#[must_use]
 pub fn build_ec_point_formats(formats: &[u8]) -> Extension {
     let mut data = Vec::with_capacity(1 + formats.len());
     data.push(formats.len() as u8);
@@ -93,6 +99,7 @@ pub fn build_ec_point_formats(formats: &[u8]) -> Extension {
 }
 
 /// Build Renegotiation Info extension (type 0xFF01).
+#[must_use]
 pub fn build_renegotiation_info(info: &[u8]) -> Extension {
     let mut data = Vec::with_capacity(1 + info.len());
     data.push(info.len() as u8);
@@ -101,21 +108,25 @@ pub fn build_renegotiation_info(info: &[u8]) -> Extension {
 }
 
 /// Build Extended Master Secret extension (type 0x0017).
+#[must_use]
 pub fn build_extended_master_secret() -> Extension {
     Extension::new(0x0017, Vec::new())
 }
 
 /// Build Encrypt-Then-MAC extension (type 0x0016).
+#[must_use]
 pub fn build_encrypt_then_mac() -> Extension {
     Extension::new(0x0016, Vec::new())
 }
 
 /// Build Session Ticket extension (type 0x0023).
+#[must_use]
 pub fn build_session_ticket(ticket: &[u8]) -> Extension {
     Extension::new(0x0023, ticket.to_vec())
 }
 
 /// Build PSK Key Exchange Modes extension (type 0x002D).
+#[must_use]
 pub fn build_psk_key_exchange_modes(modes: &[u8]) -> Extension {
     let mut data = Vec::with_capacity(1 + modes.len());
     data.push(modes.len() as u8);

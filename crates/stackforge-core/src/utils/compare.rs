@@ -3,6 +3,7 @@
 use std::fmt::Write;
 
 /// Compare two byte slices and return the first differing index.
+#[must_use]
 pub fn find_diff(a: &[u8], b: &[u8]) -> Option<usize> {
     let min_len = a.len().min(b.len());
 
@@ -12,14 +13,15 @@ pub fn find_diff(a: &[u8], b: &[u8]) -> Option<usize> {
         }
     }
 
-    if a.len() != b.len() {
-        Some(min_len)
-    } else {
+    if a.len() == b.len() {
         None
+    } else {
+        Some(min_len)
     }
 }
 
 /// Generate a diff between two byte slices.
+#[must_use]
 pub fn byte_diff(a: &[u8], b: &[u8]) -> String {
     let mut output = String::new();
     let max_len = a.len().max(b.len());
@@ -31,13 +33,9 @@ pub fn byte_diff(a: &[u8], b: &[u8]) -> String {
         let byte_b = b.get(i).copied();
 
         if byte_a != byte_b {
-            let a_str = byte_a
-                .map(|b| format!("{:02x}", b))
-                .unwrap_or_else(|| "--".to_string());
-            let b_str = byte_b
-                .map(|b| format!("{:02x}", b))
-                .unwrap_or_else(|| "--".to_string());
-            writeln!(output, "  offset {:04x}: {} != {}", i, a_str, b_str).unwrap();
+            let a_str = byte_a.map_or_else(|| "--".to_string(), |b| format!("{b:02x}"));
+            let b_str = byte_b.map_or_else(|| "--".to_string(), |b| format!("{b:02x}"));
+            writeln!(output, "  offset {i:04x}: {a_str} != {b_str}").unwrap();
         }
     }
 

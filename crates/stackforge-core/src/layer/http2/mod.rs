@@ -73,6 +73,7 @@ pub struct Http2Layer {
 
 impl Http2Layer {
     /// Create a new HTTP/2 layer from start/end offsets and a preface flag.
+    #[must_use]
     pub fn new(start: usize, end: usize, has_preface: bool) -> Self {
         Http2Layer {
             index: LayerIndex::new(LayerKind::Http2, start, end),
@@ -81,11 +82,13 @@ impl Http2Layer {
     }
 
     /// Create from an existing `LayerIndex`.
+    #[must_use]
     pub fn from_index(index: LayerIndex, has_preface: bool) -> Self {
         Http2Layer { index, has_preface }
     }
 
     /// Check if `buf` starting at `offset` begins with the HTTP/2 preface.
+    #[must_use]
     pub fn has_preface_at(buf: &[u8], offset: usize) -> bool {
         let end = offset + HTTP2_PREFACE.len();
         if end > buf.len() {
@@ -95,6 +98,7 @@ impl Http2Layer {
     }
 
     /// Get the offset where frames begin (after the preface if present).
+    #[must_use]
     pub fn frames_start(&self) -> usize {
         if self.has_preface {
             self.index.start + HTTP2_PREFACE.len()
@@ -106,12 +110,14 @@ impl Http2Layer {
     /// Get the first frame in this layer, skipping the preface if present.
     ///
     /// Returns `None` if there are no frames or the buffer is too short.
-    pub fn first_frame<'a>(&self, buf: &'a [u8]) -> Option<Http2Frame> {
+    #[must_use]
+    pub fn first_frame(&self, buf: &[u8]) -> Option<Http2Frame> {
         let offset = self.frames_start();
         Http2Frame::parse_at(buf, offset)
     }
 
     /// Parse all frames in this layer's buffer range.
+    #[must_use]
     pub fn all_frames(&self, buf: &[u8]) -> Vec<Http2Frame> {
         let slice = self.index.slice(buf);
         let preface_skip = if self.has_preface {
@@ -152,6 +158,7 @@ impl Http2Layer {
     }
 
     /// Generate a human-readable summary for this layer.
+    #[must_use]
     pub fn summary(&self, buf: &[u8]) -> String {
         let preface_str = if self.has_preface { "Preface + " } else { "" };
 
@@ -178,6 +185,7 @@ impl Http2Layer {
     /// - If only a preface: 24 bytes
     /// - If a frame (no preface): 9 bytes (one frame header)
     /// - If preface + at least one frame: 33 bytes (24 + 9)
+    #[must_use]
     pub fn header_len(&self, buf: &[u8]) -> usize {
         if self.has_preface {
             // Check if there's at least one frame after the preface
@@ -195,6 +203,7 @@ impl Http2Layer {
     /// Get a field value from the first frame by name.
     ///
     /// Supported fields: `frame_type`, `flags`, `stream_id`, `length`.
+    #[must_use]
     pub fn get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
         let frame = self.first_frame(buf)?;
         match name {
@@ -220,12 +229,11 @@ impl Http2Layer {
             "stream_id" => {
                 let id = match value {
                     FieldValue::U32(v) => v,
-                    FieldValue::U16(v) => v as u32,
-                    FieldValue::U8(v) => v as u32,
+                    FieldValue::U16(v) => u32::from(v),
+                    FieldValue::U8(v) => u32::from(v),
                     _ => {
                         return Some(Err(FieldError::InvalidValue(format!(
-                            "stream_id: expected integer, got {:?}",
-                            value
+                            "stream_id: expected integer, got {value:?}"
                         ))));
                     },
                 };
@@ -247,8 +255,7 @@ impl Http2Layer {
                     FieldValue::U8(v) => v,
                     _ => {
                         return Some(Err(FieldError::InvalidValue(format!(
-                            "flags: expected U8, got {:?}",
-                            value
+                            "flags: expected U8, got {value:?}"
                         ))));
                     },
                 };
@@ -269,6 +276,7 @@ impl Http2Layer {
     }
 
     /// Get the static list of field names for this layer type.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         HTTP2_FIELD_NAMES
     }
@@ -309,6 +317,7 @@ impl Layer for Http2Layer {
 ///
 /// Returns true if the buffer starts with the HTTP/2 connection preface
 /// or if it begins with a valid-looking HTTP/2 frame header.
+#[must_use]
 pub fn is_http2_payload(data: &[u8]) -> bool {
     // Check for preface
     if data.len() >= HTTP2_PREFACE.len() && data.starts_with(HTTP2_PREFACE) {
@@ -321,7 +330,7 @@ pub fn is_http2_payload(data: &[u8]) -> bool {
     }
 
     // Length field is 24-bit; must be reasonable (< 16 MB)
-    let length = ((data[0] as u32) << 16) | ((data[1] as u32) << 8) | (data[2] as u32);
+    let length = (u32::from(data[0]) << 16) | (u32::from(data[1]) << 8) | u32::from(data[2]);
     if length > 0x00FF_FFFF {
         return false;
     }

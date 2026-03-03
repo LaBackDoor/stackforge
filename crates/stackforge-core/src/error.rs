@@ -75,6 +75,7 @@ impl From<std::io::Error> for PacketError {
 
 impl PacketError {
     /// Create a buffer too short error.
+    #[must_use]
     pub fn buffer_too_short(expected: usize, actual: usize) -> Self {
         Self::BufferTooShort { expected, actual }
     }
@@ -88,11 +89,13 @@ impl PacketError {
     }
 
     /// Create a binding not found error.
+    #[must_use]
     pub fn binding_not_found(lower: LayerKind, upper: LayerKind) -> Self {
         Self::BindingNotFound { lower, upper }
     }
 
     /// Check if this is a recoverable error.
+    #[must_use]
     pub fn is_recoverable(&self) -> bool {
         matches!(
             self,
@@ -106,7 +109,7 @@ pub type Result<T> = std::result::Result<T, PacketError>;
 
 /// Extension trait for Result types.
 pub trait ResultExt<T> {
-    /// Convert to PacketError with context.
+    /// Convert to `PacketError` with context.
     fn with_context(self, context: impl FnOnce() -> String) -> Result<T>;
 }
 

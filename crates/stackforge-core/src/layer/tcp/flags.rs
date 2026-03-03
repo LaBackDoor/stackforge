@@ -1,7 +1,7 @@
 //! TCP flags implementation.
 //!
 //! TCP flags are a 9-bit field in the TCP header (including NS, CWR, ECE).
-//! This module provides a structured representation matching Scapy's FlagsField.
+//! This module provides a structured representation matching Scapy's `FlagsField`.
 
 use std::fmt;
 
@@ -161,6 +161,7 @@ impl TcpFlags {
     ///
     /// The flags are in the lower 9 bits (with NS in bit 8 of the high byte).
     #[inline]
+    #[must_use]
     pub fn from_u16(value: u16) -> Self {
         Self {
             fin: (value & Self::FIN_BIT) != 0,
@@ -177,12 +178,14 @@ impl TcpFlags {
 
     /// Create flags from just the flags byte (lower 8 bits).
     #[inline]
+    #[must_use]
     pub fn from_byte(byte: u8) -> Self {
-        Self::from_u16(byte as u16)
+        Self::from_u16(u16::from(byte))
     }
 
-    /// Create flags from two bytes (data_offset_reserved + flags).
+    /// Create flags from two bytes (`data_offset_reserved` + flags).
     #[inline]
+    #[must_use]
     pub fn from_bytes(hi: u8, lo: u8) -> Self {
         let ns = (hi & 0x01) != 0;
         let mut flags = Self::from_byte(lo);
@@ -192,6 +195,7 @@ impl TcpFlags {
 
     /// Convert to a raw 9-bit value.
     #[inline]
+    #[must_use]
     pub fn to_u16(self) -> u16 {
         let mut value = 0u16;
         if self.fin {
@@ -226,18 +230,21 @@ impl TcpFlags {
 
     /// Convert to the lower flags byte (without NS).
     #[inline]
+    #[must_use]
     pub fn to_byte(self) -> u8 {
         (self.to_u16() & 0xFF) as u8
     }
 
     /// Get the NS bit for the high byte.
     #[inline]
+    #[must_use]
     pub fn ns_bit(self) -> u8 {
-        if self.ns { 0x01 } else { 0x00 }
+        u8::from(self.ns)
     }
 
     /// Create flags from a string like "S", "SA", "FA", "PA", "R", etc.
     /// Uses Scapy's "FSRPAUECN" convention.
+    #[must_use]
     pub fn from_str(s: &str) -> Self {
         let mut flags = Self::NONE;
         for c in s.chars() {
@@ -259,42 +266,49 @@ impl TcpFlags {
 
     /// Check if this is a SYN packet (SYN set, ACK not set).
     #[inline]
+    #[must_use]
     pub fn is_syn(&self) -> bool {
         self.syn && !self.ack
     }
 
     /// Check if this is a SYN-ACK packet.
     #[inline]
+    #[must_use]
     pub fn is_syn_ack(&self) -> bool {
         self.syn && self.ack
     }
 
     /// Check if this is a pure ACK packet.
     #[inline]
+    #[must_use]
     pub fn is_ack(&self) -> bool {
         self.ack && !self.syn && !self.fin && !self.rst
     }
 
     /// Check if this is a FIN packet.
     #[inline]
+    #[must_use]
     pub fn is_fin(&self) -> bool {
         self.fin
     }
 
     /// Check if this is a RST packet.
     #[inline]
+    #[must_use]
     pub fn is_rst(&self) -> bool {
         self.rst
     }
 
     /// Check if ECN is enabled (ECE or CWR set).
     #[inline]
+    #[must_use]
     pub fn has_ecn(&self) -> bool {
         self.ece || self.cwr
     }
 
     /// Check if any flag is set.
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         !self.fin
             && !self.syn
@@ -309,6 +323,7 @@ impl TcpFlags {
 
     /// Count how many flags are set.
     #[inline]
+    #[must_use]
     pub fn count(&self) -> u8 {
         let mut count = 0;
         if self.fin {
@@ -377,14 +392,14 @@ impl fmt::Display for TcpFlags {
         if s.is_empty() {
             write!(f, "-")
         } else {
-            write!(f, "{}", s)
+            write!(f, "{s}")
         }
     }
 }
 
 impl fmt::Debug for TcpFlags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TcpFlags({})", self)
+        write!(f, "TcpFlags({self})")
     }
 }
 

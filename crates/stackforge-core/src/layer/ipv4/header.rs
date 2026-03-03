@@ -97,6 +97,7 @@ impl Ipv4Flags {
 
     /// Create flags from a raw byte value (upper 3 bits).
     #[inline]
+    #[must_use]
     pub fn from_byte(byte: u8) -> Self {
         Self {
             reserved: (byte & 0x80) != 0,
@@ -107,6 +108,7 @@ impl Ipv4Flags {
 
     /// Convert to a raw byte value (upper 3 bits).
     #[inline]
+    #[must_use]
     pub fn to_byte(self) -> u8 {
         let mut b = 0u8;
         if self.reserved {
@@ -123,6 +125,7 @@ impl Ipv4Flags {
 
     /// Check if this is a fragment (MF set or offset > 0).
     #[inline]
+    #[must_use]
     pub fn is_fragment(self, offset: u16) -> bool {
         self.mf || offset > 0
     }
@@ -157,6 +160,7 @@ pub struct Ipv4Layer {
 impl Ipv4Layer {
     /// Create a new IPv4 layer view with specified bounds.
     #[inline]
+    #[must_use]
     pub const fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Ipv4, start, end),
@@ -165,12 +169,14 @@ impl Ipv4Layer {
 
     /// Create a layer at offset 0 with minimum header length.
     #[inline]
+    #[must_use]
     pub const fn at_start() -> Self {
         Self::new(0, IPV4_MIN_HEADER_LEN)
     }
 
     /// Create a layer at the specified offset with minimum header length.
     #[inline]
+    #[must_use]
     pub const fn at_offset(offset: usize) -> Self {
         Self::new(offset, offset + IPV4_MIN_HEADER_LEN)
     }
@@ -190,8 +196,7 @@ impl Ipv4Layer {
 
         if header_len < IPV4_MIN_HEADER_LEN {
             return Err(FieldError::InvalidValue(format!(
-                "IHL {} is less than minimum (5)",
-                ihl
+                "IHL {ihl} is less than minimum (5)"
             )));
         }
 
@@ -219,16 +224,14 @@ impl Ipv4Layer {
         let version = (buf[offset] >> 4) & 0x0F;
         if version != 4 {
             return Err(FieldError::InvalidValue(format!(
-                "not IPv4: version = {}",
-                version
+                "not IPv4: version = {version}"
             )));
         }
 
         let ihl = (buf[offset] & 0x0F) as usize;
         if ihl < 5 {
             return Err(FieldError::InvalidValue(format!(
-                "IHL {} is less than minimum (5)",
-                ihl
+                "IHL {ihl} is less than minimum (5)"
             )));
         }
 
@@ -245,11 +248,13 @@ impl Ipv4Layer {
     }
 
     /// Calculate the actual header length from the buffer.
+    #[must_use]
     pub fn calculate_header_len(&self, buf: &[u8]) -> usize {
         self.ihl(buf).map(|ihl| (ihl as usize) * 4).unwrap_or(20)
     }
 
     /// Get the options length (header length - 20).
+    #[must_use]
     pub fn options_len(&self, buf: &[u8]) -> usize {
         self.calculate_header_len(buf)
             .saturating_sub(IPV4_MIN_HEADER_LEN)
@@ -331,7 +336,7 @@ impl Ipv4Layer {
     /// Read the fragment offset in bytes.
     #[inline]
     pub fn frag_offset_bytes(&self, buf: &[u8]) -> Result<u32, FieldError> {
-        Ok((self.frag_offset(buf)? as u32) * 8)
+        Ok(u32::from(self.frag_offset(buf)?) * 8)
     }
 
     /// Read the Time to Live field.
@@ -583,6 +588,7 @@ impl Ipv4Layer {
     }
 
     /// Get list of field names.
+    #[must_use]
     pub fn field_names() -> &'static [&'static str] {
         &[
             "version", "ihl", "tos", "dscp", "ecn", "len", "id", "flags", "frag", "ttl", "proto",
@@ -593,6 +599,7 @@ impl Ipv4Layer {
     // ========== Utility Methods ==========
 
     /// Check if this is a fragment.
+    #[must_use]
     pub fn is_fragment(&self, buf: &[u8]) -> bool {
         let flags = self.flags(buf).unwrap_or(Ipv4Flags::NONE);
         let offset = self.frag_offset(buf).unwrap_or(0);
@@ -600,6 +607,7 @@ impl Ipv4Layer {
     }
 
     /// Check if this is the first fragment.
+    #[must_use]
     pub fn is_first_fragment(&self, buf: &[u8]) -> bool {
         let flags = self.flags(buf).unwrap_or(Ipv4Flags::NONE);
         let offset = self.frag_offset(buf).unwrap_or(0);
@@ -607,6 +615,7 @@ impl Ipv4Layer {
     }
 
     /// Check if this is the last fragment.
+    #[must_use]
     pub fn is_last_fragment(&self, buf: &[u8]) -> bool {
         let flags = self.flags(buf).unwrap_or(Ipv4Flags::NONE);
         let offset = self.frag_offset(buf).unwrap_or(0);
@@ -614,11 +623,12 @@ impl Ipv4Layer {
     }
 
     /// Check if the Don't Fragment flag is set.
+    #[must_use]
     pub fn is_dont_fragment(&self, buf: &[u8]) -> bool {
         self.flags(buf).map(|f| f.df).unwrap_or(false)
     }
 
-    /// Get the payload length (total_len - header_len).
+    /// Get the payload length (`total_len` - `header_len`).
     pub fn payload_len(&self, buf: &[u8]) -> Result<usize, FieldError> {
         let total = self.total_len(buf)? as usize;
         let header = self.calculate_header_len(buf);
@@ -645,6 +655,7 @@ impl Ipv4Layer {
 
     /// Get the header bytes.
     #[inline]
+    #[must_use]
     pub fn header_bytes<'a>(&self, buf: &'a [u8]) -> &'a [u8] {
         let header_len = self.calculate_header_len(buf);
         let end = (self.index.start + header_len).min(buf.len());
@@ -653,6 +664,7 @@ impl Ipv4Layer {
 
     /// Copy the header bytes.
     #[inline]
+    #[must_use]
     pub fn header_copy(&self, buf: &[u8]) -> Vec<u8> {
         self.header_bytes(buf).to_vec()
     }
@@ -665,6 +677,7 @@ impl Ipv4Layer {
     }
 
     /// Determine the next layer kind based on protocol.
+    #[must_use]
     pub fn next_layer(&self, buf: &[u8]) -> Option<LayerKind> {
         self.protocol(buf).ok().and_then(|proto| match proto {
             protocol::TCP => Some(LayerKind::Tcp),
@@ -677,6 +690,7 @@ impl Ipv4Layer {
     }
 
     /// Compute hash for packet matching (like Scapy's hashret).
+    #[must_use]
     pub fn hashret(&self, buf: &[u8]) -> Vec<u8> {
         let proto = self.protocol(buf).unwrap_or(0);
 
@@ -711,7 +725,8 @@ impl Ipv4Layer {
         result
     }
 
-    /// Check if this packet answers another (for sr() matching).
+    /// Check if this packet answers another (for `sr()` matching).
+    #[must_use]
     pub fn answers(&self, buf: &[u8], other: &Ipv4Layer, other_buf: &[u8]) -> bool {
         // Protocol must match
         let self_proto = self.protocol(buf).unwrap_or(0);
@@ -761,6 +776,7 @@ impl Ipv4Layer {
 
     /// Extract padding from the packet.
     /// Returns (payload, padding) tuple.
+    #[must_use]
     pub fn extract_padding<'a>(&self, buf: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         let header_len = self.calculate_header_len(buf);
         let total_len = self.total_len(buf).unwrap_or(0) as usize;
@@ -779,6 +795,7 @@ impl Ipv4Layer {
     }
 
     /// Get routing information for this packet.
+    #[must_use]
     pub fn route(&self, buf: &[u8]) -> Ipv4Route {
         use crate::layer::ipv4::routing::get_route;
         let dst = self.dst(buf).unwrap_or(Ipv4Addr::UNSPECIFIED);
@@ -786,12 +803,14 @@ impl Ipv4Layer {
     }
 
     /// Estimate the original TTL.
+    #[must_use]
     pub fn original_ttl(&self, buf: &[u8]) -> u8 {
         let current = self.ttl(buf).unwrap_or(0);
         super::ttl::estimate_original(current)
     }
 
     /// Estimate the number of hops.
+    #[must_use]
     pub fn hops(&self, buf: &[u8]) -> u8 {
         let current = self.ttl(buf).unwrap_or(0);
         super::ttl::estimate_hops(current)
@@ -806,16 +825,14 @@ impl Layer for Ipv4Layer {
     fn summary(&self, buf: &[u8]) -> String {
         let src = self
             .src(buf)
-            .map(|ip| ip.to_string())
-            .unwrap_or_else(|_| "?".into());
+            .map_or_else(|_| "?".into(), |ip| ip.to_string());
         let dst = self
             .dst(buf)
-            .map(|ip| ip.to_string())
-            .unwrap_or_else(|_| "?".into());
+            .map_or_else(|_| "?".into(), |ip| ip.to_string());
         let proto = self.protocol_name(buf);
         let ttl = self.ttl(buf).unwrap_or(0);
 
-        let mut s = format!("IP {} > {} {} ttl={}", src, dst, proto, ttl);
+        let mut s = format!("IP {src} > {dst} {proto} ttl={ttl}");
 
         // Add fragment info if fragmented
         if self.is_fragment(buf) {

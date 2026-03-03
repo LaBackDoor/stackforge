@@ -16,6 +16,7 @@ use crate::utils::internet_checksum;
 /// # Note
 /// Unlike TCP/UDP, ICMP does not use a pseudo-header. The checksum is
 /// calculated over the entire ICMP message only.
+#[must_use]
 pub fn icmp_checksum(icmp_data: &[u8]) -> u16 {
     internet_checksum(icmp_data)
 }
@@ -31,6 +32,7 @@ pub fn icmp_checksum(icmp_data: &[u8]) -> u16 {
 /// # Note
 /// A valid checksum should result in 0 or 0xFFFF when the checksum is
 /// computed over the entire message including the checksum field.
+#[must_use]
 pub fn verify_icmp_checksum(icmp_data: &[u8]) -> bool {
     if icmp_data.len() < 8 {
         return false;

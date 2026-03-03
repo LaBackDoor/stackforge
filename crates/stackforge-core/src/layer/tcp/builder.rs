@@ -109,6 +109,7 @@ impl Default for TcpBuilder {
 
 impl TcpBuilder {
     /// Create a new TCP builder with default values.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -150,58 +151,68 @@ impl TcpBuilder {
     // ========== Header Field Setters ==========
 
     /// Set the source port.
+    #[must_use]
     pub fn src_port(mut self, port: u16) -> Self {
         self.src_port = port;
         self
     }
 
-    /// Alias for src_port (Scapy compatibility).
+    /// Alias for `src_port` (Scapy compatibility).
+    #[must_use]
     pub fn sport(self, port: u16) -> Self {
         self.src_port(port)
     }
 
     /// Set the destination port.
+    #[must_use]
     pub fn dst_port(mut self, port: u16) -> Self {
         self.dst_port = port;
         self
     }
 
-    /// Alias for dst_port (Scapy compatibility).
+    /// Alias for `dst_port` (Scapy compatibility).
+    #[must_use]
     pub fn dport(self, port: u16) -> Self {
         self.dst_port(port)
     }
 
     /// Set the sequence number.
+    #[must_use]
     pub fn seq(mut self, seq: u32) -> Self {
         self.seq = seq;
         self
     }
 
     /// Set the acknowledgment number.
+    #[must_use]
     pub fn ack_num(mut self, ack: u32) -> Self {
         self.ack = ack;
         self
     }
 
     /// Set the data offset (in 32-bit words).
+    #[must_use]
     pub fn data_offset(mut self, offset: u8) -> Self {
         self.data_offset = Some(offset);
         self.auto_data_offset = false;
         self
     }
 
-    /// Alias for data_offset (Scapy compatibility).
+    /// Alias for `data_offset` (Scapy compatibility).
+    #[must_use]
     pub fn dataofs(self, offset: u8) -> Self {
         self.data_offset(offset)
     }
 
     /// Set the reserved bits.
+    #[must_use]
     pub fn reserved(mut self, reserved: u8) -> Self {
         self.reserved = reserved & 0x07;
         self
     }
 
     /// Set the flags.
+    #[must_use]
     pub fn flags(mut self, flags: TcpFlags) -> Self {
         self.flags = flags;
         self.flags_explicitly_set = true;
@@ -209,6 +220,7 @@ impl TcpBuilder {
     }
 
     /// Set flags from a string like "S", "SA", "FA", etc.
+    #[must_use]
     pub fn flags_str(mut self, s: &str) -> Self {
         self.flags = TcpFlags::from_str(s);
         self.flags_explicitly_set = true;
@@ -216,7 +228,7 @@ impl TcpBuilder {
     }
 
     /// Clear default flags on first explicit flag call.
-    /// The default has SYN set (matching Scapy's TCP() default), but when
+    /// The default has SYN set (matching Scapy's `TCP()` default), but when
     /// the user explicitly sets flags via individual methods, the default
     /// should be cleared first so e.g. `.fin()` produces only FIN, not SYN|FIN.
     fn clear_defaults_if_needed(&mut self) {
@@ -227,6 +239,7 @@ impl TcpBuilder {
     }
 
     /// Set the SYN flag.
+    #[must_use]
     pub fn syn(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.syn = true;
@@ -234,6 +247,7 @@ impl TcpBuilder {
     }
 
     /// Set the ACK flag.
+    #[must_use]
     pub fn ack(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.ack = true;
@@ -241,6 +255,7 @@ impl TcpBuilder {
     }
 
     /// Set the FIN flag.
+    #[must_use]
     pub fn fin(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.fin = true;
@@ -248,6 +263,7 @@ impl TcpBuilder {
     }
 
     /// Set the RST flag.
+    #[must_use]
     pub fn rst(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.rst = true;
@@ -255,6 +271,7 @@ impl TcpBuilder {
     }
 
     /// Set the PSH flag.
+    #[must_use]
     pub fn psh(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.psh = true;
@@ -262,6 +279,7 @@ impl TcpBuilder {
     }
 
     /// Set the URG flag.
+    #[must_use]
     pub fn urg(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.urg = true;
@@ -269,6 +287,7 @@ impl TcpBuilder {
     }
 
     /// Set the ECE flag.
+    #[must_use]
     pub fn ece(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.ece = true;
@@ -276,6 +295,7 @@ impl TcpBuilder {
     }
 
     /// Set the CWR flag.
+    #[must_use]
     pub fn cwr(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.cwr = true;
@@ -283,6 +303,7 @@ impl TcpBuilder {
     }
 
     /// Set the NS flag.
+    #[must_use]
     pub fn ns(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.ns = true;
@@ -290,6 +311,7 @@ impl TcpBuilder {
     }
 
     /// Set SYN+ACK flags.
+    #[must_use]
     pub fn syn_ack(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.syn = true;
@@ -298,6 +320,7 @@ impl TcpBuilder {
     }
 
     /// Set FIN+ACK flags.
+    #[must_use]
     pub fn fin_ack(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.fin = true;
@@ -306,6 +329,7 @@ impl TcpBuilder {
     }
 
     /// Set PSH+ACK flags.
+    #[must_use]
     pub fn psh_ack(mut self) -> Self {
         self.clear_defaults_if_needed();
         self.flags.psh = true;
@@ -314,12 +338,14 @@ impl TcpBuilder {
     }
 
     /// Set the window size.
+    #[must_use]
     pub fn window(mut self, window: u16) -> Self {
         self.window = window;
         self
     }
 
     /// Set the checksum manually.
+    #[must_use]
     pub fn checksum(mut self, checksum: u16) -> Self {
         self.checksum = Some(checksum);
         self.auto_checksum = false;
@@ -327,17 +353,20 @@ impl TcpBuilder {
     }
 
     /// Alias for checksum (Scapy compatibility).
+    #[must_use]
     pub fn chksum(self, checksum: u16) -> Self {
         self.checksum(checksum)
     }
 
     /// Set the urgent pointer.
+    #[must_use]
     pub fn urgent_ptr(mut self, urgptr: u16) -> Self {
         self.urgent_ptr = urgptr;
         self
     }
 
-    /// Alias for urgent_ptr (Scapy compatibility).
+    /// Alias for `urgent_ptr` (Scapy compatibility).
+    #[must_use]
     pub fn urgptr(self, urgptr: u16) -> Self {
         self.urgent_ptr(urgptr)
     }
@@ -357,6 +386,7 @@ impl TcpBuilder {
     }
 
     /// Set both source and destination IPv4 addresses.
+    #[must_use]
     pub fn ipv4_addrs(mut self, src: Ipv4Addr, dst: Ipv4Addr) -> Self {
         self.src_ip = Some(IpAddr::V4(src));
         self.dst_ip = Some(IpAddr::V4(dst));
@@ -364,6 +394,7 @@ impl TcpBuilder {
     }
 
     /// Set both source and destination IPv6 addresses.
+    #[must_use]
     pub fn ipv6_addrs(mut self, src: Ipv6Addr, dst: Ipv6Addr) -> Self {
         self.src_ip = Some(IpAddr::V6(src));
         self.dst_ip = Some(IpAddr::V6(dst));
@@ -373,12 +404,14 @@ impl TcpBuilder {
     // ========== Options ==========
 
     /// Set the options.
+    #[must_use]
     pub fn options(mut self, options: TcpOptions) -> Self {
         self.options = options;
         self
     }
 
     /// Add a single option.
+    #[must_use]
     pub fn option(mut self, option: TcpOption) -> Self {
         self.options.push(option);
         self
@@ -394,60 +427,70 @@ impl TcpBuilder {
     }
 
     /// Add an MSS (Maximum Segment Size) option.
+    #[must_use]
     pub fn mss(mut self, mss: u16) -> Self {
         self.options.push(TcpOption::Mss(mss));
         self
     }
 
     /// Add a Window Scale option.
+    #[must_use]
     pub fn wscale(mut self, scale: u8) -> Self {
         self.options.push(TcpOption::WScale(scale));
         self
     }
 
     /// Add SACK Permitted option.
+    #[must_use]
     pub fn sack_ok(mut self) -> Self {
         self.options.push(TcpOption::SackOk);
         self
     }
 
     /// Add a SACK option with blocks.
+    #[must_use]
     pub fn sack(mut self, blocks: Vec<TcpSackBlock>) -> Self {
         self.options.push(TcpOption::Sack(blocks));
         self
     }
 
     /// Add a Timestamp option.
+    #[must_use]
     pub fn timestamp(mut self, ts_val: u32, ts_ecr: u32) -> Self {
         self.options.push(TcpOption::timestamp(ts_val, ts_ecr));
         self
     }
 
     /// Add a NOP (padding) option.
+    #[must_use]
     pub fn nop(mut self) -> Self {
         self.options.push(TcpOption::Nop);
         self
     }
 
     /// Add an EOL (End of Options) option.
+    #[must_use]
     pub fn eol(mut self) -> Self {
         self.options.push(TcpOption::Eol);
         self
     }
 
     /// Add a TFO (TCP Fast Open) option.
+    #[must_use]
     pub fn tfo(mut self, cookie: Option<Vec<u8>>) -> Self {
         self.options.push(TcpOption::Tfo { cookie });
         self
     }
 
     /// Add an MD5 signature option.
+    #[must_use]
     pub fn md5(mut self, signature: [u8; 16]) -> Self {
         self.options.push(TcpOption::Md5(signature));
         self
     }
 
     /// Add an Authentication Option (TCP-AO).
+    #[must_use]
     pub fn ao(mut self, key_id: u8, rnext_key_id: u8, mac: Vec<u8>) -> Self {
         self.options
             .push(TcpOption::Ao(TcpAoValue::new(key_id, rnext_key_id, mac)));
@@ -463,6 +506,7 @@ impl TcpBuilder {
     }
 
     /// Append data to the payload.
+    #[must_use]
     pub fn append_payload(mut self, data: &[u8]) -> Self {
         self.payload.extend_from_slice(data);
         self
@@ -471,12 +515,14 @@ impl TcpBuilder {
     // ========== Build Options ==========
 
     /// Enable or disable automatic checksum calculation.
+    #[must_use]
     pub fn auto_checksum(mut self, enabled: bool) -> Self {
         self.auto_checksum = enabled;
         self
     }
 
     /// Enable or disable automatic data offset calculation.
+    #[must_use]
     pub fn auto_data_offset(mut self, enabled: bool) -> Self {
         self.auto_data_offset = enabled;
         self
@@ -485,6 +531,7 @@ impl TcpBuilder {
     // ========== Build Methods ==========
 
     /// Calculate the header size (including options, with padding).
+    #[must_use]
     pub fn header_size(&self) -> usize {
         if let Some(doff) = self.data_offset {
             (doff as usize) * 4
@@ -495,11 +542,13 @@ impl TcpBuilder {
     }
 
     /// Calculate the total packet size.
+    #[must_use]
     pub fn packet_size(&self) -> usize {
         self.header_size() + self.payload.len()
     }
 
     /// Build the TCP packet.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let total_size = self.packet_size();
         let mut buf = vec![0u8; total_size];
@@ -596,6 +645,7 @@ impl TcpBuilder {
     }
 
     /// Build only the header (no payload).
+    #[must_use]
     pub fn build_header(&self) -> Vec<u8> {
         let header_size = self.header_size();
         let mut buf = vec![0u8; header_size];
@@ -617,36 +667,43 @@ impl TcpBuilder {
 
 impl TcpBuilder {
     /// Create a SYN packet builder.
+    #[must_use]
     pub fn syn_packet() -> Self {
         Self::new().syn().ack_num(0)
     }
 
     /// Create a SYN-ACK packet builder.
+    #[must_use]
     pub fn syn_ack_packet() -> Self {
         Self::new().syn_ack()
     }
 
     /// Create an ACK packet builder.
+    #[must_use]
     pub fn ack_packet() -> Self {
         Self::new().flags(TcpFlags::A)
     }
 
     /// Create a FIN-ACK packet builder.
+    #[must_use]
     pub fn fin_ack_packet() -> Self {
         Self::new().fin_ack()
     }
 
     /// Create a RST packet builder.
+    #[must_use]
     pub fn rst_packet() -> Self {
         Self::new().flags(TcpFlags::R)
     }
 
     /// Create a RST-ACK packet builder.
+    #[must_use]
     pub fn rst_ack_packet() -> Self {
         Self::new().flags(TcpFlags::RA)
     }
 
     /// Create a PSH-ACK packet builder (for data).
+    #[must_use]
     pub fn data_packet() -> Self {
         Self::new().psh_ack()
     }
@@ -657,6 +714,7 @@ impl TcpBuilder {
 #[cfg(feature = "rand")]
 impl TcpBuilder {
     /// Set a random sequence number.
+    #[must_use]
     pub fn random_seq(mut self) -> Self {
         use rand::Rng;
         self.seq = rand::rng().random();
@@ -664,6 +722,7 @@ impl TcpBuilder {
     }
 
     /// Set a random source port (dynamic range: 49152-65535).
+    #[must_use]
     pub fn random_sport(mut self) -> Self {
         use rand::Rng;
         self.src_port = rand::rng().random_range(49152..=65535);

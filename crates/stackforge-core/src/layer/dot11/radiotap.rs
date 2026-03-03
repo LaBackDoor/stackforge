@@ -1,6 +1,6 @@
-//! RadioTap header implementation for IEEE 802.11 frames.
+//! `RadioTap` header implementation for IEEE 802.11 frames.
 //!
-//! RadioTap is a de facto standard for 802.11 frame injection and reception.
+//! `RadioTap` is a de facto standard for 802.11 frame injection and reception.
 //! It provides a flexible, extensible header format that precedes the actual
 //! 802.11 frame and carries metadata like signal strength, channel, and rate.
 //!
@@ -11,10 +11,10 @@ use crate::layer::{Layer, LayerIndex, LayerKind};
 
 use super::types::radiotap_present;
 
-/// Minimum RadioTap header length: version(1) + pad(1) + len(2) + present(4) = 8 bytes.
+/// Minimum `RadioTap` header length: version(1) + pad(1) + len(2) + present(4) = 8 bytes.
 pub const RADIOTAP_MIN_HEADER_LEN: usize = 8;
 
-/// RadioTap header field offsets.
+/// `RadioTap` header field offsets.
 pub mod offsets {
     pub const VERSION: usize = 0;
     pub const PAD: usize = 1;
@@ -22,8 +22,8 @@ pub mod offsets {
     pub const PRESENT: usize = 4;
 }
 
-/// Alignment requirements for RadioTap fields (size, alignment).
-/// Returns (field_size, required_alignment) for a given present bit.
+/// Alignment requirements for `RadioTap` fields (size, alignment).
+/// Returns (`field_size`, `required_alignment`) for a given present bit.
 fn field_alignment(bit: u32) -> (usize, usize) {
     match bit {
         radiotap_present::TSFT => (8, 8),
@@ -50,7 +50,7 @@ fn field_alignment(bit: u32) -> (usize, usize) {
     }
 }
 
-/// Parsed RadioTap field values.
+/// Parsed `RadioTap` field values.
 #[derive(Debug, Clone, Default)]
 pub struct RadioTapFields {
     /// TSFT (MAC timestamp in microseconds).
@@ -91,9 +91,9 @@ pub struct RadioTapFields {
     pub a_mpdu_flags: Option<u32>,
 }
 
-/// RadioTap layer - a zero-copy view into the RadioTap header.
+/// `RadioTap` layer - a zero-copy view into the `RadioTap` header.
 ///
-/// The RadioTap header has a variable length indicated by the `it_len` field.
+/// The `RadioTap` header has a variable length indicated by the `it_len` field.
 /// Present fields are indicated by a bitmask in `it_present`.
 #[derive(Debug, Clone)]
 pub struct RadioTapLayer {
@@ -101,14 +101,15 @@ pub struct RadioTapLayer {
 }
 
 impl RadioTapLayer {
-    /// Create a new RadioTapLayer from start/end offsets.
+    /// Create a new `RadioTapLayer` from start/end offsets.
+    #[must_use]
     pub fn new(start: usize, end: usize) -> Self {
         Self {
             index: LayerIndex::new(LayerKind::Dot11, start, end),
         }
     }
 
-    /// Validate the buffer has enough data for a RadioTap header.
+    /// Validate the buffer has enough data for a `RadioTap` header.
     pub fn validate(buf: &[u8], offset: usize) -> Result<(), FieldError> {
         if buf.len() < offset + RADIOTAP_MIN_HEADER_LEN {
             return Err(FieldError::BufferTooShort {
@@ -124,7 +125,7 @@ impl RadioTapLayer {
     // Fixed header fields
     // ========================================================================
 
-    /// RadioTap version (always 0).
+    /// `RadioTap` version (always 0).
     #[inline]
     pub fn version(&self, buf: &[u8]) -> Result<u8, FieldError> {
         let off = self.index.start + offsets::VERSION;
@@ -187,6 +188,7 @@ impl RadioTapLayer {
 
     /// Check if a specific present field bit is set.
     #[inline]
+    #[must_use]
     pub fn has_field(&self, buf: &[u8], bit: u32) -> bool {
         self.present(buf)
             .map(|p| p & (1 << bit) != 0)
@@ -194,13 +196,13 @@ impl RadioTapLayer {
     }
 
     /// Check if the FCS flag is set (indicating the payload includes FCS).
+    #[must_use]
     pub fn has_fcs(&self, buf: &[u8]) -> bool {
-        if self.has_field(buf, radiotap_present::FLAGS) {
-            if let Ok(fields) = self.parse_fields(buf) {
-                if let Some(flags) = fields.flags {
-                    return flags & super::types::radiotap_flags::FCS != 0;
-                }
-            }
+        if self.has_field(buf, radiotap_present::FLAGS)
+            && let Ok(fields) = self.parse_fields(buf)
+            && let Some(flags) = fields.flags
+        {
+            return flags & super::types::radiotap_flags::FCS != 0;
         }
         false
     }
@@ -228,7 +230,7 @@ impl RadioTapLayer {
         count
     }
 
-    /// Parse all present fields from the RadioTap header.
+    /// Parse all present fields from the `RadioTap` header.
     pub fn parse_fields(&self, buf: &[u8]) -> Result<RadioTapFields, FieldError> {
         let present = self.present(buf)?;
         let header_len = self.header_length(buf)? as usize;
@@ -357,13 +359,11 @@ impl Layer for RadioTapLayer {
     fn summary(&self, buf: &[u8]) -> String {
         let len = self
             .header_length(buf)
-            .map(|l| l.to_string())
-            .unwrap_or_else(|_| "?".to_string());
+            .map_or_else(|_| "?".to_string(), |l| l.to_string());
         let present = self
             .present(buf)
-            .map(|p| format!("{:#010x}", p))
-            .unwrap_or_else(|_| "?".to_string());
-        format!("RadioTap len={} present={}", len, present)
+            .map_or_else(|_| "?".to_string(), |p| format!("{p:#010x}"));
+        format!("RadioTap len={len} present={present}")
     }
 
     fn header_len(&self, buf: &[u8]) -> usize {
@@ -390,7 +390,7 @@ impl Layer for RadioTapLayer {
     }
 }
 
-/// Builder for constructing RadioTap headers.
+/// Builder for constructing `RadioTap` headers.
 #[derive(Debug, Clone, Default)]
 pub struct RadioTapBuilder {
     /// TSFT timestamp.
@@ -412,48 +412,57 @@ pub struct RadioTapBuilder {
 }
 
 impl RadioTapBuilder {
-    /// Create a new RadioTapBuilder.
+    /// Create a new `RadioTapBuilder`.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn tsft(mut self, tsft: u64) -> Self {
         self.tsft = Some(tsft);
         self
     }
 
+    #[must_use]
     pub fn flags(mut self, flags: u8) -> Self {
         self.flags = Some(flags);
         self
     }
 
+    #[must_use]
     pub fn rate(mut self, rate: u8) -> Self {
         self.rate = Some(rate);
         self
     }
 
+    #[must_use]
     pub fn channel(mut self, freq: u16, flags: u16) -> Self {
         self.channel_freq = Some(freq);
         self.channel_flags = Some(flags);
         self
     }
 
+    #[must_use]
     pub fn dbm_ant_signal(mut self, signal: i8) -> Self {
         self.dbm_ant_signal = Some(signal);
         self
     }
 
+    #[must_use]
     pub fn dbm_ant_noise(mut self, noise: i8) -> Self {
         self.dbm_ant_noise = Some(noise);
         self
     }
 
+    #[must_use]
     pub fn antenna(mut self, antenna: u8) -> Self {
         self.antenna = Some(antenna);
         self
     }
 
-    /// Build the RadioTap header bytes.
+    /// Build the `RadioTap` header bytes.
+    #[must_use]
     pub fn build(&self) -> Vec<u8> {
         let mut present: u32 = 0;
         let mut fields_data = Vec::new();

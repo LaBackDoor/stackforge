@@ -363,7 +363,7 @@ pub const IATP: u8 = 117;
 /// Schedule Transfer Protocol
 pub const STP: u8 = 118;
 
-/// SpectraLink Radio Protocol
+/// `SpectraLink` Radio Protocol
 pub const SRP: u8 = 119;
 
 /// UTI
@@ -414,7 +414,7 @@ pub const RSVP_E2E_IGNORE: u8 = 134;
 /// Mobility Header (RFC 6275)
 pub const MOBILITY_HEADER: u8 = 135;
 
-/// UDPLite (RFC 3828)
+/// `UDPLite` (RFC 3828)
 pub const UDPLITE: u8 = 136;
 
 /// MPLS-in-IP (RFC 4023)
@@ -432,7 +432,7 @@ pub const SHIM6: u8 = 140;
 /// Wrapped Encapsulating Security Payload (RFC 5840)
 pub const WESP: u8 = 141;
 
-/// RObust Header Compression (RFC 5858)
+/// `RObust` Header Compression (RFC 5858)
 pub const ROHC: u8 = 142;
 
 /// Ethernet (RFC 8986)
@@ -445,6 +445,7 @@ pub const AGGFRAG: u8 = 144;
 pub const RESERVED: u8 = 255;
 
 /// Convert a string name to a protocol number (case-insensitive).
+#[must_use]
 pub fn from_name(name: &str) -> Option<u8> {
     match name.to_ascii_lowercase().as_str() {
         "ip" => Some(0), // Sometimes used as alias for HOPOPT
@@ -503,6 +504,7 @@ pub fn from_name(name: &str) -> Option<u8> {
 }
 
 /// Get the string name for a protocol number.
+#[must_use]
 pub fn to_name(proto: u8) -> &'static str {
     match proto {
         HOPOPT => "HOPOPT",

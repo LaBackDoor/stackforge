@@ -49,64 +49,76 @@ impl MacAddress {
     pub const IPV6_MULTICAST_PREFIX: [u8; 2] = [0x33, 0x33];
 
     #[inline]
+    #[must_use]
     pub const fn new(bytes: [u8; 6]) -> Self {
         Self(bytes)
     }
 
     #[inline]
+    #[must_use]
     pub const fn as_bytes(&self) -> &[u8; 6] {
         &self.0
     }
 
     #[inline]
+    #[must_use]
     pub const fn to_bytes(self) -> [u8; 6] {
         self.0
     }
 
     #[inline]
+    #[must_use]
     pub fn is_broadcast(&self) -> bool {
         self.0 == [0xff; 6]
     }
 
     #[inline]
+    #[must_use]
     pub fn is_multicast(&self) -> bool {
         self.0[0] & 0x01 != 0
     }
 
     #[inline]
+    #[must_use]
     pub fn is_unicast(&self) -> bool {
         !self.is_multicast()
     }
 
     #[inline]
+    #[must_use]
     pub fn is_local(&self) -> bool {
         self.0[0] & 0x02 != 0
     }
 
     #[inline]
+    #[must_use]
     pub fn is_zero(&self) -> bool {
         self.0 == [0x00; 6]
     }
 
     /// Check if this is an IPv4 multicast MAC (01:00:5e:xx:xx:xx)
     #[inline]
+    #[must_use]
     pub fn is_ipv4_multicast(&self) -> bool {
         self.0[0] == 0x01 && self.0[1] == 0x00 && self.0[2] == 0x5e
     }
 
     /// Check if this is an IPv6 multicast MAC (33:33:xx:xx:xx:xx)
     #[inline]
+    #[must_use]
     pub fn is_ipv6_multicast(&self) -> bool {
         self.0[0] == 0x33 && self.0[1] == 0x33
     }
 
     /// Create multicast MAC for IPv4 multicast address
+    #[must_use]
     pub fn from_ipv4_multicast(ip: Ipv4Addr) -> Self {
         let octets = ip.octets();
         Self([0x01, 0x00, 0x5e, octets[1] & 0x7f, octets[2], octets[3]])
     }
 
     /// Create multicast MAC for IPv6 multicast address
+    #[must_use]
     pub fn from_ipv6_multicast(ip: Ipv6Addr) -> Self {
         let octets = ip.octets();
         Self([0x33, 0x33, octets[12], octets[13], octets[14], octets[15]])
@@ -163,7 +175,7 @@ impl MacAddress {
 
 impl fmt::Debug for MacAddress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "MacAddress({})", self)
+        write!(f, "MacAddress({self})")
     }
 }
 
@@ -217,13 +229,11 @@ impl Field for u8 {
 
     #[inline]
     fn read(buf: &[u8], offset: usize) -> Result<Self, FieldError> {
-        buf.get(offset)
-            .copied()
-            .ok_or_else(|| FieldError::BufferTooShort {
-                offset,
-                need: 1,
-                have: buf.len(),
-            })
+        buf.get(offset).copied().ok_or(FieldError::BufferTooShort {
+            offset,
+            need: 1,
+            have: buf.len(),
+        })
     }
 
     #[inline]
@@ -444,18 +454,23 @@ impl Field for Ipv6Addr {
 pub struct BytesField(pub Vec<u8>);
 
 impl BytesField {
+    #[must_use]
     pub fn new(data: Vec<u8>) -> Self {
         Self(data)
     }
+    #[must_use]
     pub fn from_slice(data: &[u8]) -> Self {
         Self(data.to_vec())
     }
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -535,6 +550,7 @@ pub enum FieldType {
 }
 
 impl FieldType {
+    #[must_use]
     pub const fn name(&self) -> &'static str {
         match self {
             Self::U8 => "u8",
@@ -560,6 +576,7 @@ impl FieldType {
         }
     }
 
+    #[must_use]
     pub const fn size(&self) -> Option<usize> {
         match self {
             Self::U8 | Self::I8 | Self::Bool => Some(1),
@@ -576,6 +593,7 @@ impl FieldType {
 }
 
 impl FieldDesc {
+    #[must_use]
     pub const fn new(
         name: &'static str,
         offset: usize,
@@ -591,6 +609,7 @@ impl FieldDesc {
     }
 
     #[inline]
+    #[must_use]
     pub const fn with_offset(&self, base: usize) -> Self {
         Self {
             name: self.name,
@@ -681,9 +700,7 @@ impl FieldValue {
             (Self::U64(v), FieldType::LEU64) => write_u64_le(*v, buf, desc.offset),
             (Self::U32(v), FieldType::U24) => write_u24_be(*v, buf, desc.offset),
             (Self::U32(v), FieldType::LEU24) => write_u24_le(*v, buf, desc.offset),
-            (Self::Bool(v), FieldType::Bool) => {
-                (if *v { 1u8 } else { 0u8 }).write(buf, desc.offset)
-            },
+            (Self::Bool(v), FieldType::Bool) => u8::from(*v).write(buf, desc.offset),
             (Self::Mac(v), FieldType::Mac) => v.write(buf, desc.offset),
             (Self::Ipv4(v), FieldType::Ipv4) => v.write(buf, desc.offset),
             (Self::Ipv6(v), FieldType::Ipv6) => v.write(buf, desc.offset),
@@ -703,6 +720,7 @@ impl FieldValue {
         BytesField::from_slice(bytes).write_to(buf, offset)
     }
 
+    #[must_use]
     pub const fn type_name(&self) -> &'static str {
         match self {
             Self::U8(_) => "u8",
@@ -723,6 +741,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_u8(&self) -> Option<u8> {
         match self {
             Self::U8(v) => Some(*v),
@@ -730,6 +749,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_u16(&self) -> Option<u16> {
         match self {
             Self::U16(v) => Some(*v),
@@ -737,6 +757,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_u32(&self) -> Option<u32> {
         match self {
             Self::U32(v) => Some(*v),
@@ -744,6 +765,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_u64(&self) -> Option<u64> {
         match self {
             Self::U64(v) => Some(*v),
@@ -751,6 +773,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_mac(&self) -> Option<MacAddress> {
         match self {
             Self::Mac(v) => Some(*v),
@@ -758,6 +781,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_ipv4(&self) -> Option<Ipv4Addr> {
         match self {
             Self::Ipv4(v) => Some(*v),
@@ -765,6 +789,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_ipv6(&self) -> Option<Ipv6Addr> {
         match self {
             Self::Ipv6(v) => Some(*v),
@@ -772,6 +797,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             Self::Bytes(v) => Some(v),
@@ -779,6 +805,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_i8(&self) -> Option<i8> {
         match self {
             Self::I8(v) => Some(*v),
@@ -786,6 +813,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_i16(&self) -> Option<i16> {
         match self {
             Self::I16(v) => Some(*v),
@@ -793,6 +821,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_i32(&self) -> Option<i32> {
         match self {
             Self::I32(v) => Some(*v),
@@ -800,6 +829,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             Self::I64(v) => Some(*v),
@@ -807,6 +837,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Self::Bool(v) => Some(*v),
@@ -814,6 +845,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Self::Str(v) => Some(v),
@@ -821,6 +853,7 @@ impl FieldValue {
         }
     }
 
+    #[must_use]
     pub fn as_list(&self) -> Option<&[FieldValue]> {
         match self {
             Self::List(v) => Some(v),
@@ -829,6 +862,7 @@ impl FieldValue {
     }
 
     /// Convert to bytes representation
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Self::U8(v) => vec![*v],
@@ -839,13 +873,13 @@ impl FieldValue {
             Self::I16(v) => v.to_be_bytes().to_vec(),
             Self::I32(v) => v.to_be_bytes().to_vec(),
             Self::I64(v) => v.to_be_bytes().to_vec(),
-            Self::Bool(v) => vec![if *v { 1 } else { 0 }],
+            Self::Bool(v) => vec![u8::from(*v)],
             Self::Mac(v) => v.0.to_vec(),
             Self::Ipv4(v) => v.octets().to_vec(),
             Self::Ipv6(v) => v.octets().to_vec(),
             Self::Bytes(v) => v.clone(),
             Self::Str(v) => v.as_bytes().to_vec(),
-            Self::List(v) => v.iter().flat_map(|f| f.to_bytes()).collect(),
+            Self::List(v) => v.iter().flat_map(FieldValue::to_bytes).collect(),
         }
     }
 }
@@ -853,33 +887,33 @@ impl FieldValue {
 impl fmt::Display for FieldValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::U8(v) => write!(f, "{}", v),
-            Self::U16(v) => write!(f, "{:#06x}", v),
-            Self::U32(v) => write!(f, "{:#010x}", v),
-            Self::U64(v) => write!(f, "{:#018x}", v),
-            Self::I8(v) => write!(f, "{}", v),
-            Self::I16(v) => write!(f, "{}", v),
-            Self::I32(v) => write!(f, "{}", v),
-            Self::I64(v) => write!(f, "{}", v),
-            Self::Bool(v) => write!(f, "{}", v),
-            Self::Mac(v) => write!(f, "{}", v),
-            Self::Ipv4(v) => write!(f, "{}", v),
-            Self::Ipv6(v) => write!(f, "{}", v),
+            Self::U8(v) => write!(f, "{v}"),
+            Self::U16(v) => write!(f, "{v:#06x}"),
+            Self::U32(v) => write!(f, "{v:#010x}"),
+            Self::U64(v) => write!(f, "{v:#018x}"),
+            Self::I8(v) => write!(f, "{v}"),
+            Self::I16(v) => write!(f, "{v}"),
+            Self::I32(v) => write!(f, "{v}"),
+            Self::I64(v) => write!(f, "{v}"),
+            Self::Bool(v) => write!(f, "{v}"),
+            Self::Mac(v) => write!(f, "{v}"),
+            Self::Ipv4(v) => write!(f, "{v}"),
+            Self::Ipv6(v) => write!(f, "{v}"),
             Self::Bytes(v) => {
                 write!(f, "0x")?;
                 for b in v {
-                    write!(f, "{:02x}", b)?;
+                    write!(f, "{b:02x}")?;
                 }
                 Ok(())
             },
-            Self::Str(v) => write!(f, "{}", v),
+            Self::Str(v) => write!(f, "{v}"),
             Self::List(v) => {
                 write!(f, "[")?;
                 for (i, item) in v.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
                 write!(f, "]")
             },
@@ -1156,7 +1190,9 @@ pub fn read_u24_be(buf: &[u8], offset: usize) -> Result<u32, FieldError> {
             have: buf.len(),
         });
     }
-    Ok(((buf[offset] as u32) << 16) | ((buf[offset + 1] as u32) << 8) | (buf[offset + 2] as u32))
+    Ok((u32::from(buf[offset]) << 16)
+        | (u32::from(buf[offset + 1]) << 8)
+        | u32::from(buf[offset + 2]))
 }
 
 #[inline]
@@ -1183,7 +1219,9 @@ pub fn read_u24_le(buf: &[u8], offset: usize) -> Result<u32, FieldError> {
             have: buf.len(),
         });
     }
-    Ok((buf[offset] as u32) | ((buf[offset + 1] as u32) << 8) | ((buf[offset + 2] as u32) << 16))
+    Ok(u32::from(buf[offset])
+        | (u32::from(buf[offset + 1]) << 8)
+        | (u32::from(buf[offset + 2]) << 16))
 }
 
 #[inline]
@@ -1213,12 +1251,11 @@ pub fn write_u24_le(v: u32, buf: &mut [u8], offset: usize) -> Result<(), FieldEr
 pub fn read_bits_be(buf: &[u8], bit_offset: usize, num_bits: usize) -> Result<u64, FieldError> {
     if num_bits == 0 || num_bits > 64 {
         return Err(FieldError::InvalidValue(format!(
-            "num_bits must be 1..=64, got {}",
-            num_bits
+            "num_bits must be 1..=64, got {num_bits}"
         )));
     }
     let end_bit = bit_offset + num_bits;
-    let end_byte = (end_bit + 7) / 8;
+    let end_byte = end_bit.div_ceil(8);
     if end_byte > buf.len() {
         return Err(FieldError::BufferTooShort {
             offset: bit_offset / 8,
@@ -1252,12 +1289,11 @@ pub fn write_bits_be(
 ) -> Result<(), FieldError> {
     if num_bits == 0 || num_bits > 64 {
         return Err(FieldError::InvalidValue(format!(
-            "num_bits must be 1..=64, got {}",
-            num_bits
+            "num_bits must be 1..=64, got {num_bits}"
         )));
     }
     let end_bit = bit_offset + num_bits;
-    let end_byte = (end_bit + 7) / 8;
+    let end_byte = end_bit.div_ceil(8);
     if end_byte > buf.len() {
         return Err(FieldError::BufferTooShort {
             offset: bit_offset / 8,
@@ -1285,12 +1321,11 @@ pub fn write_bits_be(
 pub fn read_bits_le(buf: &[u8], bit_offset: usize, num_bits: usize) -> Result<u64, FieldError> {
     if num_bits == 0 || num_bits > 64 {
         return Err(FieldError::InvalidValue(format!(
-            "num_bits must be 1..=64, got {}",
-            num_bits
+            "num_bits must be 1..=64, got {num_bits}"
         )));
     }
     let end_bit = bit_offset + num_bits;
-    let end_byte = (end_bit + 7) / 8;
+    let end_byte = end_bit.div_ceil(8);
     if end_byte > buf.len() {
         return Err(FieldError::BufferTooShort {
             offset: bit_offset / 8,
@@ -1321,12 +1356,11 @@ pub fn write_bits_le(
 ) -> Result<(), FieldError> {
     if num_bits == 0 || num_bits > 64 {
         return Err(FieldError::InvalidValue(format!(
-            "num_bits must be 1..=64, got {}",
-            num_bits
+            "num_bits must be 1..=64, got {num_bits}"
         )));
     }
     let end_bit = bit_offset + num_bits;
-    let end_byte = (end_bit + 7) / 8;
+    let end_byte = end_bit.div_ceil(8);
     if end_byte > buf.len() {
         return Err(FieldError::BufferTooShort {
             offset: bit_offset / 8,

@@ -27,7 +27,7 @@ pub fn wrpcap(path: impl AsRef<Path>, packets: &[CapturedPacket]) -> Result<()> 
 
     let header = PcapHeader::default();
     let mut pcap_writer = PcapFileWriter::with_header(writer, header)
-        .map_err(|e| PacketError::Io(format!("PCAP write error: {}", e)))?;
+        .map_err(|e| PacketError::Io(format!("PCAP write error: {e}")))?;
 
     for cap in packets {
         let pcap_pkt = PcapPacket::new(
@@ -37,7 +37,7 @@ pub fn wrpcap(path: impl AsRef<Path>, packets: &[CapturedPacket]) -> Result<()> 
         );
         pcap_writer
             .write_packet(&pcap_pkt)
-            .map_err(|e| PacketError::Io(format!("PCAP write error: {}", e)))?;
+            .map_err(|e| PacketError::Io(format!("PCAP write error: {e}")))?;
     }
 
     Ok(())
@@ -87,7 +87,7 @@ impl<W: Write> PcapStreamWriter<W> {
     pub fn from_writer(writer: W) -> Result<Self> {
         let header = PcapHeader::default();
         let pcap_writer = PcapFileWriter::with_header(writer, header)
-            .map_err(|e| PacketError::Io(format!("PCAP write error: {}", e)))?;
+            .map_err(|e| PacketError::Io(format!("PCAP write error: {e}")))?;
         Ok(Self { inner: pcap_writer })
     }
 
@@ -100,16 +100,16 @@ impl<W: Write> PcapStreamWriter<W> {
         );
         self.inner
             .write_packet(&pcap_pkt)
-            .map_err(|e| PacketError::Io(format!("PCAP write error: {}", e)))?;
+            .map_err(|e| PacketError::Io(format!("PCAP write error: {e}")))?;
         Ok(())
     }
 
-    /// Write a plain packet (timestamp=0, orig_len=data length).
+    /// Write a plain packet (timestamp=0, `orig_len=data` length).
     pub fn write_packet(&mut self, pkt: &Packet) -> Result<()> {
         let pcap_pkt = PcapPacket::new(Duration::ZERO, pkt.len() as u32, pkt.as_bytes());
         self.inner
             .write_packet(&pcap_pkt)
-            .map_err(|e| PacketError::Io(format!("PCAP write error: {}", e)))?;
+            .map_err(|e| PacketError::Io(format!("PCAP write error: {e}")))?;
         Ok(())
     }
 }
