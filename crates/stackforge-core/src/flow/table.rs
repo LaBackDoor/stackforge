@@ -125,17 +125,21 @@ impl ConversationTable {
         // Update conversation status from protocol state
         conv.update_status();
 
-        // Track memory for TCP reassembly buffers
+        // Track memory for TCP reassembly buffers (only for in-memory data)
         if self.memory_tracker.has_budget() {
-            if matches!(conv.protocol_state, ProtocolState::Tcp(_)) {
-                // Track bytes that TCP payload may have added
-                let tcp_payload_len = packet.tcp().map_or(0, |tcp| {
-                    let data_offset = tcp.data_offset(buf).unwrap_or(5) as usize * 4;
-                    let payload_start = tcp.index.start + data_offset;
-                    buf.len().saturating_sub(payload_start)
-                });
-                if tcp_payload_len > 0 {
-                    self.memory_tracker.add(tcp_payload_len);
+            if let ProtocolState::Tcp(ref tcp_state) = conv.protocol_state {
+                // Only track if at least one reassembler is still in memory
+                let fwd_spilled = tcp_state.reassembler_fwd.is_spilled();
+                let rev_spilled = tcp_state.reassembler_rev.is_spilled();
+                if !fwd_spilled || !rev_spilled {
+                    let tcp_payload_len = packet.tcp().map_or(0, |tcp| {
+                        let data_offset = tcp.data_offset(buf).unwrap_or(5) as usize * 4;
+                        let payload_start = tcp.index.start + data_offset;
+                        buf.len().saturating_sub(payload_start)
+                    });
+                    if tcp_payload_len > 0 {
+                        self.memory_tracker.add(tcp_payload_len);
+                    }
                 }
             }
         }

@@ -43,17 +43,18 @@ impl ReassemblyStorage {
         self.len() == 0
     }
 
-    /// Append data. Only valid when `InMemory`.
+    /// Append data. Works for both in-memory and on-disk storage.
     ///
-    /// # Panics
-    /// Panics if storage has been spilled to disk. Callers must ensure data
-    /// is not appended after a spill (in practice, spilling only happens
-    /// for completed/idle flows).
+    /// When in-memory, appends to the `Vec`. When on-disk, appends to the
+    /// temporary file and updates the tracked length.
     pub fn extend_from_slice(&mut self, data: &[u8]) {
         match self {
             Self::InMemory(v) => v.extend_from_slice(data),
-            Self::OnDisk { .. } => {
-                panic!("cannot extend spilled storage; data already on disk");
+            Self::OnDisk { file, len } => {
+                file.write_all(data)
+                    .expect("failed to append to spill file");
+                file.flush().expect("failed to flush spill file");
+                *len += data.len();
             },
         }
     }
@@ -256,6 +257,22 @@ mod tests {
         let data = s.drain().unwrap();
         assert_eq!(data, b"drain me");
         assert!(s.is_empty());
+    }
+
+    #[test]
+    fn test_reassembly_storage_extend_after_spill() {
+        let mut s = ReassemblyStorage::new();
+        s.extend_from_slice(b"hello ");
+        s.spill_to_disk(None).unwrap();
+        assert!(s.is_spilled());
+
+        // Appending after spill should work (writes to file)
+        s.extend_from_slice(b"world");
+        assert_eq!(s.len(), 11);
+        assert!(s.is_spilled());
+
+        let data = s.read_all().unwrap();
+        assert_eq!(data, b"hello world");
     }
 
     #[test]
