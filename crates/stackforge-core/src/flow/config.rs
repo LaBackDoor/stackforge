@@ -20,6 +20,10 @@ pub struct FlowConfig {
     pub max_ooo_fragments: usize,
     /// Interval between idle conversation eviction sweeps (default: 30s).
     pub eviction_interval: Duration,
+    /// Track maximum packet length per direction (default: false).
+    pub track_max_packet_len: bool,
+    /// Track maximum flow length per direction (default: false).
+    pub track_max_flow_len: bool,
 }
 
 impl Default for FlowConfig {
@@ -32,6 +36,8 @@ impl Default for FlowConfig {
             max_reassembly_buffer: 16 * 1024 * 1024, // 16 MB
             max_ooo_fragments: 100,
             eviction_interval: Duration::from_secs(30),
+            track_max_packet_len: false,
+            track_max_flow_len: false,
         }
     }
 }
@@ -50,5 +56,7 @@ mod tests {
         assert_eq!(config.max_reassembly_buffer, 16 * 1024 * 1024);
         assert_eq!(config.max_ooo_fragments, 100);
         assert_eq!(config.eviction_interval, Duration::from_secs(30));
+        assert!(!config.track_max_packet_len);
+        assert!(!config.track_max_flow_len);
     }
 }

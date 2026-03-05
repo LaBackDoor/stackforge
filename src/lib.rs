@@ -3861,6 +3861,10 @@ impl PyPcapPacket {
         hexdump_bytes(self.inner.packet.as_bytes())
     }
 
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, self.inner.packet.as_bytes())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "<PcapPacket time={:.6} len={}>",
@@ -4011,6 +4015,8 @@ impl PyFlowConfig {
         udp_timeout=120.0,
         max_reassembly_buffer=16777216,
         max_ooo_fragments=100,
+        track_max_packet_len=false,
+        track_max_flow_len=false,
     ))]
     fn new(
         tcp_established_timeout: f64,
@@ -4019,6 +4025,8 @@ impl PyFlowConfig {
         udp_timeout: f64,
         max_reassembly_buffer: usize,
         max_ooo_fragments: usize,
+        track_max_packet_len: bool,
+        track_max_flow_len: bool,
     ) -> Self {
         Self {
             inner: stackforge_core::FlowConfig {
@@ -4030,6 +4038,8 @@ impl PyFlowConfig {
                 udp_timeout: std::time::Duration::from_secs_f64(udp_timeout),
                 max_reassembly_buffer,
                 max_ooo_fragments,
+                track_max_packet_len,
+                track_max_flow_len,
                 ..stackforge_core::FlowConfig::default()
             },
         }
@@ -4135,6 +4145,24 @@ impl PyConversation {
     #[getter]
     fn total_bytes(&self) -> u64 {
         self.inner.total_bytes()
+    }
+
+    /// Maximum packet length in forward direction.
+    #[getter]
+    fn forward_max_packet_len(&self) -> Option<u64> {
+        self.inner.forward.max_packet_len
+    }
+
+    /// Maximum packet length in reverse direction.
+    #[getter]
+    fn reverse_max_packet_len(&self) -> Option<u64> {
+        self.inner.reverse.max_packet_len
+    }
+
+    /// Maximum packet length across both directions.
+    #[getter]
+    fn max_flow_len(&self) -> Option<u64> {
+        self.inner.max_flow_len
     }
 
     /// Indices of packets belonging to this conversation.

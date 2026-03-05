@@ -121,7 +121,7 @@ pub fn extract_zwave_flows(
             state
         });
 
-        conv.record_packet(direction, byte_count, timestamp, index);
+        conv.record_packet(direction, byte_count, timestamp, index, false, false);
 
         // Track ACK vs command frames
         if let ProtocolState::ZWave(ref mut zw) = conv.protocol_state
