@@ -291,7 +291,59 @@ pub fn extract_key(packet: &Packet) -> Result<(CanonicalKey, FlowDirection), Flo
                 .map_err(|e| FlowError::PacketError(e.into()))?;
             (sport, dport)
         },
-        // ICMP and other protocols have no ports
+        TransportProtocol::Icmp => {
+            // For ICMP, use identifier (for echo/timestamp types) for both ports
+            // (symmetric), or type+code as port substitute for other types.
+            // Using identifier symmetrically ensures request and reply have
+            // the same canonical key regardless of direction.
+            if let Some(icmp_layer) = packet.get_layer(LayerKind::Icmp) {
+                if buf.len() >= icmp_layer.start + 8 {
+                    let icmp_type = buf[icmp_layer.start];
+                    let is_echo = icmp_type == 0 || icmp_type == 8;
+                    if is_echo {
+                        let id = u16::from_be_bytes([
+                            buf[icmp_layer.start + 4],
+                            buf[icmp_layer.start + 5],
+                        ]);
+                        (id, id) // Use identifier symmetrically for both ports
+                    } else {
+                        let code = buf[icmp_layer.start + 1];
+                        (icmp_type as u16, code as u16)
+                    }
+                } else {
+                    (0u16, 0u16)
+                }
+            } else {
+                (0u16, 0u16)
+            }
+        },
+        TransportProtocol::Icmpv6 => {
+            // For ICMPv6, use identifier (for echo/timestamp types) for both ports
+            // (symmetric), or type+code as port substitute for other types.
+            // Using identifier symmetrically ensures request and reply have
+            // the same canonical key regardless of direction.
+            if let Some(icmpv6_layer) = packet.get_layer(LayerKind::Icmpv6) {
+                if buf.len() >= icmpv6_layer.start + 8 {
+                    let icmpv6_type = buf[icmpv6_layer.start];
+                    let is_echo = icmpv6_type == 128 || icmpv6_type == 129;
+                    if is_echo {
+                        let id = u16::from_be_bytes([
+                            buf[icmpv6_layer.start + 4],
+                            buf[icmpv6_layer.start + 5],
+                        ]);
+                        (id, id) // Use identifier symmetrically for both ports
+                    } else {
+                        let code = buf[icmpv6_layer.start + 1];
+                        (icmpv6_type as u16, code as u16)
+                    }
+                } else {
+                    (0u16, 0u16)
+                }
+            } else {
+                (0u16, 0u16)
+            }
+        },
+        // Other protocols have no ports
         _ => (0u16, 0u16),
     };
 

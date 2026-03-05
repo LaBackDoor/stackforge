@@ -85,6 +85,26 @@ impl ConversationTable {
             ProtocolState::Udp(udp_state) => {
                 udp_state.process_packet();
             },
+            ProtocolState::Icmp(icmp_state) => {
+                // Get ICMP type and code from buffer
+                if let Some(icmp_layer) = packet.get_layer(crate::layer::LayerKind::Icmp) {
+                    if buf.len() >= icmp_layer.start + 2 {
+                        let icmp_type = buf[icmp_layer.start];
+                        let icmp_code = buf[icmp_layer.start + 1];
+                        icmp_state.process_packet(packet, buf, icmp_type, icmp_code);
+                    }
+                }
+            },
+            ProtocolState::Icmpv6(icmpv6_state) => {
+                // Get ICMPv6 type and code from buffer
+                if let Some(icmpv6_layer) = packet.get_layer(crate::layer::LayerKind::Icmpv6) {
+                    if buf.len() >= icmpv6_layer.start + 2 {
+                        let icmpv6_type = buf[icmpv6_layer.start];
+                        let icmpv6_code = buf[icmpv6_layer.start + 1];
+                        icmpv6_state.process_packet(packet, buf, icmpv6_type, icmpv6_code);
+                    }
+                }
+            },
             ProtocolState::ZWave(_) => {},
             ProtocolState::Other => {},
         }

@@ -4179,6 +4179,66 @@ impl PyConversation {
         }
     }
 
+    /// ICMP type number, or None for non-ICMP flows.
+    #[getter]
+    fn icmp_type(&self) -> Option<u8> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Icmp(icmp)
+            | stackforge_core::ProtocolState::Icmpv6(icmp) => Some(icmp.icmp_type),
+            _ => None,
+        }
+    }
+
+    /// ICMP code, or None for non-ICMP flows.
+    #[getter]
+    fn icmp_code(&self) -> Option<u8> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Icmp(icmp)
+            | stackforge_core::ProtocolState::Icmpv6(icmp) => Some(icmp.icmp_code),
+            _ => None,
+        }
+    }
+
+    /// ICMP identifier (for echo sessions), or None for non-ICMP flows.
+    #[getter]
+    fn icmp_identifier(&self) -> Option<u16> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Icmp(icmp)
+            | stackforge_core::ProtocolState::Icmpv6(icmp) => icmp.identifier,
+            _ => None,
+        }
+    }
+
+    /// ICMP echo request count, or None for non-ICMP flows.
+    #[getter]
+    fn icmp_request_count(&self) -> Option<u64> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Icmp(icmp)
+            | stackforge_core::ProtocolState::Icmpv6(icmp) => Some(icmp.request_count),
+            _ => None,
+        }
+    }
+
+    /// ICMP echo reply count, or None for non-ICMP flows.
+    #[getter]
+    fn icmp_reply_count(&self) -> Option<u64> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Icmp(icmp)
+            | stackforge_core::ProtocolState::Icmpv6(icmp) => Some(icmp.reply_count),
+            _ => None,
+        }
+    }
+
+    /// ICMP last sequence number seen, or None for non-ICMP flows.
+    #[getter]
+    fn icmp_last_seq(&self) -> Option<u16> {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Icmp(icmp)
+            | stackforge_core::ProtocolState::Icmpv6(icmp) => icmp.last_seq,
+            _ => None,
+        }
+    }
+
     /// Reassembled forward TCP stream data, or None.
     #[getter]
     fn reassembled_forward<'py>(

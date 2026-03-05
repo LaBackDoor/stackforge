@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use super::config::FlowConfig;
+use super::icmp_state::IcmpFlowState;
 use super::key::{CanonicalKey, FlowDirection, TransportProtocol};
 use super::tcp_state::TcpConversationState;
 use super::udp_state::UdpFlowState;
@@ -75,9 +76,13 @@ pub enum ProtocolState {
     Tcp(TcpConversationState),
     /// UDP pseudo-conversation with timeout tracking.
     Udp(UdpFlowState),
+    /// ICMP conversation with echo request/reply tracking.
+    Icmp(IcmpFlowState),
+    /// ICMPv6 conversation with echo request/reply tracking.
+    Icmpv6(IcmpFlowState),
     /// Z-Wave wireless conversation with home ID and node tracking.
     ZWave(ZWaveFlowState),
-    /// Other protocols (ICMP, etc.) — no specific state tracking.
+    /// Other protocols — no specific state tracking.
     Other,
 }
 
@@ -124,6 +129,8 @@ impl ConversationState {
         let protocol_state = match key.protocol {
             TransportProtocol::Tcp => ProtocolState::Tcp(TcpConversationState::new()),
             TransportProtocol::Udp => ProtocolState::Udp(UdpFlowState::new()),
+            TransportProtocol::Icmp => ProtocolState::Icmp(IcmpFlowState::new(0, 0)),
+            TransportProtocol::Icmpv6 => ProtocolState::Icmpv6(IcmpFlowState::new(0, 0)),
             _ => ProtocolState::Other,
         };
 
@@ -230,6 +237,12 @@ impl ConversationState {
             ProtocolState::Udp(udp) => {
                 self.status = udp.status;
             },
+            ProtocolState::Icmp(icmp) => {
+                self.status = icmp.status;
+            },
+            ProtocolState::Icmpv6(icmpv6) => {
+                self.status = icmpv6.status;
+            },
             ProtocolState::ZWave(_) => {},
             ProtocolState::Other => {},
         }
@@ -250,6 +263,7 @@ impl ConversationState {
                 }
             },
             ProtocolState::Udp(_) => elapsed > config.udp_timeout,
+            ProtocolState::Icmp(_) | ProtocolState::Icmpv6(_) => elapsed > config.udp_timeout,
             ProtocolState::ZWave(_) => elapsed > config.udp_timeout,
             ProtocolState::Other => elapsed > config.udp_timeout,
         }
