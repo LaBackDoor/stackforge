@@ -4254,6 +4254,34 @@ impl PyConversation {
         }
     }
 
+    /// Number of TCP segments dropped due to reassembly buffer/fragment limits.
+    /// Returns 0 for non-TCP flows.
+    #[getter]
+    fn dropped_segments(&self) -> u64 {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => tcp.total_dropped_segments(),
+            _ => 0,
+        }
+    }
+
+    /// Number of forward-direction TCP segments dropped.
+    #[getter]
+    fn dropped_segments_fwd(&self) -> u64 {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => tcp.dropped_segments_fwd,
+            _ => 0,
+        }
+    }
+
+    /// Number of reverse-direction TCP segments dropped.
+    #[getter]
+    fn dropped_segments_rev(&self) -> u64 {
+        match &self.inner.protocol_state {
+            stackforge_core::ProtocolState::Tcp(tcp) => tcp.dropped_segments_rev,
+            _ => 0,
+        }
+    }
+
     /// Z-Wave home ID, or None for non-Z-Wave flows.
     #[getter]
     fn zwave_home_id(&self) -> Option<u32> {

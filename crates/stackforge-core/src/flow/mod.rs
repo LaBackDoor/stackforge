@@ -174,6 +174,18 @@ pub fn extract_flows_with_config(
             format_duration(elapsed),
             format_count(rate as usize)
         );
+
+        let (total_drops, flows_with_drops) = count_dropped_segments(&conversations);
+        if total_drops > 0 {
+            eprintln!(
+                "[!] Warning: {} TCP segments dropped across {} flows (buffer/fragment limits exceeded)",
+                format_count(total_drops as usize),
+                format_count(flows_with_drops),
+            );
+            eprintln!(
+                "[!] Tip: increase max_reassembly_buffer or max_ooo_fragments to capture more data"
+            );
+        }
         eprintln!();
     }
     Ok(conversations)
@@ -265,9 +277,38 @@ where
             format_count(conversations.len())
         );
         eprintln!("[+] Wall time: {}", format_duration(elapsed));
+
+        // Report reassembly drops
+        let (total_drops, flows_with_drops) = count_dropped_segments(&conversations);
+        if total_drops > 0 {
+            eprintln!(
+                "[!] Warning: {} TCP segments dropped across {} flows (buffer/fragment limits exceeded)",
+                format_count(total_drops as usize),
+                format_count(flows_with_drops),
+            );
+            eprintln!(
+                "[!] Tip: increase max_reassembly_buffer or max_ooo_fragments to capture more data"
+            );
+        }
         eprintln!();
     }
     Ok(conversations)
+}
+
+/// Count total dropped TCP segments across all conversations.
+fn count_dropped_segments(conversations: &[ConversationState]) -> (u64, usize) {
+    let mut total_drops: u64 = 0;
+    let mut flows_with_drops: usize = 0;
+    for conv in conversations {
+        if let ProtocolState::Tcp(ref tcp) = conv.protocol_state {
+            let drops = tcp.total_dropped_segments();
+            if drops > 0 {
+                total_drops += drops;
+                flows_with_drops += 1;
+            }
+        }
+    }
+    (total_drops, flows_with_drops)
 }
 
 /// Extract flows directly from a capture file (PCAP or PcapNG).

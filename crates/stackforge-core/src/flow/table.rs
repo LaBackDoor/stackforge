@@ -182,8 +182,7 @@ impl ConversationTable {
 
             if let ProtocolState::Tcp(ref mut tcp_state) = entry.value_mut().protocol_state {
                 // Skip buffers already on disk
-                if tcp_state.reassembler_fwd.is_spilled()
-                    && tcp_state.reassembler_rev.is_spilled()
+                if tcp_state.reassembler_fwd.is_spilled() && tcp_state.reassembler_rev.is_spilled()
                 {
                     consecutive_skips += 1;
                     continue;
