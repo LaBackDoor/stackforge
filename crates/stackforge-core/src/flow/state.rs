@@ -48,6 +48,8 @@ pub struct DirectionStats {
     pub first_seen: Duration,
     /// Timestamp of the most recent packet in this direction.
     pub last_seen: Duration,
+    /// Maximum packet length in this direction (if tracking enabled).
+    pub max_packet_len: Option<u64>,
 }
 
 impl DirectionStats {
@@ -58,14 +60,18 @@ impl DirectionStats {
             bytes: 0,
             first_seen: timestamp,
             last_seen: timestamp,
+            max_packet_len: None,
         }
     }
 
     /// Record a new packet in this direction.
-    pub fn record_packet(&mut self, byte_count: u64, timestamp: Duration) {
+    pub fn record_packet(&mut self, byte_count: u64, timestamp: Duration, track_max_len: bool) {
         self.packets += 1;
         self.bytes += byte_count;
         self.last_seen = timestamp;
+        if track_max_len {
+            self.max_packet_len = Some(self.max_packet_len.unwrap_or(0).max(byte_count));
+        }
     }
 }
 
@@ -120,6 +126,8 @@ pub struct ConversationState {
     pub packet_indices: Vec<usize>,
     /// Protocol-specific state.
     pub protocol_state: ProtocolState,
+    /// Maximum packet length across both directions (if tracking enabled).
+    pub max_flow_len: Option<u64>,
 }
 
 impl ConversationState {
@@ -143,6 +151,7 @@ impl ConversationState {
             reverse: DirectionStats::new(timestamp),
             packet_indices: Vec::new(),
             protocol_state,
+            max_flow_len: None,
         }
     }
 
@@ -179,6 +188,7 @@ impl ConversationState {
                 command_count: 0,
                 ack_count: 0,
             }),
+            max_flow_len: None,
         }
     }
 
@@ -207,13 +217,26 @@ impl ConversationState {
         byte_count: u64,
         timestamp: Duration,
         packet_index: usize,
+        track_max_packet_len: bool,
+        track_max_flow_len: bool,
     ) {
         self.last_seen = timestamp;
         self.packet_indices.push(packet_index);
 
         match direction {
-            FlowDirection::Forward => self.forward.record_packet(byte_count, timestamp),
-            FlowDirection::Reverse => self.reverse.record_packet(byte_count, timestamp),
+            FlowDirection::Forward => {
+                self.forward
+                    .record_packet(byte_count, timestamp, track_max_packet_len);
+            },
+            FlowDirection::Reverse => {
+                self.reverse
+                    .record_packet(byte_count, timestamp, track_max_packet_len);
+            },
+        }
+
+        // Update max flow length if tracking is enabled
+        if track_max_flow_len {
+            self.max_flow_len = Some(self.max_flow_len.unwrap_or(0).max(byte_count));
         }
     }
 

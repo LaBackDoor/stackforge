@@ -72,7 +72,14 @@ impl ConversationTable {
         let conv = entry.value_mut();
 
         // Record packet stats
-        conv.record_packet(direction, byte_count, timestamp, packet_index);
+        conv.record_packet(
+            direction,
+            byte_count,
+            timestamp,
+            packet_index,
+            self.config.track_max_packet_len,
+            self.config.track_max_flow_len,
+        );
 
         // Process protocol-specific state
         let buf = packet.as_bytes();
