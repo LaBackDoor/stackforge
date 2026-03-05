@@ -11,8 +11,8 @@
 
 - **Scapy-style API** — Stack layers with `Ether() / IP() / TCP()`, set fields with keyword arguments
 - **High Performance** — Core logic in Rust, zero-copy parsing, copy-on-write mutation
-- **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP, ICMPv6, DNS, HTTP/1.x, HTTP/2, QUIC, L2TP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
-- **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP files with TCP state tracking, stream reassembly, and UDP timeout handling
+- **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP/ICMPv6 (with echo correlation), DNS, HTTP/1.x, HTTP/2, QUIC, L2TP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
+- **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP files with TCP state tracking, stream reassembly, UDP timeout handling, and optional max packet/flow length tracking
 - **PCAP I/O** — Read and write pcap files with `rdpcap()` / `wrpcap()`
 - **Python Bindings** — Seamless integration via PyO3/maturin
 - **Custom Protocols** — Define runtime protocols with `CustomLayer` and typed fields
@@ -302,6 +302,45 @@ config = FlowConfig(
 )
 conversations = extract_flows("capture.pcap", config=config)
 ```
+
+Optional: Track maximum packet sizes during flow extraction:
+
+```python
+config = FlowConfig(
+    track_max_packet_len=True,   # Track max per-direction (forward_max_packet_len, reverse_max_packet_len)
+    track_max_flow_len=True,     # Track overall max (max_flow_len)
+)
+conversations = extract_flows("capture.pcap", config=config)
+
+for conv in conversations:
+    print(f"Max fwd packet: {conv.forward_max_packet_len} bytes")
+    print(f"Max rev packet: {conv.reverse_max_packet_len} bytes")
+    print(f"Max overall: {conv.max_flow_len} bytes")
+```
+
+Disabled by default (zero overhead). Enable only when needed for flow analysis.
+
+#### ICMP and ICMPv6 Flow Tracking
+
+Automatically correlate ICMP echo request/reply pairs and track other ICMP message types:
+
+```python
+conversations = extract_flows("capture.pcap")
+
+for conv in conversations:
+    if conv.protocol == "ICMP" or conv.protocol == "ICMPv6":
+        print(f"ICMP Echo: {conv.src_addr} <-> {conv.dst_addr}")
+        print(f"  Type: {conv.icmp_type}, Code: {conv.icmp_code}")
+        print(f"  Identifier: {conv.icmp_identifier}")
+        print(f"  Requests: {conv.icmp_request_count}, Replies: {conv.icmp_reply_count}")
+        print(f"  Last seq: {conv.icmp_last_seq}")
+```
+
+Features:
+- Echo request/reply pairs correlated via identifier (symmetric src/dst ports)
+- Non-echo message types tracked via (type, code) substitution
+- Properties: `icmp_type`, `icmp_code`, `icmp_identifier`, `icmp_request_count`, `icmp_reply_count`, `icmp_last_seq`
+- Returns `None` for non-ICMP flows
 
 ## Rust Crate
 
