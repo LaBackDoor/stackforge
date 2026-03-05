@@ -20,7 +20,7 @@ shared-version = true
 tag-name = "v{{version}}"
 
 [workspace.package]
-version = "0.6.4"
+version = "0.6.5"
 edition = "2024"
 license = "GPL-3.0-only"
 authors = ["Stackforge Contributors"]
