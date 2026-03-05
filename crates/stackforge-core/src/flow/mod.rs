@@ -27,6 +27,7 @@
 
 pub mod config;
 pub mod error;
+pub mod icmp_state;
 pub mod key;
 pub mod state;
 pub mod table;
@@ -37,6 +38,7 @@ pub mod udp_state;
 // Re-exports
 pub use config::FlowConfig;
 pub use error::FlowError;
+pub use icmp_state::IcmpFlowState;
 pub use key::{
     CanonicalKey, FlowDirection, TransportProtocol, ZWaveKey, extract_key, extract_zwave_key,
 };

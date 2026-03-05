@@ -5,6 +5,7 @@ import tempfile
 
 import pytest
 from stackforge import (
+    ICMP,
     IP,
     TCP,
     UDP,
@@ -368,3 +369,137 @@ class TestRealPcapIntegration:
             assert conv.dst_port >= 0
             assert conv.forward_bytes + conv.reverse_bytes == conv.total_bytes
             assert conv.forward_packets + conv.reverse_packets == conv.total_packets
+
+
+# ============================================================================
+# Test: ICMP flow extraction
+# ============================================================================
+
+
+def _build_icmp_echo_packet(src_ip, dst_ip, icmp_id, seq, is_reply=False):
+    """Build an ICMP Echo Request or Reply packet."""
+    if is_reply:
+        icmp_layer = ICMP.echo_reply(id=icmp_id, seq=seq)
+    else:
+        icmp_layer = ICMP.echo_request(id=icmp_id, seq=seq)
+    pkt = Ether() / IP(src=src_ip, dst=dst_ip) / icmp_layer
+    built = pkt.build()
+    built.parse()
+    return built
+
+
+class TestICMPFlows:
+    def test_icmp_echo_pair_correlation(self):
+        """Test that ICMP echo request and reply are correlated as a single flow."""
+        # Create echo request and reply
+        req = _build_icmp_echo_packet("192.168.1.1", "192.168.1.2", icmp_id=1234, seq=1)
+        reply = _build_icmp_echo_packet(
+            "192.168.1.2", "192.168.1.1", icmp_id=1234, seq=1, is_reply=True
+        )
+
+        conversations = extract_flows_from_packets([req, reply])
+
+        # Should have exactly 1 ICMP conversation (both directions same flow)
+        icmp_flows = [c for c in conversations if c.protocol == "ICMP"]
+        assert len(icmp_flows) == 1, f"Expected 1 ICMP flow, got {len(icmp_flows)}"
+
+        conv = icmp_flows[0]
+
+        # Verify protocol
+        assert conv.protocol == "ICMP"
+
+        # Verify ICMP-specific fields
+        assert conv.icmp_type is not None
+        assert conv.icmp_code is not None
+        assert conv.icmp_identifier == 1234
+        assert conv.icmp_request_count == 1
+        assert conv.icmp_reply_count == 1
+        assert conv.icmp_last_seq == 1
+
+        # Verify packet counts (1 forward, 1 reverse)
+        assert conv.total_packets == 2
+        assert conv.forward_packets == 1
+        assert conv.reverse_packets == 1
+
+    def test_icmp_multiple_sequences(self):
+        """Test ICMP flow with multiple sequence numbers."""
+        packets = []
+        for seq in range(1, 4):
+            req = _build_icmp_echo_packet("10.0.0.1", "10.0.0.2", icmp_id=5678, seq=seq)
+            reply = _build_icmp_echo_packet(
+                "10.0.0.2", "10.0.0.1", icmp_id=5678, seq=seq, is_reply=True
+            )
+            packets.extend([req, reply])
+
+        conversations = extract_flows_from_packets(packets)
+        icmp_flows = [c for c in conversations if c.protocol == "ICMP"]
+
+        assert len(icmp_flows) == 1
+        conv = icmp_flows[0]
+
+        assert conv.icmp_identifier == 5678
+        assert conv.icmp_request_count == 3
+        assert conv.icmp_reply_count == 3
+        assert conv.icmp_last_seq == 3
+        assert conv.total_packets == 6
+
+    def test_icmp_different_identifiers_separate_flows(self):
+        """Test that ICMP flows with different identifiers are tracked separately."""
+        # Two separate echo sessions
+        packets = []
+        for icmp_id in [1111, 2222]:
+            req = _build_icmp_echo_packet("10.0.0.1", "10.0.0.2", icmp_id=icmp_id, seq=1)
+            reply = _build_icmp_echo_packet(
+                "10.0.0.2", "10.0.0.1", icmp_id=icmp_id, seq=1, is_reply=True
+            )
+            packets.extend([req, reply])
+
+        conversations = extract_flows_from_packets(packets)
+        icmp_flows = [c for c in conversations if c.protocol == "ICMP"]
+
+        # Should have 2 separate conversations (different identifiers)
+        assert len(icmp_flows) == 2, f"Expected 2 ICMP flows, got {len(icmp_flows)}"
+
+        # Verify each has its own identifier
+        identifiers = sorted([c.icmp_identifier for c in icmp_flows])
+        assert identifiers == [1111, 2222]
+
+    def test_icmp_non_echo_fields(self):
+        """Test that non-echo ICMP types are tracked."""
+        # Create a dest unreachable (type 3, code 1 = host unreachable)
+        pkt = Ether() / IP(src="10.0.0.1", dst="10.0.0.2") / ICMP(type=3, code=1)
+        built = pkt.build()
+        built.parse()
+
+        conversations = extract_flows_from_packets([built])
+        icmp_flows = [c for c in conversations if c.protocol == "ICMP"]
+
+        assert len(icmp_flows) == 1
+        conv = icmp_flows[0]
+
+        assert conv.icmp_type == 3
+        assert conv.icmp_code == 1
+        # For non-echo, request_count and reply_count should be 0
+        assert conv.icmp_request_count == 0
+        assert conv.icmp_reply_count == 0
+
+    def test_icmp_python_getters_none_for_non_icmp(self):
+        """Test that ICMP getters return None for non-ICMP conversations."""
+        # Create a UDP packet
+        pkt = Ether() / IP(src="10.0.0.1", dst="10.0.0.2") / UDP(sport=53, dport=12345)
+        built = pkt.build()
+        built.parse()
+
+        conversations = extract_flows_from_packets([built])
+        udp_flows = [c for c in conversations if c.protocol == "UDP"]
+
+        assert len(udp_flows) == 1
+        conv = udp_flows[0]
+
+        # All ICMP properties should be None for UDP
+        assert conv.icmp_type is None
+        assert conv.icmp_code is None
+        assert conv.icmp_identifier is None
+        assert conv.icmp_request_count is None
+        assert conv.icmp_reply_count is None
+        assert conv.icmp_last_seq is None
