@@ -219,9 +219,12 @@ impl ConversationState {
         packet_index: usize,
         track_max_packet_len: bool,
         track_max_flow_len: bool,
+        store_packet_indices: bool,
     ) {
         self.last_seen = timestamp;
-        self.packet_indices.push(packet_index);
+        if store_packet_indices {
+            self.packet_indices.push(packet_index);
+        }
 
         match direction {
             FlowDirection::Forward => {
@@ -330,6 +333,7 @@ mod tests {
             0,
             false,
             false,
+            true,
         );
         state.record_packet(
             FlowDirection::Reverse,
@@ -338,6 +342,7 @@ mod tests {
             1,
             false,
             false,
+            true,
         );
         state.record_packet(
             FlowDirection::Forward,
@@ -346,6 +351,7 @@ mod tests {
             2,
             false,
             false,
+            true,
         );
 
         assert_eq!(state.total_packets(), 3);

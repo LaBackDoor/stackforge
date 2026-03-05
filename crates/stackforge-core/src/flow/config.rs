@@ -32,6 +32,11 @@ pub struct FlowConfig {
     pub spill_dir: Option<PathBuf>,
     /// Print progress feedback to stderr during flow extraction (default: false).
     pub verbose: bool,
+    /// Store per-flow packet indices (default: true).
+    /// Disable for large captures to save memory (~8 bytes per packet).
+    pub store_packet_indices: bool,
+    /// Number of packets between progress reports when verbose is enabled (default: 100_000).
+    pub progress_interval: usize,
 }
 
 impl Default for FlowConfig {
@@ -49,6 +54,8 @@ impl Default for FlowConfig {
             memory_budget: None,
             spill_dir: None,
             verbose: false,
+            store_packet_indices: true,
+            progress_interval: 100_000,
         }
     }
 }

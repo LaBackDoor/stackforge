@@ -85,6 +85,7 @@ impl ConversationTable {
             packet_index,
             self.config.track_max_packet_len,
             self.config.track_max_flow_len,
+            self.config.store_packet_indices,
         );
 
         // Process protocol-specific state

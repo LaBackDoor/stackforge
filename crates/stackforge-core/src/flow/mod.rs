@@ -53,10 +53,55 @@ pub use udp_state::UdpFlowState;
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::time::Instant;
 
 use crate::error::PacketError;
 use crate::layer::LayerKind;
 use crate::pcap::{CaptureIterator, CapturedPacket};
+
+/// Format a byte count into a human-readable string.
+fn format_bytes(bytes: usize) -> String {
+    const KB: usize = 1024;
+    const MB: usize = 1024 * KB;
+    const GB: usize = 1024 * MB;
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{bytes} B")
+    }
+}
+
+/// Format a count with commas (e.g. 1,234,567).
+fn format_count(n: usize) -> String {
+    let s = n.to_string();
+    let mut result = String::with_capacity(s.len() + s.len() / 3);
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(c);
+    }
+    result
+}
+
+/// Format duration as human-readable.
+fn format_duration(secs: f64) -> String {
+    if secs >= 3600.0 {
+        let h = (secs / 3600.0).floor();
+        let m = ((secs % 3600.0) / 60.0).floor();
+        format!("{h:.0}h {m:.0}m")
+    } else if secs >= 60.0 {
+        let m = (secs / 60.0).floor();
+        let s = secs % 60.0;
+        format!("{m:.0}m {s:.0}s")
+    } else {
+        format!("{secs:.1}s")
+    }
+}
 
 /// Extract bidirectional conversations from a list of captured packets.
 ///
@@ -211,7 +256,7 @@ pub fn extract_zwave_flows(
             state
         });
 
-        conv.record_packet(direction, byte_count, timestamp, index, false, false);
+        conv.record_packet(direction, byte_count, timestamp, index, false, false, true);
 
         // Track ACK vs command frames
         if let ProtocolState::ZWave(ref mut zw) = conv.protocol_state
