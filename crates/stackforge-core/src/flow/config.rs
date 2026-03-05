@@ -30,6 +30,8 @@ pub struct FlowConfig {
     pub memory_budget: Option<usize>,
     /// Directory for spill files (None = system temp dir).
     pub spill_dir: Option<PathBuf>,
+    /// Print progress feedback to stderr during flow extraction (default: false).
+    pub verbose: bool,
 }
 
 impl Default for FlowConfig {
@@ -46,6 +48,7 @@ impl Default for FlowConfig {
             track_max_flow_len: false,
             memory_budget: None,
             spill_dir: None,
+            verbose: false,
         }
     }
 }

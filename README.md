@@ -330,6 +330,22 @@ packets = rdpcap("capture.pcap")
 conversations = extract_flows_from_packets(packets)
 ```
 
+Enable verbose mode to see progress feedback on stderr during extraction:
+
+```python
+# Quick verbose flag on the function call
+conversations = extract_flows("capture.pcap", verbose=True)
+# [stackforge] Opening capture file: capture.pcap
+# [stackforge] Starting streaming flow extraction...
+# [stackforge] Processed 10000 packets (342 flows so far)
+# [stackforge] Processed 20000 packets (587 flows so far)
+# [stackforge] Flow extraction complete: 612 conversations
+
+# Or via FlowConfig
+config = FlowConfig(verbose=True)
+conversations = extract_flows("capture.pcap", config=config)
+```
+
 Customize timeouts, buffer limits, and memory budget with `FlowConfig`:
 
 ```python

@@ -4076,6 +4076,7 @@ impl PyFlowConfig {
         track_max_flow_len=false,
         memory_budget=None,
         spill_dir=None,
+        verbose=false,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -4089,6 +4090,7 @@ impl PyFlowConfig {
         track_max_flow_len: bool,
         memory_budget: Option<usize>,
         spill_dir: Option<String>,
+        verbose: bool,
     ) -> Self {
         Self {
             inner: stackforge_core::FlowConfig {
@@ -4104,6 +4106,7 @@ impl PyFlowConfig {
                 track_max_flow_len,
                 memory_budget,
                 spill_dir: spill_dir.map(std::path::PathBuf::from),
+                verbose,
                 ..stackforge_core::FlowConfig::default()
             },
         }
@@ -4451,9 +4454,16 @@ impl PyConversation {
 /// Returns:
 ///     List of Conversation objects sorted by start time.
 #[pyfunction]
-#[pyo3(signature = (pcap_path, config=None))]
-fn extract_flows(pcap_path: &str, config: Option<PyFlowConfig>) -> PyResult<Vec<PyConversation>> {
-    let flow_config = config.map(|c| c.inner).unwrap_or_default();
+#[pyo3(signature = (pcap_path, config=None, verbose=false))]
+fn extract_flows(
+    pcap_path: &str,
+    config: Option<PyFlowConfig>,
+    verbose: bool,
+) -> PyResult<Vec<PyConversation>> {
+    let mut flow_config = config.map(|c| c.inner).unwrap_or_default();
+    if verbose {
+        flow_config.verbose = true;
+    }
 
     // Use streaming extraction — never loads all packets into memory at once
     let conversations =
@@ -4484,10 +4494,11 @@ fn extract_flows(pcap_path: &str, config: Option<PyFlowConfig>) -> PyResult<Vec<
 /// Returns:
 ///     List of Conversation objects sorted by start time.
 #[pyfunction]
-#[pyo3(signature = (packets, config=None))]
+#[pyo3(signature = (packets, config=None, verbose=false))]
 fn extract_flows_from_packets(
     packets: Vec<PyRef<'_, PyPacket>>,
     config: Option<PyFlowConfig>,
+    verbose: bool,
 ) -> PyResult<Vec<PyConversation>> {
     let captured: Vec<stackforge_core::CapturedPacket> = packets
         .iter()
@@ -4502,7 +4513,10 @@ fn extract_flows_from_packets(
         })
         .collect();
 
-    let flow_config = config.map(|c| c.inner).unwrap_or_default();
+    let mut flow_config = config.map(|c| c.inner).unwrap_or_default();
+    if verbose {
+        flow_config.verbose = true;
+    }
 
     let conversations = stackforge_core::extract_flows_with_config(&captured, flow_config)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;

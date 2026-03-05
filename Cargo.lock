@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "pyo3",
  "stackforge-automata",
@@ -1083,7 +1083,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge-automata"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "bytes",
  "stackforge-core",
@@ -1091,7 +1091,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge-core"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "aes",
  "aes-gcm",

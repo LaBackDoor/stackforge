@@ -75,14 +75,35 @@ pub fn extract_flows_with_config(
     packets: &[CapturedPacket],
     config: FlowConfig,
 ) -> Result<Vec<ConversationState>, FlowError> {
+    let verbose = config.verbose;
+    let total = packets.len();
     let table = ConversationTable::new(config);
+
+    if verbose {
+        eprintln!("[stackforge] Starting flow extraction ({total} packets)...");
+    }
 
     for (index, captured) in packets.iter().enumerate() {
         let timestamp = captured.metadata.timestamp;
         table.ingest_packet(&captured.packet, timestamp, index)?;
+
+        if verbose && (index + 1) % 10_000 == 0 {
+            eprintln!(
+                "[stackforge] Processed {}/{total} packets ({} flows so far)",
+                index + 1,
+                table.conversation_count(),
+            );
+        }
     }
 
-    Ok(table.into_conversations())
+    let conversations = table.into_conversations();
+    if verbose {
+        eprintln!(
+            "[stackforge] Flow extraction complete: {total} packets -> {} conversations",
+            conversations.len(),
+        );
+    }
+    Ok(conversations)
 }
 
 /// Extract flows from a streaming packet source (iterator).
@@ -100,16 +121,36 @@ pub fn extract_flows_streaming<I>(
 where
     I: Iterator<Item = Result<CapturedPacket, PacketError>>,
 {
+    let verbose = config.verbose;
     let table = ConversationTable::new(config);
+
+    if verbose {
+        eprintln!("[stackforge] Starting streaming flow extraction...");
+    }
 
     for (index, result) in packets.enumerate() {
         let captured = result.map_err(FlowError::PacketError)?;
         let timestamp = captured.metadata.timestamp;
         table.ingest_packet(&captured.packet, timestamp, index)?;
         // `captured` is dropped here — packet memory freed immediately
+
+        if verbose && (index + 1) % 10_000 == 0 {
+            eprintln!(
+                "[stackforge] Processed {} packets ({} flows so far)",
+                index + 1,
+                table.conversation_count(),
+            );
+        }
     }
 
-    Ok(table.into_conversations())
+    let conversations = table.into_conversations();
+    if verbose {
+        eprintln!(
+            "[stackforge] Flow extraction complete: {} conversations",
+            conversations.len(),
+        );
+    }
+    Ok(conversations)
 }
 
 /// Extract flows directly from a capture file (PCAP or PcapNG).
@@ -120,6 +161,13 @@ pub fn extract_flows_from_file(
     path: impl AsRef<Path>,
     config: FlowConfig,
 ) -> Result<Vec<ConversationState>, FlowError> {
+    let verbose = config.verbose;
+    if verbose {
+        eprintln!(
+            "[stackforge] Opening capture file: {}",
+            path.as_ref().display(),
+        );
+    }
     let iter = CaptureIterator::open(path).map_err(FlowError::PacketError)?;
     extract_flows_streaming(iter, config)
 }
