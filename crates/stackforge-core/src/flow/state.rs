@@ -323,9 +323,30 @@ mod tests {
     fn test_record_packet() {
         let mut state = ConversationState::new(test_key(), Duration::from_secs(1));
 
-        state.record_packet(FlowDirection::Forward, 100, Duration::from_secs(1), 0);
-        state.record_packet(FlowDirection::Reverse, 200, Duration::from_secs(2), 1);
-        state.record_packet(FlowDirection::Forward, 50, Duration::from_secs(3), 2);
+        state.record_packet(
+            FlowDirection::Forward,
+            100,
+            Duration::from_secs(1),
+            0,
+            false,
+            false,
+        );
+        state.record_packet(
+            FlowDirection::Reverse,
+            200,
+            Duration::from_secs(2),
+            1,
+            false,
+            false,
+        );
+        state.record_packet(
+            FlowDirection::Forward,
+            50,
+            Duration::from_secs(3),
+            2,
+            false,
+            false,
+        );
 
         assert_eq!(state.total_packets(), 3);
         assert_eq!(state.total_bytes(), 350);

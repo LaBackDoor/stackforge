@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use super::config::FlowConfig;
 use super::error::FlowError;
+use super::spill::ReassemblyStorage;
 
 /// Result of processing a TCP segment through the reassembly engine.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,8 +31,8 @@ pub struct TcpReassembler {
     segments: BTreeMap<u32, Vec<u8>>,
     /// Next expected sequence number (advanced as data arrives in-order).
     next_expected_seq: u32,
-    /// Contiguous reassembled byte stream.
-    reassembled: Vec<u8>,
+    /// Contiguous reassembled byte stream (may be in memory or on disk).
+    reassembled: ReassemblyStorage,
     /// Total bytes currently buffered in out-of-order cache.
     total_buffered: usize,
     /// Number of distinct out-of-order fragments.
@@ -46,7 +48,7 @@ impl TcpReassembler {
         Self {
             segments: BTreeMap::new(),
             next_expected_seq: 0,
-            reassembled: Vec::new(),
+            reassembled: ReassemblyStorage::new(),
             total_buffered: 0,
             fragment_count: 0,
             initialized: false,
@@ -65,15 +67,25 @@ impl TcpReassembler {
         self.initialized
     }
 
-    /// Get the contiguous reassembled data accumulated so far.
+    /// Get the contiguous reassembled data if it's in memory.
+    ///
+    /// Returns `None` if the data has been spilled to disk.
+    /// Use [`read_reassembled`] for guaranteed access regardless of storage location.
     #[must_use]
     pub fn reassembled_data(&self) -> &[u8] {
-        &self.reassembled
+        self.reassembled.as_slice().unwrap_or(&[])
+    }
+
+    /// Read the reassembled data regardless of storage location.
+    ///
+    /// Works for both in-memory and spilled-to-disk data.
+    pub fn read_reassembled(&self) -> std::io::Result<Vec<u8>> {
+        self.reassembled.read_all()
     }
 
     /// Drain and return the reassembled data, resetting the buffer.
-    pub fn drain_reassembled(&mut self) -> Vec<u8> {
-        std::mem::take(&mut self.reassembled)
+    pub fn drain_reassembled(&mut self) -> std::io::Result<Vec<u8>> {
+        self.reassembled.drain()
     }
 
     /// Total bytes in the out-of-order buffer.
@@ -86,6 +98,25 @@ impl TcpReassembler {
     #[must_use]
     pub fn fragment_count(&self) -> usize {
         self.fragment_count
+    }
+
+    /// Total bytes currently held in memory (reassembled + OOO segments).
+    #[must_use]
+    pub fn in_memory_bytes(&self) -> usize {
+        self.reassembled.in_memory_bytes() + self.total_buffered
+    }
+
+    /// Spill reassembled data to a temporary file on disk.
+    ///
+    /// Returns the number of bytes freed from memory.
+    pub fn spill(&mut self, spill_dir: Option<&Path>) -> std::io::Result<usize> {
+        self.reassembled.spill_to_disk(spill_dir)
+    }
+
+    /// Whether the reassembled data has been spilled to disk.
+    #[must_use]
+    pub fn is_spilled(&self) -> bool {
+        self.reassembled.is_spilled()
     }
 
     /// Process an incoming TCP segment.
@@ -158,9 +189,7 @@ impl TcpReassembler {
 
     /// Drain contiguous segments from the `BTreeMap` that can now be appended.
     fn try_drain_buffered(&mut self) {
-        // Collect keys to drain (can't mutate while iterating)
         loop {
-            // Find the first segment that starts at or before next_expected_seq
             let key = {
                 let entry = self.segments.range(..=self.next_expected_seq).next_back();
                 match entry {
@@ -169,29 +198,24 @@ impl TcpReassembler {
                 }
             };
 
-            // Remove and process this segment
             if let Some(data) = self.segments.remove(&key) {
                 let seg_end = key.wrapping_add(data.len() as u32);
 
                 self.total_buffered -= data.len();
                 self.fragment_count -= 1;
 
-                // Check if this segment extends beyond next_expected_seq
                 if self.seq_after(seg_end, self.next_expected_seq) {
                     if self.seq_before(key, self.next_expected_seq) {
-                        // Partial overlap with already-received data
                         let overlap = self.next_expected_seq.wrapping_sub(key) as usize;
                         if overlap < data.len() {
                             self.reassembled.extend_from_slice(&data[overlap..]);
                             self.next_expected_seq = seg_end;
                         }
                     } else {
-                        // key == next_expected_seq (perfectly aligned)
                         self.reassembled.extend_from_slice(&data);
                         self.next_expected_seq = seg_end;
                     }
                 }
-                // else: segment is fully behind, skip it (duplicate)
             }
         }
     }
@@ -248,15 +272,12 @@ mod tests {
         let mut r = TcpReassembler::new();
         r.initialize(1000);
 
-        // Segment 2 arrives first (out of order)
         let action = r.process_segment(1005, b" world", &config).unwrap();
         assert_eq!(action, ReassemblyAction::Buffered);
         assert_eq!(r.fragment_count(), 1);
 
-        // Segment 1 arrives, fills the gap
         let action = r.process_segment(1000, b"hello", &config).unwrap();
         assert_eq!(action, ReassemblyAction::DataReady(5));
-        // The buffered segment should have been drained
         assert_eq!(r.reassembled_data(), b"hello world");
         assert_eq!(r.fragment_count(), 0);
     }
@@ -280,7 +301,6 @@ mod tests {
         r.initialize(1000);
 
         r.process_segment(1000, b"hello", &config).unwrap();
-        // Overlapping: starts at 1003, overlaps 2 bytes, adds 3 new
         let action = r.process_segment(1003, b"lo wo", &config).unwrap();
         assert_eq!(action, ReassemblyAction::OverlapTrimmed(3));
         assert_eq!(r.reassembled_data(), b"hello wo");
@@ -329,12 +349,10 @@ mod tests {
         let mut r = TcpReassembler::new();
         r.initialize(100);
 
-        // Send segments 3, 2, then 1
         r.process_segment(110, b"ccc", &config).unwrap();
         r.process_segment(105, b"bbbbb", &config).unwrap();
         assert_eq!(r.fragment_count(), 2);
 
-        // Fill the gap with segment 1
         r.process_segment(100, b"aaaaa", &config).unwrap();
         assert_eq!(r.reassembled_data(), b"aaaaabbbbbccc");
         assert_eq!(r.fragment_count(), 0);
@@ -345,7 +363,6 @@ mod tests {
         let config = default_config();
         let mut r = TcpReassembler::new();
 
-        // Should auto-initialize on first segment
         let action = r.process_segment(5000, b"data", &config).unwrap();
         assert_eq!(action, ReassemblyAction::DataReady(4));
         assert!(r.is_initialized());
@@ -359,8 +376,26 @@ mod tests {
         r.initialize(0);
 
         r.process_segment(0, b"hello", &config).unwrap();
-        let data = r.drain_reassembled();
+        let data = r.drain_reassembled().unwrap();
         assert_eq!(data, b"hello");
         assert!(r.reassembled_data().is_empty());
+    }
+
+    #[test]
+    fn test_spill_and_read() {
+        let config = default_config();
+        let mut r = TcpReassembler::new();
+        r.initialize(0);
+
+        r.process_segment(0, b"spill test data", &config).unwrap();
+        assert_eq!(r.in_memory_bytes(), 15);
+
+        let freed = r.spill(None).unwrap();
+        assert_eq!(freed, 15);
+        assert!(r.is_spilled());
+        assert_eq!(r.in_memory_bytes(), 0);
+
+        let data = r.read_reassembled().unwrap();
+        assert_eq!(data, b"spill test data");
     }
 }

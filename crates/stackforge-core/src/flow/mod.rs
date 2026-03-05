@@ -29,6 +29,7 @@ pub mod config;
 pub mod error;
 pub mod icmp_state;
 pub mod key;
+pub mod spill;
 pub mod state;
 pub mod table;
 pub mod tcp_reassembly;
@@ -51,9 +52,11 @@ pub use tcp_state::{TcpConnectionState, TcpConversationState, TcpEndpointState};
 pub use udp_state::UdpFlowState;
 
 use std::collections::HashMap;
+use std::path::Path;
 
+use crate::error::PacketError;
 use crate::layer::LayerKind;
-use crate::pcap::CapturedPacket;
+use crate::pcap::{CaptureIterator, CapturedPacket};
 
 /// Extract bidirectional conversations from a list of captured packets.
 ///
@@ -80,6 +83,45 @@ pub fn extract_flows_with_config(
     }
 
     Ok(table.into_conversations())
+}
+
+/// Extract flows from a streaming packet source (iterator).
+///
+/// Does not require all packets in memory simultaneously — each packet is
+/// processed and then dropped. Only conversation state (metadata + reassembly
+/// buffers) is retained.
+///
+/// If `config.memory_budget` is set, reassembly buffers will be spilled to
+/// disk when the budget is exceeded.
+pub fn extract_flows_streaming<I>(
+    packets: I,
+    config: FlowConfig,
+) -> Result<Vec<ConversationState>, FlowError>
+where
+    I: Iterator<Item = Result<CapturedPacket, PacketError>>,
+{
+    let table = ConversationTable::new(config);
+
+    for (index, result) in packets.enumerate() {
+        let captured = result.map_err(FlowError::PacketError)?;
+        let timestamp = captured.metadata.timestamp;
+        table.ingest_packet(&captured.packet, timestamp, index)?;
+        // `captured` is dropped here — packet memory freed immediately
+    }
+
+    Ok(table.into_conversations())
+}
+
+/// Extract flows directly from a capture file (PCAP or PcapNG).
+///
+/// Streams packets from disk — never loads the entire file into memory.
+/// The file format is auto-detected from magic bytes.
+pub fn extract_flows_from_file(
+    path: impl AsRef<Path>,
+    config: FlowConfig,
+) -> Result<Vec<ConversationState>, FlowError> {
+    let iter = CaptureIterator::open(path).map_err(FlowError::PacketError)?;
+    extract_flows_streaming(iter, config)
 }
 
 /// Extract Z-Wave conversations from a list of captured packets.
@@ -155,6 +197,7 @@ mod tests {
             metadata: PcapMetadata {
                 timestamp: Duration::from_secs(timestamp_secs),
                 orig_len: 0,
+                ..Default::default()
             },
         }
     }

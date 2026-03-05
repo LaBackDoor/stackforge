@@ -20,6 +20,9 @@ pub enum FlowError {
     #[error("too many discontinuous fragments ({count}, limit {limit})")]
     TooManyFragments { count: usize, limit: usize },
 
+    #[error("disk spill I/O error: {0}")]
+    SpillError(String),
+
     #[error(transparent)]
     PacketError(#[from] PacketError),
 }

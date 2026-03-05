@@ -160,14 +160,16 @@ pub use layer::{
 };
 pub use packet::Packet;
 pub use pcap::{
-    CapturedPacket, LinkType, PcapIterator, PcapMetadata, rdpcap, wrpcap, wrpcap_packets,
+    CaptureFormat, CaptureIterator, CapturedPacket, LinkType, PcapIterator, PcapMetadata,
+    PcapNgIterator, PcapNgStreamWriter, rdpcap, wrpcap, wrpcap_packets, wrpcapng, wrpcapng_packets,
 };
 
 // Flow extraction re-exports
 pub use flow::{
     CanonicalKey, ConversationState, ConversationStatus, ConversationTable, DirectionStats,
     FlowConfig, FlowDirection, FlowError, ProtocolState, TransportProtocol, ZWaveFlowState,
-    ZWaveKey, extract_flows, extract_flows_with_config, extract_zwave_flows,
+    ZWaveKey, extract_flows, extract_flows_from_file, extract_flows_streaming,
+    extract_flows_with_config, extract_zwave_flows,
 };
 
 // Utils re-exports

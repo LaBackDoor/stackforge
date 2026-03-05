@@ -3849,6 +3849,12 @@ impl PyPcapPacket {
         self.inner.metadata.orig_len
     }
 
+    /// Get the PcapNG interface ID (None for classic PCAP).
+    #[getter]
+    fn interface_id(&self) -> Option<u32> {
+        self.inner.metadata.interface_id
+    }
+
     fn show(&self) -> String {
         show_packet(&self.inner.packet)
     }
@@ -3888,14 +3894,14 @@ impl PyPcapPacket {
 ///     ...     print(pkt.summary())
 #[pyclass(name = "PcapReader")]
 pub struct PyPcapReader {
-    inner: Option<stackforge_core::PcapIterator<std::io::BufReader<std::fs::File>>>,
+    inner: Option<stackforge_core::CaptureIterator<std::io::BufReader<std::fs::File>>>,
 }
 
 #[pymethods]
 impl PyPcapReader {
     #[new]
     fn new(filename: &str) -> PyResult<Self> {
-        let iter = stackforge_core::PcapIterator::open(filename)
+        let iter = stackforge_core::CaptureIterator::open(filename)
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
         Ok(Self { inner: Some(iter) })
     }
@@ -3932,7 +3938,7 @@ impl PyPcapReader {
 #[pyfunction]
 #[pyo3(signature = (filename, count=0))]
 fn rdpcap(filename: &str, count: usize) -> PyResult<Vec<PyPcapPacket>> {
-    let iter = stackforge_core::PcapIterator::open(filename)
+    let iter = stackforge_core::CaptureIterator::open(filename)
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
 
     let results: Vec<PyPcapPacket> = if count > 0 {
@@ -3990,7 +3996,58 @@ fn wrpcap(filename: &str, packets: Vec<Bound<'_, pyo3::PyAny>>) -> PyResult<()> 
         }
     }
 
-    stackforge_core::wrpcap(filename, &captured)
+    // Auto-detect format from extension
+    if filename.ends_with(".pcapng") {
+        stackforge_core::wrpcapng(filename, &captured)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))
+    } else {
+        stackforge_core::wrpcap(filename, &captured)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))
+    }
+}
+
+/// Write packets to a PcapNG file.
+///
+/// Args:
+///     filename: Path to the output PcapNG file
+///     packets: List of Packet, PcapPacket, or LayerStack objects
+///
+/// Example:
+///     >>> wrpcapng("output.pcapng", packets)
+#[pyfunction]
+fn wrpcapng(filename: &str, packets: Vec<Bound<'_, pyo3::PyAny>>) -> PyResult<()> {
+    let mut captured: Vec<stackforge_core::CapturedPacket> = Vec::with_capacity(packets.len());
+
+    for pkt_any in &packets {
+        if let Ok(pcap_pkt) = pkt_any.extract::<PyPcapPacket>() {
+            captured.push(pcap_pkt.inner);
+        } else if let Ok(pkt) = pkt_any.extract::<PyRef<'_, PyPacket>>() {
+            let len = pkt.inner.len() as u32;
+            captured.push(stackforge_core::CapturedPacket {
+                packet: pkt.inner.clone(),
+                metadata: stackforge_core::PcapMetadata {
+                    orig_len: len,
+                    ..Default::default()
+                },
+            });
+        } else if let Ok(stack) = pkt_any.extract::<PyLayerStack>() {
+            let built = stack.inner.build_packet();
+            let len = built.len() as u32;
+            captured.push(stackforge_core::CapturedPacket {
+                packet: built,
+                metadata: stackforge_core::PcapMetadata {
+                    orig_len: len,
+                    ..Default::default()
+                },
+            });
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "packets must be Packet, PcapPacket, or LayerStack objects",
+            ));
+        }
+    }
+
+    stackforge_core::wrpcapng(filename, &captured)
         .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))
 }
 
@@ -4017,7 +4074,10 @@ impl PyFlowConfig {
         max_ooo_fragments=100,
         track_max_packet_len=false,
         track_max_flow_len=false,
+        memory_budget=None,
+        spill_dir=None,
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         tcp_established_timeout: f64,
         tcp_half_open_timeout: f64,
@@ -4027,6 +4087,8 @@ impl PyFlowConfig {
         max_ooo_fragments: usize,
         track_max_packet_len: bool,
         track_max_flow_len: bool,
+        memory_budget: Option<usize>,
+        spill_dir: Option<String>,
     ) -> Self {
         Self {
             inner: stackforge_core::FlowConfig {
@@ -4040,6 +4102,8 @@ impl PyFlowConfig {
                 max_ooo_fragments,
                 track_max_packet_len,
                 track_max_flow_len,
+                memory_budget,
+                spill_dir: spill_dir.map(std::path::PathBuf::from),
                 ..stackforge_core::FlowConfig::default()
             },
         }
@@ -4047,10 +4111,11 @@ impl PyFlowConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "FlowConfig(tcp_established_timeout={}, udp_timeout={}, max_reassembly_buffer={})",
+            "FlowConfig(tcp_established_timeout={}, udp_timeout={}, max_reassembly_buffer={}, memory_budget={:?})",
             self.inner.tcp_established_timeout.as_secs(),
             self.inner.udp_timeout.as_secs(),
             self.inner.max_reassembly_buffer,
+            self.inner.memory_budget,
         )
     }
 }
@@ -4275,11 +4340,11 @@ impl PyConversation {
     ) -> Option<Bound<'py, pyo3::types::PyBytes>> {
         match &self.inner.protocol_state {
             stackforge_core::ProtocolState::Tcp(tcp) => {
-                let data = tcp.reassembler_fwd.reassembled_data();
+                let data = tcp.reassembler_fwd.read_reassembled().ok()?;
                 if data.is_empty() {
                     None
                 } else {
-                    Some(pyo3::types::PyBytes::new(py, data))
+                    Some(pyo3::types::PyBytes::new(py, &data))
                 }
             },
             _ => None,
@@ -4294,11 +4359,11 @@ impl PyConversation {
     ) -> Option<Bound<'py, pyo3::types::PyBytes>> {
         match &self.inner.protocol_state {
             stackforge_core::ProtocolState::Tcp(tcp) => {
-                let data = tcp.reassembler_rev.reassembled_data();
+                let data = tcp.reassembler_rev.read_reassembled().ok()?;
                 if data.is_empty() {
                     None
                 } else {
-                    Some(pyo3::types::PyBytes::new(py, data))
+                    Some(pyo3::types::PyBytes::new(py, &data))
                 }
             },
             _ => None,
@@ -4329,8 +4394,16 @@ impl PyConversation {
         match &self.inner.protocol_state {
             stackforge_core::ProtocolState::Tcp(tcp) => {
                 s.push_str(&format!("  TCP State: {}\n", tcp.conn_state));
-                let fwd_len = tcp.reassembler_fwd.reassembled_data().len();
-                let rev_len = tcp.reassembler_rev.reassembled_data().len();
+                let fwd_len = tcp
+                    .reassembler_fwd
+                    .read_reassembled()
+                    .map(|d| d.len())
+                    .unwrap_or(0);
+                let rev_len = tcp
+                    .reassembler_rev
+                    .read_reassembled()
+                    .map(|d| d.len())
+                    .unwrap_or(0);
                 if fwd_len > 0 || rev_len > 0 {
                     s.push_str(&format!(
                         "  Reassembled: fwd={fwd_len} bytes, rev={rev_len} bytes\n"
@@ -4380,13 +4453,21 @@ impl PyConversation {
 #[pyfunction]
 #[pyo3(signature = (pcap_path, config=None))]
 fn extract_flows(pcap_path: &str, config: Option<PyFlowConfig>) -> PyResult<Vec<PyConversation>> {
-    let packets = stackforge_core::rdpcap(pcap_path)
-        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
-
     let flow_config = config.map(|c| c.inner).unwrap_or_default();
 
-    let conversations = stackforge_core::extract_flows_with_config(&packets, flow_config)
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
+    // Use streaming extraction — never loads all packets into memory at once
+    let conversations =
+        stackforge_core::extract_flows_from_file(pcap_path, flow_config).map_err(|e| {
+            let msg = format!("{e}");
+            if msg.contains("I/O error")
+                || msg.contains("failed to open")
+                || msg.contains("failed to create")
+            {
+                pyo3::exceptions::PyOSError::new_err(msg)
+            } else {
+                pyo3::exceptions::PyRuntimeError::new_err(msg)
+            }
+        })?;
 
     Ok(conversations
         .into_iter()
@@ -4416,6 +4497,7 @@ fn extract_flows_from_packets(
             metadata: stackforge_core::PcapMetadata {
                 timestamp: std::time::Duration::from_secs(i as u64),
                 orig_len: pkt.inner.len() as u32,
+                ..Default::default()
             },
         })
         .collect();
@@ -4475,6 +4557,7 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPcapReader>()?;
     m.add_function(wrap_pyfunction!(rdpcap, m)?)?;
     m.add_function(wrap_pyfunction!(wrpcap, m)?)?;
+    m.add_function(wrap_pyfunction!(wrpcapng, m)?)?;
 
     // Flow extraction
     m.add_class::<PyConversation>()?;

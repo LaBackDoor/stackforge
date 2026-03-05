@@ -41,6 +41,7 @@ from stackforge.stackforge import (
     extract_flows_from_packets,
     rdpcap,
     wrpcap,
+    wrpcapng,
 )
 
 from .custom import (
@@ -89,6 +90,7 @@ __all__ = [
     # PCAP I/O
     "rdpcap",
     "wrpcap",
+    "wrpcapng",
     "PcapPacket",
     "PcapReader",
     # Flow extraction

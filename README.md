@@ -11,9 +11,10 @@
 
 - **Scapy-style API** — Stack layers with `Ether() / IP() / TCP()`, set fields with keyword arguments
 - **High Performance** — Core logic in Rust, zero-copy parsing, copy-on-write mutation
-- **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP/ICMPv6 (with echo correlation), DNS, HTTP/1.x, HTTP/2, QUIC, L2TP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
-- **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP files with TCP state tracking, stream reassembly, UDP timeout handling, and optional max packet/flow length tracking
-- **PCAP I/O** — Read and write pcap files with `rdpcap()` / `wrpcap()`
+- **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP/ICMPv6 (with echo correlation), DNS, HTTP/1.x, HTTP/2, QUIC, L2TP, MQTT, MQTT-SN, Modbus, Z-Wave, FTP, TFTP, SMTP, POP3, IMAP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
+- **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP/PcapNG files with TCP state tracking, stream reassembly, UDP timeout handling, and optional max packet/flow length tracking
+- **Memory-Budgeted Streaming** — Process gigabyte-sized captures without loading everything into RAM; set a memory budget and reassembly buffers automatically spill to memory-mapped temp files
+- **PCAP & PcapNG I/O** — Read and write both classic PCAP and PcapNG files with auto-detection via `rdpcap()` / `wrpcap()` / `wrpcapng()`
 - **Python Bindings** — Seamless integration via PyO3/maturin
 - **Custom Protocols** — Define runtime protocols with `CustomLayer` and typed fields
 
@@ -77,10 +78,10 @@ print(pkt.summary())                    # "Ethernet / IPv4 / TCP"
 print(pkt.show())                       # detailed layer view
 ```
 
-### Read and write PCAP files
+### Read and write PCAP / PcapNG files
 
 ```python
-from stackforge import rdpcap, wrpcap, PcapReader, Ether, IP, TCP
+from stackforge import rdpcap, wrpcap, wrpcapng, PcapReader, Ether, IP, TCP
 
 # Write packets to a pcap file
 packets = [
@@ -89,13 +90,20 @@ packets = [
 ]
 wrpcap("capture.pcap", packets)
 
-# Read all packets at once
-packets = rdpcap("capture.pcap")
+# Write PcapNG format explicitly
+wrpcapng("capture.pcapng", packets)
+
+# wrpcap auto-detects format from extension
+wrpcap("capture.pcapng", packets)  # writes PcapNG
+
+# Read any format (auto-detected)
+packets = rdpcap("capture.pcap")    # classic PCAP
+packets = rdpcap("capture.pcapng")  # PcapNG — same API
 for pkt in packets:
     print(pkt.summary())
 
-# Stream large pcap files
-for pkt in PcapReader("large_capture.pcap"):
+# Stream large captures (works with both formats)
+for pkt in PcapReader("large_capture.pcapng"):
     print(pkt.summary())
 ```
 
@@ -257,6 +265,36 @@ pkt.parse()
 print(pkt.has_layer(LayerKind.L2tp))
 ```
 
+### IoT Protocols
+
+```python
+from stackforge import MQTT, MQTTSN, Modbus, ZWave
+
+# MQTT (auto-detected on TCP port 1883)
+pkt = Ether() / IP() / TCP(dport=1883) / MQTT(msg_type=1)  # CONNECT
+
+# MQTT-SN (auto-detected on UDP port 1883)
+pkt = Ether() / IP() / UDP(dport=1883) / MQTTSN(msg_type=0x04)  # PUBLISH
+
+# Modbus TCP (auto-detected on TCP port 502)
+pkt = Ether() / IP() / TCP(dport=502) / Modbus(func_code=3, data=b"\x00\x01\x00\x0a")
+
+# Z-Wave (wireless, not auto-detected over TCP/UDP)
+pkt = ZWave(home_id=0x12345678, src=1, dst=2, cmd_class=0x25, cmd=0x01)
+```
+
+### Email & File Transfer Protocols
+
+```python
+from stackforge import FTP, TFTP, SMTP, POP3, IMAP
+
+# FTP (TCP port 21), SMTP (TCP ports 25/587/465), POP3 (TCP port 110), IMAP (TCP port 143)
+# All auto-detected during packet parsing
+
+# TFTP (UDP port 69)
+pkt = Ether() / IP() / UDP(dport=69) / TFTP(opcode=1, filename="test.txt", mode="octet")
+```
+
 ### Stateful Flow Extraction
 
 Extract bidirectional conversations from PCAP captures with full TCP state machine tracking, stream reassembly, and UDP timeout-based flow grouping.
@@ -292,7 +330,7 @@ packets = rdpcap("capture.pcap")
 conversations = extract_flows_from_packets(packets)
 ```
 
-Customize timeouts and buffer limits with `FlowConfig`:
+Customize timeouts, buffer limits, and memory budget with `FlowConfig`:
 
 ```python
 config = FlowConfig(
@@ -302,6 +340,20 @@ config = FlowConfig(
 )
 conversations = extract_flows("capture.pcap", config=config)
 ```
+
+#### Memory-Budgeted Flow Extraction
+
+For large captures, set a memory budget so reassembly buffers automatically spill to disk when RAM is tight:
+
+```python
+config = FlowConfig(
+    memory_budget=256 * 1024 * 1024,  # 256 MB RAM budget
+    spill_dir="/tmp/stackforge-spill", # optional custom spill directory
+)
+conversations = extract_flows("large_capture.pcapng", config=config)
+```
+
+Packets stream from disk one at a time (never loaded all at once). When TCP reassembly buffers exceed the budget, the largest buffers are transparently spilled to memory-mapped temp files and read back on demand. Temp files are automatically cleaned up via RAII.
 
 Optional: Track maximum packet sizes during flow extraction:
 
