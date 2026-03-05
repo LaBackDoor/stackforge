@@ -21,6 +21,7 @@ pub struct ConversationTable {
     conversations: DashMap<CanonicalKey, ConversationState>,
     config: FlowConfig,
     memory_tracker: Arc<MemoryTracker>,
+    spill_count: std::sync::atomic::AtomicUsize,
 }
 
 impl ConversationTable {
@@ -32,6 +33,7 @@ impl ConversationTable {
             conversations: DashMap::new(),
             config,
             memory_tracker,
+            spill_count: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
@@ -156,13 +158,24 @@ impl ConversationTable {
         Ok(())
     }
 
-    /// Spill the largest reassembly buffers to disk until under budget.
+    /// Spill reassembly buffers to disk until under budget.
+    ///
+    /// Limits the number of entries scanned per call to avoid O(n) full-table
+    /// walks that become expensive as the flow count grows.
     fn maybe_spill(&self) {
+        let mut scanned = 0;
+        let max_scan = 256; // Cap per-call work to avoid stalls
         for mut entry in self.conversations.iter_mut() {
-            if !self.memory_tracker.is_over_budget() {
+            if !self.memory_tracker.is_over_budget() || scanned >= max_scan {
                 break;
             }
+            scanned += 1;
             if let ProtocolState::Tcp(ref mut tcp_state) = entry.value_mut().protocol_state {
+                // Only try to spill buffers that are still in memory
+                if tcp_state.reassembler_fwd.is_spilled() && tcp_state.reassembler_rev.is_spilled()
+                {
+                    continue;
+                }
                 let freed_fwd = tcp_state
                     .reassembler_fwd
                     .spill(self.config.spill_dir.as_deref())
@@ -174,9 +187,23 @@ impl ConversationTable {
                 let total_freed = freed_fwd + freed_rev;
                 if total_freed > 0 {
                     self.memory_tracker.subtract(total_freed);
+                    self.spill_count
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
+    }
+
+    /// Estimated memory usage of the flow table (tracked reassembly buffers).
+    #[must_use]
+    pub fn memory_usage(&self) -> usize {
+        self.memory_tracker.current_usage()
+    }
+
+    /// Number of spill operations performed.
+    #[must_use]
+    pub fn spill_count(&self) -> usize {
+        self.spill_count.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Get a read reference to a specific conversation.

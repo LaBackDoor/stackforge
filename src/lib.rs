@@ -4077,6 +4077,8 @@ impl PyFlowConfig {
         memory_budget=None,
         spill_dir=None,
         verbose=false,
+        store_packet_indices=true,
+        progress_interval=100000,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -4091,6 +4093,8 @@ impl PyFlowConfig {
         memory_budget: Option<usize>,
         spill_dir: Option<String>,
         verbose: bool,
+        store_packet_indices: bool,
+        progress_interval: usize,
     ) -> Self {
         Self {
             inner: stackforge_core::FlowConfig {
@@ -4107,6 +4111,8 @@ impl PyFlowConfig {
                 memory_budget,
                 spill_dir: spill_dir.map(std::path::PathBuf::from),
                 verbose,
+                store_packet_indices,
+                progress_interval,
                 ..stackforge_core::FlowConfig::default()
             },
         }

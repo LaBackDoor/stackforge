@@ -76,5 +76,7 @@ mod tests {
         assert_eq!(config.eviction_interval, Duration::from_secs(30));
         assert!(!config.track_max_packet_len);
         assert!(!config.track_max_flow_len);
+        assert!(config.store_packet_indices);
+        assert_eq!(config.progress_interval, 100_000);
     }
 }

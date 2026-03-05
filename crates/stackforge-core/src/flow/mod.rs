@@ -121,32 +121,60 @@ pub fn extract_flows_with_config(
     config: FlowConfig,
 ) -> Result<Vec<ConversationState>, FlowError> {
     let verbose = config.verbose;
+    let interval = config.progress_interval.max(1);
     let total = packets.len();
     let table = ConversationTable::new(config);
 
+    let wall_start = Instant::now();
+
     if verbose {
-        eprintln!("[stackforge] Starting flow extraction ({total} packets)...");
+        eprintln!();
+        eprintln!("[+] stackforge flow extraction engine");
+        eprintln!("[+] Input: {} packets (in-memory)", format_count(total));
+        eprintln!("[+] Processing...");
+        eprintln!();
     }
 
     for (index, captured) in packets.iter().enumerate() {
         let timestamp = captured.metadata.timestamp;
         table.ingest_packet(&captured.packet, timestamp, index)?;
 
-        if verbose && (index + 1) % 10_000 == 0 {
+        if verbose && (index + 1) % interval == 0 {
+            let elapsed = wall_start.elapsed().as_secs_f64();
+            let rate = (index + 1) as f64 / elapsed;
+            let pct = (index + 1) as f64 / total as f64 * 100.0;
+            let remaining = (total - index - 1) as f64 / rate;
+            let mem = table.memory_usage();
             eprintln!(
-                "[stackforge] Processed {}/{total} packets ({} flows so far)",
-                index + 1,
-                table.conversation_count(),
+                "    [{:5.1}%] {} pkts | {} flows | {}/s | mem ~{} | ETA {}",
+                pct,
+                format_count(index + 1),
+                format_count(table.conversation_count()),
+                format_count(rate as usize),
+                format_bytes(mem),
+                format_duration(remaining),
             );
         }
     }
 
+    if verbose {
+        eprintln!();
+    }
     let conversations = table.into_conversations();
     if verbose {
+        let elapsed = wall_start.elapsed().as_secs_f64();
+        let rate = total as f64 / elapsed;
         eprintln!(
-            "[stackforge] Flow extraction complete: {total} packets -> {} conversations",
-            conversations.len(),
+            "[+] Complete: {} packets -> {} flows",
+            format_count(total),
+            format_count(conversations.len())
         );
+        eprintln!(
+            "[+] Wall time: {} ({}/s avg)",
+            format_duration(elapsed),
+            format_count(rate as usize)
+        );
+        eprintln!();
     }
     Ok(conversations)
 }
@@ -167,11 +195,28 @@ where
     I: Iterator<Item = Result<CapturedPacket, PacketError>>,
 {
     let verbose = config.verbose;
+    let interval = config.progress_interval.max(1);
+    let has_budget = config.memory_budget.is_some();
+    let budget_str = config
+        .memory_budget
+        .map(|b| format_bytes(b))
+        .unwrap_or_else(|| "unlimited".to_string());
     let table = ConversationTable::new(config);
 
+    let wall_start = Instant::now();
+
     if verbose {
-        eprintln!("[stackforge] Starting streaming flow extraction...");
+        eprintln!();
+        eprintln!("[+] stackforge flow extraction engine");
+        eprintln!("[+] Mode: streaming (packets read from disk on-the-fly)");
+        if has_budget {
+            eprintln!("[+] Memory budget: {budget_str}");
+        }
+        eprintln!("[+] Processing...");
+        eprintln!();
     }
+
+    let mut last_report = Instant::now();
 
     for (index, result) in packets.enumerate() {
         let captured = result.map_err(FlowError::PacketError)?;
@@ -179,21 +224,48 @@ where
         table.ingest_packet(&captured.packet, timestamp, index)?;
         // `captured` is dropped here — packet memory freed immediately
 
-        if verbose && (index + 1) % 10_000 == 0 {
+        if verbose && (index + 1) % interval == 0 {
+            let now = Instant::now();
+            let elapsed = wall_start.elapsed().as_secs_f64();
+            let delta = now.duration_since(last_report).as_secs_f64();
+            let overall_rate = (index + 1) as f64 / elapsed;
+            let interval_rate = interval as f64 / delta;
+            let mem = table.memory_usage();
+            let spill_note = if has_budget && table.spill_count() > 0 {
+                format!(" | {} spills", format_count(table.spill_count()))
+            } else {
+                String::new()
+            };
             eprintln!(
-                "[stackforge] Processed {} packets ({} flows so far)",
-                index + 1,
-                table.conversation_count(),
+                "    [{}] {} pkts | {} flows | {}/s (avg {}/s) | mem ~{}{}",
+                format_duration(elapsed),
+                format_count(index + 1),
+                format_count(table.conversation_count()),
+                format_count(interval_rate as usize),
+                format_count(overall_rate as usize),
+                format_bytes(mem),
+                spill_note,
             );
+            last_report = now;
         }
     }
 
+    if verbose {
+        eprintln!();
+        eprintln!(
+            "[+] Finalizing (sorting {} flows)...",
+            format_count(table.conversation_count())
+        );
+    }
     let conversations = table.into_conversations();
     if verbose {
+        let elapsed = wall_start.elapsed().as_secs_f64();
         eprintln!(
-            "[stackforge] Flow extraction complete: {} conversations",
-            conversations.len(),
+            "[+] Complete: {} flows extracted",
+            format_count(conversations.len())
         );
+        eprintln!("[+] Wall time: {}", format_duration(elapsed));
+        eprintln!();
     }
     Ok(conversations)
 }
@@ -207,13 +279,14 @@ pub fn extract_flows_from_file(
     config: FlowConfig,
 ) -> Result<Vec<ConversationState>, FlowError> {
     let verbose = config.verbose;
+    let file_path = path.as_ref();
     if verbose {
-        eprintln!(
-            "[stackforge] Opening capture file: {}",
-            path.as_ref().display(),
-        );
+        let file_size = std::fs::metadata(file_path)
+            .map(|m| format_bytes(m.len() as usize))
+            .unwrap_or_else(|_| "unknown".to_string());
+        eprintln!("[+] File: {} ({})", file_path.display(), file_size);
     }
-    let iter = CaptureIterator::open(path).map_err(FlowError::PacketError)?;
+    let iter = CaptureIterator::open(file_path).map_err(FlowError::PacketError)?;
     extract_flows_streaming(iter, config)
 }
 
