@@ -319,6 +319,10 @@ for conv in conversations:
     if conv.reassembled_reverse:
         print(f"  Reverse stream: {len(conv.reassembled_reverse)} bytes")
 
+    # Check for dropped segments (buffer/fragment limits exceeded)
+    if conv.dropped_segments > 0:
+        print(f"  WARNING: {conv.dropped_segments} segments dropped (fwd={conv.dropped_segments_fwd}, rev={conv.dropped_segments_rev})")
+
     # Indices into the original packet list
     print(f"  Packet indices: {conv.packet_indices}")
 ```
@@ -356,6 +360,8 @@ Verbose output shows real-time progress with processing rate, memory usage, ETA,
 [+] Finalizing (sorting 88,254 flows)...
 [+] Complete: 88,254 flows extracted
 [+] Wall time: 1h 12m
+[!] Warning: 2,847 TCP segments dropped across 134 flows (buffer/fragment limits exceeded)
+[!] Tip: increase max_reassembly_buffer or max_ooo_fragments to capture more data
 ```
 
 Customize timeouts, buffer limits, and memory budget with `FlowConfig`:

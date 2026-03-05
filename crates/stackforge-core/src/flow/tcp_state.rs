@@ -231,18 +231,10 @@ impl TcpConversationState {
 
                 // Process payload through reassembler
                 if !payload.is_empty() {
-                    if let Err(e) = reassembler.process_segment(seq, payload, config) {
-                        // Buffer full or too many fragments — track the drop
+                    if reassembler.process_segment(seq, payload, config).is_err() {
                         match direction {
                             FlowDirection::Forward => self.dropped_segments_fwd += 1,
                             FlowDirection::Reverse => self.dropped_segments_rev += 1,
-                        }
-                        // Log once at thresholds to avoid flooding stderr
-                        let total = self.dropped_segments_fwd + self.dropped_segments_rev;
-                        if total == 1 || total.is_power_of_two() {
-                            eprintln!(
-                                "[!] stackforge: TCP reassembly dropped segment ({e}), {total} total drops for this flow"
-                            );
                         }
                     }
                 }
