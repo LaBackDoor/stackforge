@@ -160,20 +160,32 @@ impl ConversationTable {
 
     /// Spill reassembly buffers to disk until under budget.
     ///
-    /// Limits the number of entries scanned per call to avoid O(n) full-table
-    /// walks that become expensive as the flow count grows.
+    /// Two limits prevent runaway iteration:
+    /// - `max_spills`: stop after spilling this many buffers (actual work done)
+    /// - `max_skip`: stop after skipping this many already-spilled/non-TCP entries
+    ///   without finding anything to free (avoids scanning the entire table when
+    ///   most flows are already on disk)
     fn maybe_spill(&self) {
-        let mut scanned = 0;
-        let max_scan = 256; // Cap per-call work to avoid stalls
+        let mut spills = 0;
+        let max_spills = 64;
+        let mut consecutive_skips = 0;
+        let max_skip = 512;
+
         for mut entry in self.conversations.iter_mut() {
-            if !self.memory_tracker.is_over_budget() || scanned >= max_scan {
+            if !self.memory_tracker.is_over_budget() || spills >= max_spills {
                 break;
             }
-            scanned += 1;
+            if consecutive_skips >= max_skip {
+                // Most nearby entries are already spilled — stop scanning
+                break;
+            }
+
             if let ProtocolState::Tcp(ref mut tcp_state) = entry.value_mut().protocol_state {
-                // Only try to spill buffers that are still in memory
-                if tcp_state.reassembler_fwd.is_spilled() && tcp_state.reassembler_rev.is_spilled()
+                // Skip buffers already on disk
+                if tcp_state.reassembler_fwd.is_spilled()
+                    && tcp_state.reassembler_rev.is_spilled()
                 {
+                    consecutive_skips += 1;
                     continue;
                 }
                 let freed_fwd = tcp_state
@@ -189,7 +201,13 @@ impl ConversationTable {
                     self.memory_tracker.subtract(total_freed);
                     self.spill_count
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    spills += 1;
+                    consecutive_skips = 0; // Reset — we found something useful
+                } else {
+                    consecutive_skips += 1;
                 }
+            } else {
+                consecutive_skips += 1;
             }
         }
     }

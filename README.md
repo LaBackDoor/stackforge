@@ -335,15 +335,27 @@ Enable verbose mode to see progress feedback on stderr during extraction:
 ```python
 # Quick verbose flag on the function call
 conversations = extract_flows("capture.pcap", verbose=True)
-# [stackforge] Opening capture file: capture.pcap
-# [stackforge] Starting streaming flow extraction...
-# [stackforge] Processed 10000 packets (342 flows so far)
-# [stackforge] Processed 20000 packets (587 flows so far)
-# [stackforge] Flow extraction complete: 612 conversations
 
 # Or via FlowConfig
 config = FlowConfig(verbose=True)
 conversations = extract_flows("capture.pcap", config=config)
+```
+
+Verbose output shows real-time progress with processing rate, memory usage, ETA, and spill stats:
+
+```
+[+] stackforge flow extraction engine
+[+] File: capture.pcap (2.3 GB)
+[+] Mode: streaming (packets read from disk on-the-fly)
+[+] Memory budget: 1.00 GB
+[+] Processing...
+
+    [1m 23s] 100,000 pkts | 1,234 flows | 85,432/s (avg 72,150/s) | mem ~45.2 MB
+    [2m 48s] 200,000 pkts | 2,567 flows | 78,901/s (avg 71,428/s) | mem ~89.1 MB | 3 spills
+
+[+] Finalizing (sorting 88,254 flows)...
+[+] Complete: 88,254 flows extracted
+[+] Wall time: 1h 12m
 ```
 
 Customize timeouts, buffer limits, and memory budget with `FlowConfig`:
@@ -365,6 +377,8 @@ For large captures, set a memory budget so reassembly buffers automatically spil
 config = FlowConfig(
     memory_budget=256 * 1024 * 1024,  # 256 MB RAM budget
     spill_dir="/tmp/stackforge-spill", # optional custom spill directory
+    store_packet_indices=False,        # save ~8 bytes/pkt on large captures
+    progress_interval=500_000,         # report every 500K packets (default: 100K)
 )
 conversations = extract_flows("large_capture.pcapng", config=config)
 ```

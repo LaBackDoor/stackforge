@@ -104,6 +104,10 @@ pub struct TcpConversationState {
     pub reassembler_fwd: TcpReassembler,
     /// Stream reassembly for reverse direction.
     pub reassembler_rev: TcpReassembler,
+    /// Number of forward segments dropped due to buffer/fragment limits.
+    pub dropped_segments_fwd: u64,
+    /// Number of reverse segments dropped due to buffer/fragment limits.
+    pub dropped_segments_rev: u64,
 }
 
 impl TcpConversationState {
@@ -115,7 +119,15 @@ impl TcpConversationState {
             reverse_endpoint: TcpEndpointState::new(),
             reassembler_fwd: TcpReassembler::new(),
             reassembler_rev: TcpReassembler::new(),
+            dropped_segments_fwd: 0,
+            dropped_segments_rev: 0,
         }
+    }
+
+    /// Total dropped segments across both directions.
+    #[must_use]
+    pub fn total_dropped_segments(&self) -> u64 {
+        self.dropped_segments_fwd + self.dropped_segments_rev
     }
 
     /// Process a TCP packet, updating connection state and reassembly buffers.
@@ -219,9 +231,20 @@ impl TcpConversationState {
 
                 // Process payload through reassembler
                 if !payload.is_empty() {
-                    // Ignore reassembly errors (buffer full, etc.) — they don't
-                    // affect connection state tracking
-                    let _ = reassembler.process_segment(seq, payload, config);
+                    if let Err(e) = reassembler.process_segment(seq, payload, config) {
+                        // Buffer full or too many fragments — track the drop
+                        match direction {
+                            FlowDirection::Forward => self.dropped_segments_fwd += 1,
+                            FlowDirection::Reverse => self.dropped_segments_rev += 1,
+                        }
+                        // Log once at thresholds to avoid flooding stderr
+                        let total = self.dropped_segments_fwd + self.dropped_segments_rev;
+                        if total == 1 || total.is_power_of_two() {
+                            eprintln!(
+                                "[!] stackforge: TCP reassembly dropped segment ({e}), {total} total drops for this flow"
+                            );
+                        }
+                    }
                 }
 
                 if flags.fin {
