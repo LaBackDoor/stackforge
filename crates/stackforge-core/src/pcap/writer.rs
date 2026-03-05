@@ -1,16 +1,24 @@
-//! PCAP file writer.
+//! PCAP and PcapNG file writer.
 
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::Duration;
 
 use pcap_file::pcap::{PcapHeader, PcapPacket, PcapWriter as PcapFileWriter};
+use pcap_file::pcapng::PcapNgWriter as PcapNgFileWriter;
+use pcap_file::pcapng::blocks::enhanced_packet::EnhancedPacketBlock;
+use pcap_file::pcapng::blocks::interface_description::InterfaceDescriptionBlock;
 
 use crate::error::{PacketError, Result};
 use crate::packet::Packet;
 
 use super::{CapturedPacket, PcapMetadata};
+
+// ---------------------------------------------------------------------------
+// Classic PCAP writer
+// ---------------------------------------------------------------------------
 
 /// Write captured packets to a PCAP file.
 ///
@@ -54,6 +62,7 @@ pub fn wrpcap_packets(path: impl AsRef<Path>, packets: &[Packet]) -> Result<()> 
             metadata: PcapMetadata {
                 timestamp: Duration::ZERO,
                 orig_len: pkt.len() as u32,
+                ..Default::default()
             },
         })
         .collect();
@@ -114,10 +123,138 @@ impl<W: Write> PcapStreamWriter<W> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PcapNG writer
+// ---------------------------------------------------------------------------
+
+/// Write captured packets to a PcapNG file.
+///
+/// Writes SHB + IDB (Ethernet) header, then each packet as an Enhanced Packet Block.
+pub fn wrpcapng(path: impl AsRef<Path>, packets: &[CapturedPacket]) -> Result<()> {
+    let file = File::create(path.as_ref()).map_err(|e| {
+        PacketError::Io(format!(
+            "failed to create {}: {}",
+            path.as_ref().display(),
+            e
+        ))
+    })?;
+    let writer = BufWriter::new(file);
+    let mut ng_writer = PcapNgStreamWriter::from_writer(writer)?;
+
+    for cap in packets {
+        ng_writer.write(cap)?;
+    }
+
+    Ok(())
+}
+
+/// Write plain packets to a PcapNG file (convenience function).
+///
+/// Timestamps are set to zero, `orig_len` matches each packet's data length.
+pub fn wrpcapng_packets(path: impl AsRef<Path>, packets: &[Packet]) -> Result<()> {
+    let captured: Vec<CapturedPacket> = packets
+        .iter()
+        .map(|pkt| CapturedPacket {
+            packet: pkt.clone(),
+            metadata: PcapMetadata {
+                timestamp: Duration::ZERO,
+                orig_len: pkt.len() as u32,
+                ..Default::default()
+            },
+        })
+        .collect();
+    wrpcapng(path, &captured)
+}
+
+/// PcapNG writer for streaming writes.
+///
+/// Writes packets one at a time. Auto-writes SHB + IDB on first packet.
+pub struct PcapNgStreamWriter<W: Write> {
+    inner: PcapNgFileWriter<W>,
+    interface_written: bool,
+}
+
+impl PcapNgStreamWriter<BufWriter<File>> {
+    /// Create a new PcapNG file for writing.
+    pub fn create(path: impl AsRef<Path>) -> Result<Self> {
+        let file = File::create(path.as_ref()).map_err(|e| {
+            PacketError::Io(format!(
+                "failed to create {}: {}",
+                path.as_ref().display(),
+                e
+            ))
+        })?;
+        let writer = BufWriter::new(file);
+        Self::from_writer(writer)
+    }
+}
+
+impl<W: Write> PcapNgStreamWriter<W> {
+    /// Create a `PcapNgStreamWriter` from any writer.
+    ///
+    /// The SHB is written immediately. The IDB is written on the first packet.
+    pub fn from_writer(writer: W) -> Result<Self> {
+        let ng_writer = PcapNgFileWriter::new(writer)
+            .map_err(|e| PacketError::Io(format!("PcapNG write error: {e}")))?;
+        Ok(Self {
+            inner: ng_writer,
+            interface_written: false,
+        })
+    }
+
+    /// Ensure at least one Interface Description Block has been written.
+    fn ensure_interface(&mut self) -> Result<()> {
+        if !self.interface_written {
+            let idb = InterfaceDescriptionBlock {
+                linktype: pcap_file::DataLink::ETHERNET,
+                snaplen: 0xFFFF,
+                options: vec![],
+            };
+            self.inner
+                .write_pcapng_block(idb)
+                .map_err(|e| PacketError::Io(format!("PcapNG write error: {e}")))?;
+            self.interface_written = true;
+        }
+        Ok(())
+    }
+
+    /// Write a captured packet with metadata as an Enhanced Packet Block.
+    pub fn write(&mut self, cap: &CapturedPacket) -> Result<()> {
+        self.ensure_interface()?;
+        let epb = EnhancedPacketBlock {
+            interface_id: cap.metadata.interface_id.unwrap_or(0),
+            timestamp: cap.metadata.timestamp,
+            original_len: cap.metadata.orig_len,
+            data: Cow::Borrowed(cap.packet.as_bytes()),
+            options: vec![],
+        };
+        self.inner
+            .write_pcapng_block(epb)
+            .map_err(|e| PacketError::Io(format!("PcapNG write error: {e}")))?;
+        Ok(())
+    }
+
+    /// Write a plain packet (timestamp=0, `orig_len=data` length).
+    pub fn write_packet(&mut self, pkt: &Packet) -> Result<()> {
+        self.ensure_interface()?;
+        let epb = EnhancedPacketBlock {
+            interface_id: 0,
+            timestamp: Duration::ZERO,
+            original_len: pkt.len() as u32,
+            data: Cow::Borrowed(pkt.as_bytes()),
+            options: vec![],
+        };
+        self.inner
+            .write_pcapng_block(epb)
+            .map_err(|e| PacketError::Io(format!("PcapNG write error: {e}")))?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pcap::reader::PcapIterator;
+    use crate::pcap::reader::{PcapIterator, PcapNgIterator};
     use std::io::Cursor;
     use std::time::Duration;
 
@@ -139,17 +276,16 @@ mod tests {
             metadata: PcapMetadata {
                 timestamp: Duration::from_secs(42),
                 orig_len: eth.len() as u32,
+                ..Default::default()
             },
         };
 
-        // Write to in-memory buffer via PcapStreamWriter
         let mut buf = Vec::new();
         {
             let mut writer = PcapStreamWriter::from_writer(Cursor::new(&mut buf)).unwrap();
             writer.write(&cap).unwrap();
         }
 
-        // Read back
         let iter = PcapIterator::from_reader(Cursor::new(buf)).unwrap();
         let packets: Vec<_> = iter.collect::<std::result::Result<Vec<_>, _>>().unwrap();
         assert_eq!(packets.len(), 1);
@@ -167,6 +303,7 @@ mod tests {
                 metadata: PcapMetadata {
                     timestamp: Duration::from_secs(i),
                     orig_len: eth.len() as u32,
+                    ..Default::default()
                 },
             })
             .collect();
@@ -203,5 +340,80 @@ mod tests {
         assert_eq!(packets.len(), 1);
         assert_eq!(packets[0].metadata.timestamp, Duration::ZERO);
         assert_eq!(packets[0].metadata.orig_len, eth.len() as u32);
+    }
+
+    #[test]
+    fn test_pcapng_writer_roundtrip() {
+        let eth = sample_ethernet_packet();
+        let cap = CapturedPacket {
+            packet: Packet::from_bytes(bytes::Bytes::copy_from_slice(&eth)),
+            metadata: PcapMetadata {
+                timestamp: Duration::from_secs(100),
+                orig_len: eth.len() as u32,
+                interface_id: Some(0),
+                comment: None,
+            },
+        };
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = PcapNgStreamWriter::from_writer(Cursor::new(&mut buf)).unwrap();
+            writer.write(&cap).unwrap();
+        }
+
+        let iter = PcapNgIterator::from_reader(Cursor::new(buf)).unwrap();
+        let packets: Vec<_> = iter.collect::<std::result::Result<Vec<_>, _>>().unwrap();
+        assert_eq!(packets.len(), 1);
+        assert_eq!(packets[0].metadata.timestamp, Duration::from_secs(100));
+        assert_eq!(packets[0].packet.as_bytes(), eth.as_slice());
+        assert_eq!(packets[0].metadata.interface_id, Some(0));
+    }
+
+    #[test]
+    fn test_pcapng_writer_multiple_packets() {
+        let eth = sample_ethernet_packet();
+
+        let caps: Vec<CapturedPacket> = (0..3)
+            .map(|i| CapturedPacket {
+                packet: Packet::from_bytes(bytes::Bytes::copy_from_slice(&eth)),
+                metadata: PcapMetadata {
+                    timestamp: Duration::from_secs(i * 10),
+                    orig_len: eth.len() as u32,
+                    ..Default::default()
+                },
+            })
+            .collect();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = PcapNgStreamWriter::from_writer(Cursor::new(&mut buf)).unwrap();
+            for cap in &caps {
+                writer.write(cap).unwrap();
+            }
+        }
+
+        let iter = PcapNgIterator::from_reader(Cursor::new(buf)).unwrap();
+        let packets: Vec<_> = iter.collect::<std::result::Result<Vec<_>, _>>().unwrap();
+        assert_eq!(packets.len(), 3);
+        assert_eq!(packets[0].metadata.timestamp, Duration::from_secs(0));
+        assert_eq!(packets[1].metadata.timestamp, Duration::from_secs(10));
+        assert_eq!(packets[2].metadata.timestamp, Duration::from_secs(20));
+    }
+
+    #[test]
+    fn test_pcapng_write_packet_convenience() {
+        let eth = sample_ethernet_packet();
+        let pkt = Packet::from_bytes(bytes::Bytes::copy_from_slice(&eth));
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = PcapNgStreamWriter::from_writer(Cursor::new(&mut buf)).unwrap();
+            writer.write_packet(&pkt).unwrap();
+        }
+
+        let iter = PcapNgIterator::from_reader(Cursor::new(buf)).unwrap();
+        let packets: Vec<_> = iter.collect::<std::result::Result<Vec<_>, _>>().unwrap();
+        assert_eq!(packets.len(), 1);
+        assert_eq!(packets[0].metadata.timestamp, Duration::ZERO);
     }
 }

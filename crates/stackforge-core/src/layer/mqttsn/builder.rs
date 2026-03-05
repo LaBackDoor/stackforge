@@ -687,6 +687,7 @@ impl MqttSnBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layer::mqttsn::{MqttSnLayer, RC_REJ_CONGESTION, RC_REJ_INVALID_TID, TID_NORMAL};
     use crate::layer::{LayerIndex, LayerKind};
 
     fn make_layer(buf: &[u8]) -> MqttSnLayer {

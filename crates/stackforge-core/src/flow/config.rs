@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 /// Configuration for the flow extraction engine.
@@ -24,6 +25,11 @@ pub struct FlowConfig {
     pub track_max_packet_len: bool,
     /// Track maximum flow length per direction (default: false).
     pub track_max_flow_len: bool,
+    /// Total RAM budget for flow extraction (None = unlimited).
+    /// When set, reassembly buffers will be spilled to disk when exceeded.
+    pub memory_budget: Option<usize>,
+    /// Directory for spill files (None = system temp dir).
+    pub spill_dir: Option<PathBuf>,
 }
 
 impl Default for FlowConfig {
@@ -38,6 +44,8 @@ impl Default for FlowConfig {
             eviction_interval: Duration::from_secs(30),
             track_max_packet_len: false,
             track_max_flow_len: false,
+            memory_budget: None,
+            spill_dir: None,
         }
     }
 }

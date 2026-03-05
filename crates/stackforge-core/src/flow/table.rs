@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use dashmap::DashMap;
@@ -7,25 +8,30 @@ use crate::Packet;
 use super::config::FlowConfig;
 use super::error::FlowError;
 use super::key::{CanonicalKey, extract_key};
+use super::spill::MemoryTracker;
 use super::state::{ConversationState, ProtocolState};
 
 /// Thread-safe conversation tracking table backed by `DashMap`.
 ///
 /// Supports concurrent packet ingestion from multiple threads while
 /// maintaining per-conversation state including TCP state machines
-/// and stream reassembly.
+/// and stream reassembly. Optionally tracks memory usage and spills
+/// reassembly buffers to disk when a budget is exceeded.
 pub struct ConversationTable {
     conversations: DashMap<CanonicalKey, ConversationState>,
     config: FlowConfig,
+    memory_tracker: Arc<MemoryTracker>,
 }
 
 impl ConversationTable {
     /// Create a new table with the given configuration.
     #[must_use]
     pub fn new(config: FlowConfig) -> Self {
+        let memory_tracker = Arc::new(MemoryTracker::new(config.memory_budget));
         Self {
             conversations: DashMap::new(),
             config,
+            memory_tracker,
         }
     }
 
@@ -119,7 +125,53 @@ impl ConversationTable {
         // Update conversation status from protocol state
         conv.update_status();
 
+        // Track memory for TCP reassembly buffers
+        if self.memory_tracker.has_budget() {
+            if matches!(conv.protocol_state, ProtocolState::Tcp(_)) {
+                // Track bytes that TCP payload may have added
+                let tcp_payload_len = packet.tcp().map_or(0, |tcp| {
+                    let data_offset = tcp.data_offset(buf).unwrap_or(5) as usize * 4;
+                    let payload_start = tcp.index.start + data_offset;
+                    buf.len().saturating_sub(payload_start)
+                });
+                if tcp_payload_len > 0 {
+                    self.memory_tracker.add(tcp_payload_len);
+                }
+            }
+        }
+
+        // Drop the entry lock before spilling (which needs iter_mut)
+        drop(entry);
+
+        // Spill if over budget
+        if self.memory_tracker.is_over_budget() {
+            self.maybe_spill();
+        }
+
         Ok(())
+    }
+
+    /// Spill the largest reassembly buffers to disk until under budget.
+    fn maybe_spill(&self) {
+        for mut entry in self.conversations.iter_mut() {
+            if !self.memory_tracker.is_over_budget() {
+                break;
+            }
+            if let ProtocolState::Tcp(ref mut tcp_state) = entry.value_mut().protocol_state {
+                let freed_fwd = tcp_state
+                    .reassembler_fwd
+                    .spill(self.config.spill_dir.as_deref())
+                    .unwrap_or(0);
+                let freed_rev = tcp_state
+                    .reassembler_rev
+                    .spill(self.config.spill_dir.as_deref())
+                    .unwrap_or(0);
+                let total_freed = freed_fwd + freed_rev;
+                if total_freed > 0 {
+                    self.memory_tracker.subtract(total_freed);
+                }
+            }
+        }
     }
 
     /// Get a read reference to a specific conversation.
