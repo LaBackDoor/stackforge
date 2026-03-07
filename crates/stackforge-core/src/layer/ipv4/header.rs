@@ -863,6 +863,10 @@ impl Layer for Ipv4Layer {
     fn extract_padding<'a>(&self, buf: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         self.extract_padding(buf)
     }
+
+    fn field_names(&self) -> &'static [&'static str] {
+        Ipv4Layer::field_names()
+    }
 }
 
 #[cfg(test)]

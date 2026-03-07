@@ -905,6 +905,10 @@ impl Layer for ArpLayer {
     fn extract_padding<'a>(&self, buf: &'a [u8]) -> (&'a [u8], &'a [u8]) {
         self.extract_padding(buf)
     }
+
+    fn field_names(&self) -> &'static [&'static str] {
+        ArpLayer::field_names()
+    }
 }
 
 // ============================================================================

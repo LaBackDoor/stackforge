@@ -385,6 +385,10 @@ impl Layer for DhcpLayer {
         let d = self.data(buf);
         d.len()
     }
+
+    fn field_names(&self) -> &'static [&'static str] {
+        DHCP_FIELD_NAMES
+    }
 }
 
 /// Check if a UDP payload looks like a DHCP packet.

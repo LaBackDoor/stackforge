@@ -1500,7 +1500,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "pyo3",
  "stackforge-automata",
@@ -1509,7 +1509,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge-automata"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "bytes",
  "crossbeam-channel",
@@ -1522,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "stackforge-core"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "aes",
  "aes-gcm",
