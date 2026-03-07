@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/stackforge-core", "crates/stackforge-automata"]
+exclude = ["crates/stackforge-core/fuzz"]
 resolver = "2"
 
 [package]
@@ -20,7 +21,7 @@ shared-version = true
 tag-name = "v{{version}}"
 
 [workspace.package]
-version = "0.6.7"
+version = "0.7.0"
 edition = "2024"
 license = "GPL-3.0-only"
 authors = ["Stackforge Contributors"]
@@ -51,6 +52,23 @@ tre-command = { version = "0.4.0", bins = ["tre"] }
 
 [workspace.lints.rust]
 missing_docs = "allow"
+
+# Optimized release profile: thin LTO for balance of speed and compile time
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
+
+# Maximum optimization profile (for benchmarks and production)
+[profile.release-max]
+inherits = "release"
+lto = "fat"
+strip = true
+
+# Bench profile inherits release for reliable measurements
+[profile.bench]
+lto = "thin"
+codegen-units = 1
 
 [lints]
 workspace = true

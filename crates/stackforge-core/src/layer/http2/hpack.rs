@@ -390,7 +390,13 @@ pub fn decode_integer(buf: &[u8], prefix_bits: u8) -> Option<(u64, usize)> {
         }
         let byte = buf[i];
         i += 1;
-        value += u64::from(byte & 0x7F) << shift;
+        let addend = u64::from(byte & 0x7F)
+            .checked_shl(shift as u32)
+            .and_then(|v| value.checked_add(v));
+        match addend {
+            Some(v) => value = v,
+            None => return None,
+        }
         shift += 7;
 
         if (byte & 0x80) == 0 {

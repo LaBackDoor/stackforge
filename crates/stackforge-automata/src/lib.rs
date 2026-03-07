@@ -3,32 +3,28 @@
 //! Async state machine framework for network automation tasks.
 //!
 //! This crate provides the infrastructure for implementing "Answering Machines"
-//! and other stateful network automation patterns using Rust's async/await.
+//! and other stateful network automation patterns. It uses tokio internally
+//! for timer support while exposing a synchronous API.
 //!
-//! ## Planned Features
+//! ## Architecture
 //!
-//! - Automaton trait for defining state machines
-//! - ARP spoofer implementation
-//! - DHCP server framework
-//! - Generic request/response matchers
-//!
-//! This module will be implemented in Phase 3 (Months 7-9) of the roadmap.
+//! - `Automaton` trait: define `is_request()` and `make_reply()` for packet-driven automata
+//! - `AutomatonRuntime`: manages the sniffer, sender, and event loop on a dedicated thread
+//! - `CallbackAutomaton`: closure-based automaton for simple use cases and Python bindings
+//! - Built-in automata: `ArpSpoofer`, `DhcpServer`
 
-#![warn(missing_docs)]
+pub mod arp_spoof;
+pub mod config;
+pub mod dhcp;
+pub mod error;
+pub mod forwarder;
+pub mod runtime;
+pub mod traits;
+
+pub use config::AutomatonConfig;
+pub use error::AutomatonError;
+pub use runtime::AutomatonRuntime;
+pub use traits::{Automaton, CallbackAutomaton};
 
 // Re-export core types for convenience
 pub use stackforge_core::{LayerKind, Packet};
-
-/// Placeholder for the Automaton trait.
-///
-/// This will be fully implemented in Phase 3.
-pub trait Automaton {
-    /// The type of event this automaton processes.
-    type Event;
-
-    /// The type of action this automaton can take.
-    type Action;
-
-    /// Process an event and return an action.
-    fn process(&mut self, event: Self::Event) -> Option<Self::Action>;
-}

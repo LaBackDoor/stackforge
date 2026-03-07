@@ -37,11 +37,22 @@ from stackforge.stackforge import (
     PcapReader,
     Raw,
     ZWave,
+    Sniffer,
+    WorkerPool,
     extract_flows,
     extract_flows_from_packets,
+    list_interfaces,
+    parse_batch,
     rdpcap,
+    sniff,
+    validate_filter,
     wrpcap,
     wrpcapng,
+    # Automata (AnsweringMachine framework)
+    AnsweringMachine,
+    AutomatonConfig,
+    DhcpPoolConfig,
+    DhcpServerAM,
 )
 
 from .custom import (
@@ -98,6 +109,18 @@ __all__ = [
     "FlowConfig",
     "extract_flows",
     "extract_flows_from_packets",
+    # Sniffer & Performance
+    "Sniffer",
+    "WorkerPool",
+    "sniff",
+    "parse_batch",
+    "list_interfaces",
+    "validate_filter",
+    # Automata (AnsweringMachine framework)
+    "AnsweringMachine",
+    "AutomatonConfig",
+    "DhcpPoolConfig",
+    "DhcpServerAM",
     # Custom protocol API
     "CustomLayer",
     "ByteField",

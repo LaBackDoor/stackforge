@@ -54,7 +54,9 @@ pub mod error;
 pub mod flow;
 pub mod layer;
 pub mod packet;
+pub mod parallel;
 pub mod pcap;
+pub mod sniffer;
 pub mod utils;
 
 // Re-export commonly used types at the crate root
@@ -170,6 +172,12 @@ pub use flow::{
     FlowConfig, FlowDirection, FlowError, ProtocolState, TransportProtocol, ZWaveFlowState,
     ZWaveKey, extract_flows, extract_flows_from_file, extract_flows_streaming,
     extract_flows_with_config, extract_zwave_flows,
+};
+
+// Sniffer re-exports
+pub use sniffer::{
+    CaptureStats, InterfaceInfo, ParsedPacket, RawPacket, SnifferConfig, SnifferError,
+    SnifferHandle, WorkerPoolConfig, WorkerPoolSniffer, list_interfaces, validate_filter,
 };
 
 // Utils re-exports

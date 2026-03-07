@@ -114,7 +114,17 @@ pub fn decode_variable_length(buf: &[u8], offset: usize) -> Result<(u32, usize),
             });
         }
         let encoded_byte = buf[idx];
-        value += u32::from(encoded_byte & 0x7F) * multiplier;
+        value = match u32::from(encoded_byte & 0x7F)
+            .checked_mul(multiplier)
+            .and_then(|v| value.checked_add(v))
+        {
+            Some(v) => v,
+            None => {
+                return Err(FieldError::InvalidValue(
+                    "variable-length integer overflow".into(),
+                ));
+            }
+        };
 
         if multiplier > 128 * 128 * 128 {
             return Err(FieldError::InvalidValue(
@@ -126,7 +136,7 @@ pub fn decode_variable_length(buf: &[u8], offset: usize) -> Result<(u32, usize),
         if encoded_byte & 0x80 == 0 {
             break;
         }
-        multiplier *= 128;
+        multiplier = multiplier.saturating_mul(128);
     }
 
     Ok((value, idx - offset))

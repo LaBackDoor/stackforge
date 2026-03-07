@@ -5,6 +5,7 @@
 
 mod arp;
 mod compat_tests;
+mod dhcp;
 mod dns;
 mod dot11;
 mod dot15d4;

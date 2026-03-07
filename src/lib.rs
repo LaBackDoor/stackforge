@@ -18,6 +18,9 @@
 //! print(pkt.show())
 //! ```
 
+mod automata;
+mod sniffer;
+
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use stackforge_core::{
@@ -103,6 +106,8 @@ pub enum PyLayerKind {
     Pop3,
     /// IMAP email access protocol
     Imap,
+    /// Dynamic Host Configuration Protocol
+    Dhcp,
     /// Raw payload data
     Raw,
 }
@@ -165,6 +170,7 @@ impl PyLayerKind {
             PyLayerKind::Smtp => RustLayerKind::Smtp,
             PyLayerKind::Pop3 => RustLayerKind::Pop3,
             PyLayerKind::Imap => RustLayerKind::Imap,
+            PyLayerKind::Dhcp => RustLayerKind::Dhcp,
             PyLayerKind::Raw => RustLayerKind::Raw,
         }
     }
@@ -205,6 +211,7 @@ impl PyLayerKind {
             RustLayerKind::Smtp => PyLayerKind::Smtp,
             RustLayerKind::Pop3 => PyLayerKind::Pop3,
             RustLayerKind::Imap => PyLayerKind::Imap,
+            RustLayerKind::Dhcp => PyLayerKind::Dhcp,
             RustLayerKind::Raw => PyLayerKind::Raw,
         }
     }
@@ -254,7 +261,7 @@ impl PyLayerIndex {
 ///     >>> print(pkt.layers)
 #[pyclass(name = "Packet")]
 pub struct PyPacket {
-    inner: RustPacket,
+    pub(crate) inner: RustPacket,
 }
 
 #[pymethods]
@@ -4612,5 +4619,19 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyFlowConfig>()?;
     m.add_function(wrap_pyfunction!(extract_flows, m)?)?;
     m.add_function(wrap_pyfunction!(extract_flows_from_packets, m)?)?;
+
+    // Sniffer
+    m.add_class::<sniffer::PySniffer>()?;
+    m.add_class::<sniffer::PyWorkerPool>()?;
+    m.add_function(wrap_pyfunction!(sniffer::sniff, m)?)?;
+    m.add_function(wrap_pyfunction!(sniffer::py_list_interfaces, m)?)?;
+    m.add_function(wrap_pyfunction!(sniffer::py_validate_filter, m)?)?;
+    m.add_function(wrap_pyfunction!(sniffer::py_parse_batch, m)?)?;
+
+    // Automata (AnsweringMachine framework)
+    m.add_class::<automata::PyAutomatonConfig>()?;
+    m.add_class::<automata::PyAnsweringMachine>()?;
+    m.add_class::<automata::PyDhcpPoolConfig>()?;
+    m.add_class::<automata::PyDhcpServer>()?;
     Ok(())
 }

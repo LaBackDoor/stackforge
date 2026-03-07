@@ -1,0 +1,53 @@
+[package]
+name = "stackforge-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.stackforge-core]
+path = ".."
+
+# ── Fuzz targets ──────────────────────────────────────────────────────
+
+[[bin]]
+name = "packet_parse"
+path = "fuzz_targets/packet_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dns_layer"
+path = "fuzz_targets/dns_layer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tls_layer"
+path = "fuzz_targets/tls_layer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "http_layers"
+path = "fuzz_targets/http_layers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "field_access"
+path = "fuzz_targets/field_access.rs"
+test = false
+doc = false
+bench = false

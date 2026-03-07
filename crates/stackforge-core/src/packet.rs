@@ -31,6 +31,7 @@ use crate::layer::{
     ssh::{SSH_PORT, is_ssh_payload},
     tftp::{TFTP_PORT, is_tftp_payload},
     tls::is_tls_payload,
+    dhcp::{DHCP_CLIENT_PORT, DHCP_SERVER_PORT, is_dhcp_payload},
 };
 
 /// Maximum number of layers to store inline before heap allocation.
@@ -314,6 +315,7 @@ impl Packet {
             LayerKind::Smtp => LayerEnum::Smtp(crate::layer::smtp::SmtpLayer::new(*idx)),
             LayerKind::Pop3 => LayerEnum::Pop3(crate::layer::pop3::Pop3Layer::new(*idx)),
             LayerKind::Imap => LayerEnum::Imap(crate::layer::imap::ImapLayer::new(*idx)),
+            LayerKind::Dhcp => LayerEnum::Dhcp(crate::layer::dhcp::DhcpLayer::new(*idx)),
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
@@ -439,10 +441,10 @@ impl Packet {
     }
 
     fn parse_arp(&mut self, offset: usize) -> Result<()> {
-        // First check if we have enough bytes for hwlen/plen fields
-        if offset + 5 > self.data.len() {
+        // First check if we have enough bytes for hwlen/plen fields (at offset+4 and offset+5)
+        if offset + 6 > self.data.len() {
             return Err(PacketError::BufferTooShort {
-                expected: offset + 5,
+                expected: offset + 6,
                 actual: self.data.len(),
             });
         }
@@ -589,6 +591,13 @@ impl Packet {
         {
             self.layers
                 .push(LayerIndex::new(LayerKind::Tftp, udp_end, self.data.len()));
+        } else if (dst_port == DHCP_SERVER_PORT || src_port == DHCP_SERVER_PORT
+            || dst_port == DHCP_CLIENT_PORT || src_port == DHCP_CLIENT_PORT)
+            && udp_end < self.data.len()
+            && is_dhcp_payload(&self.data[udp_end..])
+        {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Dhcp, udp_end, self.data.len()));
         } else if udp_end < self.data.len() {
             self.layers
                 .push(LayerIndex::new(LayerKind::Raw, udp_end, self.data.len()));

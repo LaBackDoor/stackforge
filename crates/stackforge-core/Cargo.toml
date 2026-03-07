@@ -7,6 +7,7 @@ license.workspace = true
 description = "Core networking logic for Stackforge."
 
 [dependencies]
+enum_dispatch = "0.3"
 thiserror.workspace = true
 bytes.workspace = true
 smallvec.workspace = true
@@ -17,6 +18,8 @@ pcap-file = "2"
 dashmap = { workspace = true }
 memmap2 = { workspace = true }
 tempfile = { workspace = true }
+pcap = "2"
+crossbeam-channel = "0.5"
 
 # TLS crypto dependencies
 hmac = { version = "0.12", optional = true }
@@ -38,6 +41,24 @@ des = { version = "0.8", optional = true }
 default = ["rand", "tls"]
 tls = ["hmac", "sha2", "sha1", "md-5", "aes", "cbc", "aes-gcm", "chacha20poly1305", "hkdf", "p256", "x25519-dalek", "digest"]
 tls-weak-crypto = ["tls", "rc4", "des"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[dependencies.rayon]
+version = "1.10"
+
+[[bench]]
+name = "packet_parse"
+harness = false
+
+[[bench]]
+name = "layer_dispatch"
+harness = false
+
+[[bench]]
+name = "pcap_throughput"
+harness = false
 
 [lints]
 workspace = true
