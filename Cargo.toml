@@ -34,7 +34,7 @@ thiserror = "2.0.17"
 dashmap = "6.1"
 memmap2 = "0.9"
 tempfile = "3"
-stackforge-core = { path = "crates/stackforge-core" }
+stackforge-core = { version = "0.7.2", path = "crates/stackforge-core" }
 stackforge-automata = { path = "crates/stackforge-automata" }
 
 [lib]
