@@ -4,16 +4,15 @@ Live capture tests require root/sudo or BPF access and are skipped by default.
 Filter validation and interface listing work without elevated privileges.
 """
 
-import os
 import sys
+
 import pytest
-
-from stackforge import Sniffer, sniff, list_interfaces, validate_filter, LayerKind
-
+from stackforge import Sniffer, list_interfaces, sniff, validate_filter
 
 # ──────────────────────────────────────────────────────────────────────
 # Filter validation tests (no privileges needed)
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TestValidateFilter:
     def test_valid_tcp_filter(self):
@@ -43,6 +42,7 @@ class TestValidateFilter:
 # ──────────────────────────────────────────────────────────────────────
 # Interface listing tests (no privileges needed)
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TestListInterfaces:
     def test_returns_list(self):
@@ -74,6 +74,7 @@ class TestListInterfaces:
 # Sniffer class tests (need capture permissions)
 # ──────────────────────────────────────────────────────────────────────
 
+
 def _has_capture_permission():
     """Check if we can open a capture (need root or BPF access)."""
     try:
@@ -85,8 +86,7 @@ def _has_capture_permission():
 
 
 needs_capture = pytest.mark.skipif(
-    not _has_capture_permission(),
-    reason="Capture requires root or BPF access"
+    not _has_capture_permission(), reason="Capture requires root or BPF access"
 )
 
 

@@ -8,7 +8,6 @@ import struct
 
 from stackforge import LayerKind, Packet
 
-
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -83,9 +82,7 @@ def _build_dhcp_offer(mac_bytes, xid, yiaddr, siaddr, lease_time=3600):
     import socket
 
     chaddr = mac_bytes + b"\x00" * (16 - len(mac_bytes))
-    bootp = _build_bootp_header(
-        op=2, xid=xid, yiaddr=yiaddr, siaddr=siaddr, chaddr=chaddr
-    )
+    bootp = _build_bootp_header(op=2, xid=xid, yiaddr=yiaddr, siaddr=siaddr, chaddr=chaddr)
     opts = _build_dhcp_options(
         (53, bytes([2])),  # Message Type: Offer
         (54, socket.inet_aton(siaddr)),  # Server ID
@@ -118,9 +115,7 @@ def _build_dhcp_ack(mac_bytes, xid, yiaddr, siaddr, lease_time=3600):
     import socket
 
     chaddr = mac_bytes + b"\x00" * (16 - len(mac_bytes))
-    bootp = _build_bootp_header(
-        op=2, xid=xid, yiaddr=yiaddr, siaddr=siaddr, chaddr=chaddr
-    )
+    bootp = _build_bootp_header(op=2, xid=xid, yiaddr=yiaddr, siaddr=siaddr, chaddr=chaddr)
     opts = _build_dhcp_options(
         (53, bytes([5])),  # Message Type: ACK
         (54, socket.inet_aton(siaddr)),  # Server ID
@@ -140,14 +135,32 @@ def _wrap_in_eth_ip_udp(dhcp_payload, sport=68, dport=67):
 
     eth = bytes(
         [
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  # dst MAC (broadcast)
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,  # src MAC
-            0x08, 0x00,  # EtherType: IPv4
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,  # dst MAC (broadcast)
+            0x00,
+            0x11,
+            0x22,
+            0x33,
+            0x44,
+            0x55,  # src MAC
+            0x08,
+            0x00,  # EtherType: IPv4
         ]
     )
     ip = struct.pack(
         "!BBHHHBBHII",
-        0x45, 0, ip_total, 1, 0, 64, 17, 0,  # proto=UDP
+        0x45,
+        0,
+        ip_total,
+        1,
+        0,
+        64,
+        17,
+        0,  # proto=UDP
         0x00000000,  # src: 0.0.0.0
         0xFFFFFFFF,  # dst: 255.255.255.255
     )
@@ -503,8 +516,12 @@ class TestEdgeCases:
 
         mac = b"\x00\x11\x22\x33\x44\x55"
         chaddr = mac + b"\x00" * 10
-        bootp = _build_bootp_header(op=2, xid=1, yiaddr="10.0.0.50", siaddr="10.0.0.1", chaddr=chaddr)
-        dns_data = socket.inet_aton("8.8.8.8") + socket.inet_aton("8.8.4.4") + socket.inet_aton("1.1.1.1")
+        bootp = _build_bootp_header(
+            op=2, xid=1, yiaddr="10.0.0.50", siaddr="10.0.0.1", chaddr=chaddr
+        )
+        dns_data = (
+            socket.inet_aton("8.8.8.8") + socket.inet_aton("8.8.4.4") + socket.inet_aton("1.1.1.1")
+        )
         opts = _build_dhcp_options(
             (53, bytes([5])),  # ACK
             (6, dns_data),  # DNS servers

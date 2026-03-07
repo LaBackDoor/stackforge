@@ -5,16 +5,12 @@ actually starting network capture (which requires root privileges).
 """
 
 import pytest
-
 from stackforge import (
     AnsweringMachine,
     AutomatonConfig,
     DhcpPoolConfig,
     DhcpServerAM,
-    Packet,
-    LayerKind,
 )
-
 
 # ---------------------------------------------------------------------------
 # AutomatonConfig
@@ -204,6 +200,7 @@ class TestImports:
             DhcpPoolConfig,
             DhcpServerAM,
         )
+
         assert AnsweringMachine is not None
         assert AutomatonConfig is not None
         assert DhcpPoolConfig is not None

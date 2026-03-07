@@ -23,15 +23,34 @@ def _build_eth_ipv4_udp(payload: bytes, sport: int = 68, dport: int = 67) -> byt
 
     eth = bytes(
         [
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-            0x08, 0x00,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0x00,
+            0x11,
+            0x22,
+            0x33,
+            0x44,
+            0x55,
+            0x08,
+            0x00,
         ]
     )
     ip = struct.pack(
         "!BBHHHBBHII",
-        0x45, 0, ip_total, 1, 0, 64, 17, 0,
-        0x00000000, 0xFFFFFFFF,
+        0x45,
+        0,
+        ip_total,
+        1,
+        0,
+        64,
+        17,
+        0,
+        0x00000000,
+        0xFFFFFFFF,
     )
     udp = struct.pack("!HHHH", sport, dport, udp_len, 0)
     return eth + ip + udp + payload
@@ -41,8 +60,17 @@ MAGIC_COOKIE = bytes([99, 130, 83, 99])
 
 
 def _bootp_header(
-    op=1, htype=1, hlen=6, hops=0, xid=0, secs=0, flags=0,
-    ciaddr="0.0.0.0", yiaddr="0.0.0.0", siaddr="0.0.0.0", giaddr="0.0.0.0",
+    op=1,
+    htype=1,
+    hlen=6,
+    hops=0,
+    xid=0,
+    secs=0,
+    flags=0,
+    ciaddr="0.0.0.0",
+    yiaddr="0.0.0.0",
+    siaddr="0.0.0.0",
+    giaddr="0.0.0.0",
     chaddr=b"\x00" * 16,
 ):
     """Build a 236-byte BOOTP header."""
@@ -56,7 +84,7 @@ def _bootp_header(
     if len(chaddr) < 16:
         chaddr = chaddr + b"\x00" * (16 - len(chaddr))
     hdr += chaddr[:16]
-    hdr += b"\x00" * 64   # sname
+    hdr += b"\x00" * 64  # sname
     hdr += b"\x00" * 128  # file
     return hdr
 
@@ -137,14 +165,12 @@ def test_uts_dhcp_offer():
     mac = b"\x05\x04\x03\x02\x01\x00"
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(
-        op=2, chaddr=chaddr,
-        yiaddr="192.168.1.100", siaddr="192.168.1.1",
+        op=2,
+        chaddr=chaddr,
+        yiaddr="192.168.1.100",
+        siaddr="192.168.1.1",
     )
-    opts = (
-        _opt(53, bytes([2]))
-        + _opt(54, socket.inet_aton("192.168.1.1"))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([2])) + _opt(54, socket.inet_aton("192.168.1.1")) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts, sport=67, dport=68)
     pkt = _parse(raw)
 
@@ -177,8 +203,11 @@ def test_uts_dhcp_ack():
     mac = b"\xaa\xbb\xcc\xdd\xee\xff"
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(
-        op=2, xid=0x11223344, chaddr=chaddr,
-        yiaddr="10.0.0.50", siaddr="10.0.0.1",
+        op=2,
+        xid=0x11223344,
+        chaddr=chaddr,
+        yiaddr="10.0.0.50",
+        siaddr="10.0.0.1",
     )
     opts = (
         _opt(53, bytes([5]))
@@ -211,11 +240,7 @@ def test_uts_dhcp_release():
     mac = b"\x00\x11\x22\x33\x44\x55"
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=1, chaddr=chaddr, ciaddr="192.168.1.100")
-    opts = (
-        _opt(53, bytes([7]))
-        + _opt(54, socket.inet_aton("192.168.1.1"))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([7])) + _opt(54, socket.inet_aton("192.168.1.1")) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts)
     pkt = _parse(raw)
 
@@ -245,11 +270,7 @@ def test_uts_dhcp_subnet_mask():
     mac = b"\x00" * 6
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=2, chaddr=chaddr)
-    opts = (
-        _opt(53, bytes([5]))
-        + _opt(1, socket.inet_aton("255.255.255.0"))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([5])) + _opt(1, socket.inet_aton("255.255.255.0")) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts, sport=67, dport=68)
     pkt = _parse(raw)
 
@@ -261,11 +282,7 @@ def test_uts_dhcp_router():
     mac = b"\x00" * 6
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=2, chaddr=chaddr)
-    opts = (
-        _opt(53, bytes([5]))
-        + _opt(3, socket.inet_aton("192.168.1.1"))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([5])) + _opt(3, socket.inet_aton("192.168.1.1")) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts, sport=67, dport=68)
     pkt = _parse(raw)
 
@@ -278,11 +295,7 @@ def test_uts_dhcp_dns():
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=2, chaddr=chaddr)
     dns_data = socket.inet_aton("8.8.8.8") + socket.inet_aton("8.8.4.4")
-    opts = (
-        _opt(53, bytes([5]))
-        + _opt(6, dns_data)
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([5])) + _opt(6, dns_data) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts, sport=67, dport=68)
     pkt = _parse(raw)
 
@@ -296,11 +309,7 @@ def test_uts_dhcp_lease_time():
     mac = b"\x00" * 6
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=2, chaddr=chaddr)
-    opts = (
-        _opt(53, bytes([5]))
-        + _opt(51, struct.pack("!I", 7200))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([5])) + _opt(51, struct.pack("!I", 7200)) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts, sport=67, dport=68)
     pkt = _parse(raw)
 
@@ -312,11 +321,7 @@ def test_uts_dhcp_requested_addr():
     mac = b"\x00" * 6
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=1, chaddr=chaddr)
-    opts = (
-        _opt(53, bytes([3]))
-        + _opt(50, socket.inet_aton("192.168.0.1"))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([3])) + _opt(50, socket.inet_aton("192.168.0.1")) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts)
     pkt = _parse(raw)
 
@@ -328,11 +333,7 @@ def test_uts_dhcp_server_id():
     mac = b"\x00" * 6
     chaddr = mac + b"\x00" * 10
     bootp = _bootp_header(op=2, chaddr=chaddr)
-    opts = (
-        _opt(53, bytes([5]))
-        + _opt(54, socket.inet_aton("10.0.0.1"))
-        + _opt(255)
-    )
+    opts = _opt(53, bytes([5])) + _opt(54, socket.inet_aton("10.0.0.1")) + _opt(255)
     raw = _build_eth_ipv4_udp(bootp + MAGIC_COOKIE + opts, sport=67, dport=68)
     pkt = _parse(raw)
 

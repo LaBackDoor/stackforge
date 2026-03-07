@@ -4,6 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/stackforge)](https://pypi.org/project/stackforge/)
 [![Crates.io](https://img.shields.io/crates/v/stackforge-core)](https://crates.io/crates/stackforge-core)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL_v3-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-book-blue)](docs/book/README.md)
 
 **Stackforge** is a high-performance networking stack written in Rust with Python bindings. It provides Scapy-like packet manipulation with native Rust performance — build, parse, and inspect network packets using a familiar `/` stacking syntax.
 
@@ -11,10 +12,13 @@
 
 - **Scapy-style API** — Stack layers with `Ether() / IP() / TCP()`, set fields with keyword arguments
 - **High Performance** — Core logic in Rust, zero-copy parsing, copy-on-write mutation
-- **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP/ICMPv6 (with echo correlation), DNS, HTTP/1.x, HTTP/2, QUIC, L2TP, MQTT, MQTT-SN, Modbus, Z-Wave, FTP, TFTP, SMTP, POP3, IMAP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
+- **Broad Protocol Support** — Ethernet, ARP, IPv4/IPv6, TCP, UDP, ICMP/ICMPv6, DNS, TLS, SSH, HTTP/1.x, HTTP/2, QUIC, L2TP, MQTT, MQTT-SN, Modbus, Z-Wave, FTP, TFTP, SMTP, POP3, IMAP, 802.11 (Wi-Fi), 802.15.4 (Zigbee), and custom protocols
+- **Live Packet Capture** — Sniff packets from network interfaces with BPF filters, callbacks, and stop conditions
+- **Answering Machines** — Async automaton framework for building network responders (DHCP server, ARP spoofer, custom callback-based machines)
 - **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP/PcapNG files with TCP state tracking, stream reassembly, UDP timeout handling, and optional max packet/flow length tracking
 - **Memory-Budgeted Streaming** — Process gigabyte-sized captures without loading everything into RAM; set a memory budget and reassembly buffers automatically spill to memory-mapped temp files
 - **PCAP & PcapNG I/O** — Read and write both classic PCAP and PcapNG files with auto-detection via `rdpcap()` / `wrpcap()` / `wrpcapng()`
+- **Parallel Parsing** — Multi-threaded packet parsing with `WorkerPool` and `parse_batch()`
 - **Python Bindings** — Seamless integration via PyO3/maturin
 - **Custom Protocols** — Define runtime protocols with `CustomLayer` and typed fields
 
@@ -295,6 +299,97 @@ from stackforge import FTP, TFTP, SMTP, POP3, IMAP
 pkt = Ether() / IP() / UDP(dport=69) / TFTP(opcode=1, filename="test.txt", mode="octet")
 ```
 
+### Live Packet Capture
+
+Capture packets from network interfaces with BPF filters, callbacks, and stop conditions.
+
+```python
+from stackforge import sniff, Sniffer, list_interfaces, validate_filter
+
+# Quick capture (Scapy-compatible API)
+packets = sniff(iface="en0", filter="tcp port 80", count=10, timeout=5.0)
+
+# With per-packet callback
+def handle_pkt(pkt):
+    print(pkt.summary())
+
+sniff(iface="en0", filter="udp", prn=handle_pkt, count=100)
+
+# With stop condition
+sniff(iface="en0", stop_filter=lambda pkt: pkt.has_layer(LayerKind.Dns), timeout=30.0)
+
+# Iterator-based sniffer for more control
+sniffer = Sniffer(iface="en0", filter="icmp", snaplen=65535, promisc=True)
+sniffer.start()
+for pkt in sniffer:
+    print(pkt.summary())
+sniffer.stop()
+
+# List available network interfaces
+for iface in list_interfaces():
+    print(iface)
+
+# Validate a BPF filter string
+validate_filter("tcp port 80 and host 10.0.0.1")
+```
+
+### Parallel Parsing
+
+Parse packets across multiple threads for high-throughput workloads:
+
+```python
+from stackforge import parse_batch, WorkerPool, rdpcap
+
+# One-shot parallel parse
+packets = rdpcap("capture.pcap")
+parsed = parse_batch(packets)
+
+# Reusable worker pool
+pool = WorkerPool()
+parsed = pool.parse_batch(packets)
+```
+
+### Answering Machines
+
+Build network responders using the async automaton framework. Answering machines run on a background thread with their own event loop, sniffing packets and sending replies automatically.
+
+```python
+from stackforge import AnsweringMachine, AutomatonConfig, DhcpServerAM, DhcpPoolConfig
+
+# Callback-based answering machine
+def is_request(pkt):
+    return pkt.has_layer(LayerKind.Arp)
+
+def make_reply(pkt):
+    return (Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(op="is-at")).bytes()
+
+am = AnsweringMachine(is_request, make_reply, bpf_filter="arp")
+config = AutomatonConfig(iface="en0")
+am.start(config)
+# ... machine responds to ARP requests in the background ...
+am.stop()
+
+# Built-in DHCP server
+pool = DhcpPoolConfig(
+    pool_start="192.168.1.100",
+    pool_end="192.168.1.200",
+    server_ip="192.168.1.1",
+    subnet_mask="255.255.255.0",
+    gateway="192.168.1.1",
+    dns_servers=["8.8.8.8", "8.8.4.4"],
+    lease_time=86400,
+)
+dhcp = DhcpServerAM(pool, server_mac="02:00:00:00:00:01")
+dhcp.start(AutomatonConfig(iface="en0"))
+# ... full DHCP DORA + INFORM/RELEASE/DECLINE handling ...
+dhcp.stop()
+
+# Context manager support
+with DhcpServerAM(pool) as dhcp:
+    dhcp.start(AutomatonConfig())
+    # server runs until the block exits
+```
+
 ### Stateful Flow Extraction
 
 Extract bidirectional conversations from PCAP captures with full TCP state machine tracking, stream reassembly, and UDP timeout-based flow grouping.
@@ -436,7 +531,7 @@ The core library is available as a standalone Rust crate:
 
 ```toml
 [dependencies]
-stackforge-core = "0.3"
+stackforge-core = "0.7"
 ```
 
 ## Development
@@ -449,8 +544,8 @@ uv sync
 uv run maturin develop
 
 # Run tests
-cargo test               # Rust tests
-uv run pytest tests/python
+cargo test               # Rust tests (~1000 tests)
+uv run pytest tests/python  # Python tests (~1600 tests)
 
 # Lint and format
 cargo fmt
