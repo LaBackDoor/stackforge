@@ -4,8 +4,8 @@
 //! for BOOTP header fields and DHCP options.
 
 use stackforge_core::layer::dhcp::{
-    DhcpBuilder, DhcpLayer, DHCP_CLIENT_PORT, DHCP_FIELD_NAMES, DHCP_MIN_HEADER_LEN,
-    DHCP_SERVER_PORT, is_dhcp_payload,
+    DHCP_CLIENT_PORT, DHCP_FIELD_NAMES, DHCP_MIN_HEADER_LEN, DHCP_SERVER_PORT, DhcpBuilder,
+    DhcpLayer, is_dhcp_payload,
     options::{DhcpOption, code, msg_type},
 };
 use stackforge_core::layer::field::MacAddress;
@@ -88,7 +88,10 @@ fn test_builder_discover() {
     assert_eq!(layer.hops(&data).unwrap(), 0);
     assert_eq!(layer.xid(&data).unwrap(), 0xdeadbeef);
     assert_eq!(layer.flags(&data).unwrap(), 0x8000); // broadcast
-    assert_eq!(layer.chaddr(&data).unwrap(), [0x00, 0x11, 0x22, 0x33, 0x44, 0x55]);
+    assert_eq!(
+        layer.chaddr(&data).unwrap(),
+        [0x00, 0x11, 0x22, 0x33, 0x44, 0x55]
+    );
     assert_eq!(layer.msg_type(&data), Some(msg_type::DISCOVER));
     assert!(layer.is_request(&data));
     assert!(!layer.is_reply(&data));
@@ -112,12 +115,18 @@ fn test_builder_offer() {
     let layer = make_layer(&data);
     assert_eq!(layer.op(&data).unwrap(), 2);
     assert_eq!(layer.xid(&data).unwrap(), 0x12345678);
-    assert_eq!(layer.yiaddr(&data).unwrap(), Ipv4Addr::new(192, 168, 1, 100));
+    assert_eq!(
+        layer.yiaddr(&data).unwrap(),
+        Ipv4Addr::new(192, 168, 1, 100)
+    );
     assert_eq!(layer.siaddr(&data).unwrap(), Ipv4Addr::new(192, 168, 1, 1));
     assert_eq!(layer.msg_type(&data), Some(msg_type::OFFER));
     assert_eq!(layer.server_id(&data), Some(Ipv4Addr::new(192, 168, 1, 1)));
     assert_eq!(layer.lease_time(&data), Some(3600));
-    assert_eq!(layer.subnet_mask(&data), Some(Ipv4Addr::new(255, 255, 255, 0)));
+    assert_eq!(
+        layer.subnet_mask(&data),
+        Some(Ipv4Addr::new(255, 255, 255, 0))
+    );
     assert_eq!(layer.router(&data), Some(Ipv4Addr::new(192, 168, 1, 1)));
     let dns_servers = layer.dns(&data);
     assert_eq!(dns_servers.len(), 2);
@@ -141,7 +150,10 @@ fn test_builder_request() {
     assert_eq!(layer.op(&data).unwrap(), 1);
     assert_eq!(layer.xid(&data).unwrap(), 0xaabbccdd);
     assert_eq!(layer.msg_type(&data), Some(msg_type::REQUEST));
-    assert_eq!(layer.requested_ip(&data), Some(Ipv4Addr::new(192, 168, 1, 100)));
+    assert_eq!(
+        layer.requested_ip(&data),
+        Some(Ipv4Addr::new(192, 168, 1, 100))
+    );
     assert_eq!(layer.server_id(&data), Some(Ipv4Addr::new(192, 168, 1, 1)));
 }
 
@@ -249,7 +261,10 @@ fn test_option_serialize_roundtrip() {
     let bytes = opt.to_bytes();
     assert_eq!(bytes[0], code::LEASE_TIME);
     assert_eq!(bytes[1], 4); // length
-    assert_eq!(u32::from_be_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]), 7200);
+    assert_eq!(
+        u32::from_be_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]),
+        7200
+    );
 }
 
 #[test]
@@ -362,11 +377,19 @@ fn test_get_field_bootp_fields() {
     assert_eq!(layer.get_field(&data, "op"), Some(Ok(FieldValue::U8(1))));
     assert_eq!(layer.get_field(&data, "htype"), Some(Ok(FieldValue::U8(1))));
     assert_eq!(layer.get_field(&data, "hlen"), Some(Ok(FieldValue::U8(6))));
-    assert_eq!(layer.get_field(&data, "xid"), Some(Ok(FieldValue::U32(0x12345678))));
-    assert_eq!(layer.get_field(&data, "flags"), Some(Ok(FieldValue::U16(0x8000))));
+    assert_eq!(
+        layer.get_field(&data, "xid"),
+        Some(Ok(FieldValue::U32(0x12345678)))
+    );
+    assert_eq!(
+        layer.get_field(&data, "flags"),
+        Some(Ok(FieldValue::U16(0x8000)))
+    );
     assert_eq!(
         layer.get_field(&data, "chaddr"),
-        Some(Ok(FieldValue::Mac(MacAddress::new([0x00, 0x11, 0x22, 0x33, 0x44, 0x55]))))
+        Some(Ok(FieldValue::Mac(MacAddress::new([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55
+        ]))))
     );
     assert_eq!(layer.get_field(&data, "nonexistent"), None);
 }
@@ -389,12 +412,18 @@ fn test_get_field_option_fields() {
     let layer = make_layer(&data);
     use stackforge_core::layer::field::FieldValue;
 
-    assert_eq!(layer.get_field(&data, "msg_type"), Some(Ok(FieldValue::U8(msg_type::OFFER))));
+    assert_eq!(
+        layer.get_field(&data, "msg_type"),
+        Some(Ok(FieldValue::U8(msg_type::OFFER)))
+    );
     assert_eq!(
         layer.get_field(&data, "server_id"),
         Some(Ok(FieldValue::Ipv4(Ipv4Addr::new(192, 168, 1, 1))))
     );
-    assert_eq!(layer.get_field(&data, "lease_time"), Some(Ok(FieldValue::U32(7200))));
+    assert_eq!(
+        layer.get_field(&data, "lease_time"),
+        Some(Ok(FieldValue::U32(7200)))
+    );
     assert_eq!(
         layer.get_field(&data, "subnet_mask"),
         Some(Ok(FieldValue::Ipv4(Ipv4Addr::new(255, 255, 255, 0))))
@@ -403,7 +432,10 @@ fn test_get_field_option_fields() {
         layer.get_field(&data, "router"),
         Some(Ok(FieldValue::Ipv4(Ipv4Addr::new(192, 168, 1, 1))))
     );
-    assert_eq!(layer.get_field(&data, "dns"), Some(Ok(FieldValue::Str("8.8.8.8".to_string()))));
+    assert_eq!(
+        layer.get_field(&data, "dns"),
+        Some(Ok(FieldValue::Str("8.8.8.8".to_string())))
+    );
 }
 
 #[test]
@@ -415,7 +447,10 @@ fn test_set_field_op() {
     use stackforge_core::layer::field::FieldValue;
 
     assert_eq!(layer.op(&data).unwrap(), 1);
-    layer.set_field(&mut data, "op", FieldValue::U8(2)).unwrap().unwrap();
+    layer
+        .set_field(&mut data, "op", FieldValue::U8(2))
+        .unwrap()
+        .unwrap();
     assert_eq!(layer.op(&data).unwrap(), 2);
 }
 
@@ -427,7 +462,10 @@ fn test_set_field_xid() {
 
     use stackforge_core::layer::field::FieldValue;
 
-    layer.set_field(&mut data, "xid", FieldValue::U32(0x99999999)).unwrap().unwrap();
+    layer
+        .set_field(&mut data, "xid", FieldValue::U32(0x99999999))
+        .unwrap()
+        .unwrap();
     assert_eq!(layer.xid(&data).unwrap(), 0x99999999);
 }
 

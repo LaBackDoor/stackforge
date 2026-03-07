@@ -113,7 +113,11 @@ impl LeaseTable {
     /// Allocate (or re-offer) an IP for the given client MAC.
     ///
     /// Returns the offered IP, or None if the pool is exhausted.
-    pub fn allocate(&mut self, client_mac: [u8; 6], requested_ip: Option<Ipv4Addr>) -> Option<Ipv4Addr> {
+    pub fn allocate(
+        &mut self,
+        client_mac: [u8; 6],
+        requested_ip: Option<Ipv4Addr>,
+    ) -> Option<Ipv4Addr> {
         // If client already has a lease (even expired), prefer the same IP
         if let Some(existing) = self.leases_by_mac.get(&client_mac) {
             let ip = existing.ip;
@@ -124,7 +128,10 @@ impl LeaseTable {
 
         // If client requested a specific IP and it's available, grant it
         if let Some(req) = requested_ip {
-            if self.is_in_pool(req) && self.is_available(req, &client_mac) && !self.declined.contains(&req) {
+            if self.is_in_pool(req)
+                && self.is_available(req, &client_mac)
+                && !self.declined.contains(&req)
+            {
                 return Some(req);
             }
         }
@@ -198,7 +205,10 @@ impl LeaseTable {
 
     /// Get all active (non-expired) leases.
     pub fn active_leases(&self) -> Vec<&Lease> {
-        self.leases_by_mac.values().filter(|l| !l.is_expired()).collect()
+        self.leases_by_mac
+            .values()
+            .filter(|l| !l.is_expired())
+            .collect()
     }
 
     /// Total number of leases (including expired).
@@ -222,7 +232,9 @@ impl LeaseTable {
     fn is_available(&self, ip: Ipv4Addr, requesting_mac: &[u8; 6]) -> bool {
         match self.ip_to_mac.get(&ip) {
             None => true,
-            Some(mac) => mac == requesting_mac || self.leases_by_mac.get(mac).is_some_and(|l| l.is_expired()),
+            Some(mac) => {
+                mac == requesting_mac || self.leases_by_mac.get(mac).is_some_and(|l| l.is_expired())
+            },
         }
     }
 

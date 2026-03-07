@@ -24,9 +24,7 @@ pub struct RawPacket {
 }
 
 /// Opens a live capture on the given interface with the specified config.
-pub(crate) fn open_capture(
-    config: &SnifferConfig,
-) -> Result<Capture<pcap::Active>, SnifferError> {
+pub(crate) fn open_capture(config: &SnifferConfig) -> Result<Capture<pcap::Active>, SnifferError> {
     // Find the device
     let device = Device::list()
         .map_err(SnifferError::Pcap)?
@@ -53,9 +51,8 @@ pub(crate) fn open_capture(
 
     // Apply BPF filter if specified
     if let Some(ref filter) = config.filter {
-        cap.filter(filter, true).map_err(|e| {
-            SnifferError::InvalidFilter(format!("{filter}: {e}"))
-        })?;
+        cap.filter(filter, true)
+            .map_err(|e| SnifferError::InvalidFilter(format!("{filter}: {e}")))?;
     }
 
     Ok(cap)
@@ -67,11 +64,7 @@ pub fn list_interfaces() -> Result<Vec<InterfaceInfo>, SnifferError> {
     Ok(devices
         .into_iter()
         .map(|d| {
-            let addresses: Vec<String> = d
-                .addresses
-                .iter()
-                .map(|a| a.addr.to_string())
-                .collect();
+            let addresses: Vec<String> = d.addresses.iter().map(|a| a.addr.to_string()).collect();
 
             InterfaceInfo {
                 name: d.name,
@@ -87,8 +80,7 @@ pub fn list_interfaces() -> Result<Vec<InterfaceInfo>, SnifferError> {
 /// Validate a BPF filter string without starting a capture.
 pub fn validate_filter(filter: &str) -> Result<(), SnifferError> {
     // Open a dead capture and compile (not set) the filter to check validity
-    let cap = Capture::dead(pcap::Linktype::ETHERNET)
-        .map_err(SnifferError::Pcap)?;
+    let cap = Capture::dead(pcap::Linktype::ETHERNET).map_err(SnifferError::Pcap)?;
     cap.compile(filter, true)
         .map_err(|e| SnifferError::InvalidFilter(format!("{filter}: {e}")))?;
     Ok(())

@@ -90,14 +90,22 @@ impl DhcpBuilder {
 
     /// Create a DHCP Request message.
     #[must_use]
-    pub fn request(client_mac: MacAddress, xid: u32, requested_ip: Ipv4Addr, server_ip: Ipv4Addr) -> Self {
+    pub fn request(
+        client_mac: MacAddress,
+        xid: u32,
+        requested_ip: Ipv4Addr,
+        server_ip: Ipv4Addr,
+    ) -> Self {
         let mut b = Self::new()
             .op(BOOTREQUEST)
             .xid(xid)
             .chaddr_mac(client_mac)
             .flags(0x8000);
         b.options.push(DhcpOption::message_type(msg_type::REQUEST));
-        b.options.push(DhcpOption::new(code::REQUESTED_IP, requested_ip.octets().to_vec()));
+        b.options.push(DhcpOption::new(
+            code::REQUESTED_IP,
+            requested_ip.octets().to_vec(),
+        ));
         b.options.push(DhcpOption::server_id(server_ip));
         b
     }
@@ -124,10 +132,7 @@ impl DhcpBuilder {
     /// Create a DHCP NAK message.
     #[must_use]
     pub fn nak(xid: u32, client_mac: MacAddress, server_ip: Ipv4Addr) -> Self {
-        let mut b = Self::new()
-            .op(BOOTREPLY)
-            .xid(xid)
-            .chaddr_mac(client_mac);
+        let mut b = Self::new().op(BOOTREPLY).xid(xid).chaddr_mac(client_mac);
         b.options.push(DhcpOption::message_type(msg_type::NAK));
         b.options.push(DhcpOption::server_id(server_ip));
         b

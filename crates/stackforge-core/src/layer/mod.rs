@@ -336,11 +336,7 @@ pub trait LayerDispatch {
     /// Get field names for this layer type.
     fn dispatch_field_names(&self) -> &'static [&'static str];
     /// Get a field value by name.
-    fn dispatch_get_field(
-        &self,
-        buf: &[u8],
-        name: &str,
-    ) -> Option<Result<FieldValue, FieldError>>;
+    fn dispatch_get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>>;
     /// Set a field value by name.
     fn dispatch_set_field(
         &self,
@@ -362,43 +358,151 @@ macro_rules! impl_layer_dispatch {
     // Full form: type implements `Layer` trait + has get_field, set_field, field_names
     ($ty:ty, show = $show_fn:expr) => {
         impl LayerDispatch for $ty {
-            #[inline] fn dispatch_kind(&self) -> LayerKind { Layer::kind(self) }
-            #[inline] fn dispatch_index(&self) -> &LayerIndex { &self.index }
-            #[inline] fn dispatch_summary(&self, buf: &[u8]) -> String { Layer::summary(self, buf) }
-            #[inline] fn dispatch_header_len(&self, buf: &[u8]) -> usize { Layer::header_len(self, buf) }
-            #[inline] fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> { Layer::hashret(self, buf) }
-            #[inline] fn dispatch_field_names(&self) -> &'static [&'static str] { Layer::field_names(self) }
-            #[inline] fn dispatch_get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> { self.get_field(buf, name) }
-            #[inline] fn dispatch_set_field(&self, buf: &mut [u8], name: &str, value: FieldValue) -> Option<Result<(), FieldError>> { self.set_field(buf, name, value) }
-            #[inline] fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> { $show_fn(self, buf) }
+            #[inline]
+            fn dispatch_kind(&self) -> LayerKind {
+                Layer::kind(self)
+            }
+            #[inline]
+            fn dispatch_index(&self) -> &LayerIndex {
+                &self.index
+            }
+            #[inline]
+            fn dispatch_summary(&self, buf: &[u8]) -> String {
+                Layer::summary(self, buf)
+            }
+            #[inline]
+            fn dispatch_header_len(&self, buf: &[u8]) -> usize {
+                Layer::header_len(self, buf)
+            }
+            #[inline]
+            fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> {
+                Layer::hashret(self, buf)
+            }
+            #[inline]
+            fn dispatch_field_names(&self) -> &'static [&'static str] {
+                Layer::field_names(self)
+            }
+            #[inline]
+            fn dispatch_get_field(
+                &self,
+                buf: &[u8],
+                name: &str,
+            ) -> Option<Result<FieldValue, FieldError>> {
+                self.get_field(buf, name)
+            }
+            #[inline]
+            fn dispatch_set_field(
+                &self,
+                buf: &mut [u8],
+                name: &str,
+                value: FieldValue,
+            ) -> Option<Result<(), FieldError>> {
+                self.set_field(buf, name, value)
+            }
+            #[inline]
+            fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> {
+                $show_fn(self, buf)
+            }
         }
     };
     // Read-only variant: set_field always returns None
     ($ty:ty, show = $show_fn:expr, readonly) => {
         impl LayerDispatch for $ty {
-            #[inline] fn dispatch_kind(&self) -> LayerKind { Layer::kind(self) }
-            #[inline] fn dispatch_index(&self) -> &LayerIndex { &self.index }
-            #[inline] fn dispatch_summary(&self, buf: &[u8]) -> String { Layer::summary(self, buf) }
-            #[inline] fn dispatch_header_len(&self, buf: &[u8]) -> usize { Layer::header_len(self, buf) }
-            #[inline] fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> { Layer::hashret(self, buf) }
-            #[inline] fn dispatch_field_names(&self) -> &'static [&'static str] { Layer::field_names(self) }
-            #[inline] fn dispatch_get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> { self.get_field(buf, name) }
-            #[inline] fn dispatch_set_field(&self, _buf: &mut [u8], _name: &str, _value: FieldValue) -> Option<Result<(), FieldError>> { None }
-            #[inline] fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> { $show_fn(self, buf) }
+            #[inline]
+            fn dispatch_kind(&self) -> LayerKind {
+                Layer::kind(self)
+            }
+            #[inline]
+            fn dispatch_index(&self) -> &LayerIndex {
+                &self.index
+            }
+            #[inline]
+            fn dispatch_summary(&self, buf: &[u8]) -> String {
+                Layer::summary(self, buf)
+            }
+            #[inline]
+            fn dispatch_header_len(&self, buf: &[u8]) -> usize {
+                Layer::header_len(self, buf)
+            }
+            #[inline]
+            fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> {
+                Layer::hashret(self, buf)
+            }
+            #[inline]
+            fn dispatch_field_names(&self) -> &'static [&'static str] {
+                Layer::field_names(self)
+            }
+            #[inline]
+            fn dispatch_get_field(
+                &self,
+                buf: &[u8],
+                name: &str,
+            ) -> Option<Result<FieldValue, FieldError>> {
+                self.get_field(buf, name)
+            }
+            #[inline]
+            fn dispatch_set_field(
+                &self,
+                _buf: &mut [u8],
+                _name: &str,
+                _value: FieldValue,
+            ) -> Option<Result<(), FieldError>> {
+                None
+            }
+            #[inline]
+            fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> {
+                $show_fn(self, buf)
+            }
         }
     };
     // Inherent variant: type does NOT implement `Layer` trait, delegates to inherent methods
     ($ty:ty, show = $show_fn:expr, inherent, kind = $kind:expr, header_len = $hdr:expr) => {
         impl LayerDispatch for $ty {
-            #[inline] fn dispatch_kind(&self) -> LayerKind { $kind }
-            #[inline] fn dispatch_index(&self) -> &LayerIndex { &self.index }
-            #[inline] fn dispatch_summary(&self, buf: &[u8]) -> String { self.summary(buf) }
-            #[inline] fn dispatch_header_len(&self, _buf: &[u8]) -> usize { $hdr }
-            #[inline] fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> { self.hashret(buf) }
-            #[inline] fn dispatch_field_names(&self) -> &'static [&'static str] { <$ty>::field_names() }
-            #[inline] fn dispatch_get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> { self.get_field(buf, name) }
-            #[inline] fn dispatch_set_field(&self, buf: &mut [u8], name: &str, value: FieldValue) -> Option<Result<(), FieldError>> { self.set_field(buf, name, value) }
-            #[inline] fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> { $show_fn(self, buf) }
+            #[inline]
+            fn dispatch_kind(&self) -> LayerKind {
+                $kind
+            }
+            #[inline]
+            fn dispatch_index(&self) -> &LayerIndex {
+                &self.index
+            }
+            #[inline]
+            fn dispatch_summary(&self, buf: &[u8]) -> String {
+                self.summary(buf)
+            }
+            #[inline]
+            fn dispatch_header_len(&self, _buf: &[u8]) -> usize {
+                $hdr
+            }
+            #[inline]
+            fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> {
+                self.hashret(buf)
+            }
+            #[inline]
+            fn dispatch_field_names(&self) -> &'static [&'static str] {
+                <$ty>::field_names()
+            }
+            #[inline]
+            fn dispatch_get_field(
+                &self,
+                buf: &[u8],
+                name: &str,
+            ) -> Option<Result<FieldValue, FieldError>> {
+                self.get_field(buf, name)
+            }
+            #[inline]
+            fn dispatch_set_field(
+                &self,
+                buf: &mut [u8],
+                name: &str,
+                value: FieldValue,
+            ) -> Option<Result<(), FieldError>> {
+                self.set_field(buf, name, value)
+            }
+            #[inline]
+            fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> {
+                $show_fn(self, buf)
+            }
         }
     };
 }
@@ -1491,25 +1595,74 @@ fn zwave_show_fields(l: &zwave::ZWaveLayer, buf: &[u8]) -> Vec<(&'static str, St
 
 fn dhcp_show_fields(l: &dhcp::DhcpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
     let mut fields = Vec::new();
-    fields.push(("op", l.op(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("htype", l.htype(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("hlen", l.hlen(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("hops", l.hops(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("xid", l.xid(buf).map_or_else(|_| "?".into(), |v| format!("{v:#010x}"))));
-    fields.push(("secs", l.secs(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("flags", l.flags(buf).map_or_else(|_| "?".into(), |v| format!("{v:#06x}"))));
-    fields.push(("ciaddr", l.ciaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("yiaddr", l.yiaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("siaddr", l.siaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("giaddr", l.giaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string())));
-    fields.push(("chaddr", l.chaddr(buf).map_or_else(
-        |_| "?".into(),
-        |mac| format!("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]),
-    )));
+    fields.push((
+        "op",
+        l.op(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "htype",
+        l.htype(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "hlen",
+        l.hlen(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "hops",
+        l.hops(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "xid",
+        l.xid(buf)
+            .map_or_else(|_| "?".into(), |v| format!("{v:#010x}")),
+    ));
+    fields.push((
+        "secs",
+        l.secs(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "flags",
+        l.flags(buf)
+            .map_or_else(|_| "?".into(), |v| format!("{v:#06x}")),
+    ));
+    fields.push((
+        "ciaddr",
+        l.ciaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "yiaddr",
+        l.yiaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "siaddr",
+        l.siaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "giaddr",
+        l.giaddr(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "chaddr",
+        l.chaddr(buf).map_or_else(
+            |_| "?".into(),
+            |mac| {
+                format!(
+                    "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+                )
+            },
+        ),
+    ));
     if let Some(mt) = l.msg_type(buf) {
         let name = match mt {
-            1 => "Discover", 2 => "Offer", 3 => "Request", 4 => "Decline",
-            5 => "ACK", 6 => "NAK", 7 => "Release", 8 => "Inform",
+            1 => "Discover",
+            2 => "Offer",
+            3 => "Request",
+            4 => "Decline",
+            5 => "ACK",
+            6 => "NAK",
+            7 => "Release",
+            8 => "Inform",
             _ => "Unknown",
         };
         fields.push(("msg_type", format!("{mt} ({name})")));
@@ -1531,7 +1684,11 @@ fn dhcp_show_fields(l: &dhcp::DhcpLayer, buf: &[u8]) -> Vec<(&'static str, Strin
     }
     let dns_servers = l.dns(buf);
     if !dns_servers.is_empty() {
-        let s = dns_servers.iter().map(|ip| ip.to_string()).collect::<Vec<_>>().join(", ");
+        let s = dns_servers
+            .iter()
+            .map(|ip| ip.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         fields.push(("dns", s));
     }
     fields
@@ -1544,7 +1701,13 @@ pub use dns::DnsLayer;
 // ============================================================================
 
 impl_layer_dispatch!(EthernetLayer, show = ethernet_show_fields);
-impl_layer_dispatch!(Dot3Layer, show = dot3_show_fields, inherent, kind = LayerKind::Dot3, header_len = ethernet::ETHERNET_HEADER_LEN);
+impl_layer_dispatch!(
+    Dot3Layer,
+    show = dot3_show_fields,
+    inherent,
+    kind = LayerKind::Dot3,
+    header_len = ethernet::ETHERNET_HEADER_LEN
+);
 impl_layer_dispatch!(ArpLayer, show = arp_show_fields);
 impl_layer_dispatch!(Ipv4Layer, show = ipv4_show_fields);
 impl_layer_dispatch!(Ipv6Layer, show = ipv6_show_fields);
@@ -1574,15 +1737,47 @@ impl_layer_dispatch!(imap::ImapLayer, show = imap::imap_show_fields, readonly);
 impl_layer_dispatch!(dhcp::DhcpLayer, show = dhcp_show_fields);
 // RawLayer: header_len depends on buf, so we need a custom impl
 impl LayerDispatch for RawLayer {
-    #[inline] fn dispatch_kind(&self) -> LayerKind { LayerKind::Raw }
-    #[inline] fn dispatch_index(&self) -> &LayerIndex { &self.index }
-    #[inline] fn dispatch_summary(&self, buf: &[u8]) -> String { self.summary(buf) }
-    #[inline] fn dispatch_header_len(&self, buf: &[u8]) -> usize { self.header_len(buf) }
-    #[inline] fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> { self.hashret(buf) }
-    #[inline] fn dispatch_field_names(&self) -> &'static [&'static str] { RawLayer::field_names() }
-    #[inline] fn dispatch_get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> { self.get_field(buf, name) }
-    #[inline] fn dispatch_set_field(&self, buf: &mut [u8], name: &str, value: FieldValue) -> Option<Result<(), FieldError>> { self.set_field(buf, name, value) }
-    #[inline] fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> { raw::raw_show_fields(self, buf) }
+    #[inline]
+    fn dispatch_kind(&self) -> LayerKind {
+        LayerKind::Raw
+    }
+    #[inline]
+    fn dispatch_index(&self) -> &LayerIndex {
+        &self.index
+    }
+    #[inline]
+    fn dispatch_summary(&self, buf: &[u8]) -> String {
+        self.summary(buf)
+    }
+    #[inline]
+    fn dispatch_header_len(&self, buf: &[u8]) -> usize {
+        self.header_len(buf)
+    }
+    #[inline]
+    fn dispatch_hashret(&self, buf: &[u8]) -> Vec<u8> {
+        self.hashret(buf)
+    }
+    #[inline]
+    fn dispatch_field_names(&self) -> &'static [&'static str] {
+        RawLayer::field_names()
+    }
+    #[inline]
+    fn dispatch_get_field(&self, buf: &[u8], name: &str) -> Option<Result<FieldValue, FieldError>> {
+        self.get_field(buf, name)
+    }
+    #[inline]
+    fn dispatch_set_field(
+        &self,
+        buf: &mut [u8],
+        name: &str,
+        value: FieldValue,
+    ) -> Option<Result<(), FieldError>> {
+        self.set_field(buf, name, value)
+    }
+    #[inline]
+    fn dispatch_show_fields(&self, buf: &[u8]) -> Vec<(&'static str, String)> {
+        raw::raw_show_fields(self, buf)
+    }
 }
 
 /// `EtherType` constants

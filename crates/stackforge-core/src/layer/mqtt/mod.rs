@@ -123,7 +123,7 @@ pub fn decode_variable_length(buf: &[u8], offset: usize) -> Result<(u32, usize),
                 return Err(FieldError::InvalidValue(
                     "variable-length integer overflow".into(),
                 ));
-            }
+            },
         };
 
         if multiplier > 128 * 128 * 128 {

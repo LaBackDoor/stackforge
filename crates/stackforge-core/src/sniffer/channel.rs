@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
@@ -43,9 +43,7 @@ impl SnifferHandle {
 
         let thread = thread::Builder::new()
             .name(format!("sniffer-{}", config.iface))
-            .spawn(move || {
-                capture_loop(&mut capture, &sender, &thread_stop, count, timeout)
-            })
+            .spawn(move || capture_loop(&mut capture, &sender, &thread_stop, count, timeout))
             .map_err(|e| SnifferError::CaptureError(format!("failed to spawn thread: {e}")))?;
 
         Ok(Self {
@@ -142,15 +140,15 @@ fn capture_loop(
                     break;
                 }
                 captured += 1;
-            }
+            },
             Err(pcap::Error::TimeoutExpired) => {
                 // Read timeout — just loop and check stop conditions
                 continue;
-            }
+            },
             Err(_) => {
                 // Other errors — stop the capture
                 break;
-            }
+            },
         }
     }
 

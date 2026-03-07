@@ -1,9 +1,9 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
-use stackforge_core::sniffer::{SnifferConfig, SnifferHandle};
 use stackforge_core::Packet;
+use stackforge_core::sniffer::{SnifferConfig, SnifferHandle};
 
 use crate::config::AutomatonConfig;
 use crate::error::AutomatonError;

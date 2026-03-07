@@ -142,11 +142,9 @@ pub fn configure_thread_pool(num_threads: usize) -> Result<()> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build_global()
-        .map_err(|e| {
-            crate::error::PacketError::ParseError {
-                offset: 0,
-                message: format!("Failed to configure thread pool: {e}"),
-            }
+        .map_err(|e| crate::error::PacketError::ParseError {
+            offset: 0,
+            message: format!("Failed to configure thread pool: {e}"),
         })
 }
 
@@ -157,15 +155,9 @@ mod tests {
 
     fn arp_packet() -> Vec<u8> {
         vec![
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-            0x08, 0x06,
-            0x00, 0x01, 0x08, 0x00, 0x06, 0x04,
-            0x00, 0x01,
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-            0xc0, 0xa8, 0x01, 0x01,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0xc0, 0xa8, 0x01, 0x02,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x08, 0x06,
+            0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x01, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0xc0, 0xa8, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0xa8, 0x01, 0x02,
         ]
     }
 
@@ -182,9 +174,7 @@ mod tests {
 
     #[test]
     fn test_parse_batch_bytes() {
-        let packets: Vec<Bytes> = (0..50)
-            .map(|_| Bytes::from(arp_packet()))
-            .collect();
+        let packets: Vec<Bytes> = (0..50).map(|_| Bytes::from(arp_packet())).collect();
         let parsed = parse_batch_bytes(&packets);
         assert_eq!(parsed.len(), 50);
         for pkt in &parsed {
@@ -196,9 +186,7 @@ mod tests {
     fn test_par_map() {
         let packets: Vec<Vec<u8>> = (0..10).map(|_| arp_packet()).collect();
         let parsed = parse_batch(&packets);
-        let has_arp: Vec<bool> = par_map(&parsed, |pkt| {
-            pkt.get_layer(LayerKind::Arp).is_some()
-        });
+        let has_arp: Vec<bool> = par_map(&parsed, |pkt| pkt.get_layer(LayerKind::Arp).is_some());
         assert!(has_arp.iter().all(|&v| v));
     }
 
@@ -206,9 +194,7 @@ mod tests {
     fn test_par_filter() {
         let packets: Vec<Vec<u8>> = (0..10).map(|_| arp_packet()).collect();
         let parsed = parse_batch(&packets);
-        let arp_packets = par_filter(&parsed, |pkt| {
-            pkt.get_layer(LayerKind::Arp).is_some()
-        });
+        let arp_packets = par_filter(&parsed, |pkt| pkt.get_layer(LayerKind::Arp).is_some());
         assert_eq!(arp_packets.len(), 10);
     }
 
@@ -223,9 +209,7 @@ mod tests {
     fn test_par_count() {
         let packets: Vec<Vec<u8>> = (0..20).map(|_| arp_packet()).collect();
         let parsed = parse_batch(&packets);
-        let count = par_count(&parsed, |pkt| {
-            pkt.get_layer(LayerKind::Arp).is_some()
-        });
+        let count = par_count(&parsed, |pkt| pkt.get_layer(LayerKind::Arp).is_some());
         assert_eq!(count, 20);
     }
 
@@ -239,9 +223,9 @@ mod tests {
     #[test]
     fn test_parse_batch_with_errors() {
         let packets = vec![
-            arp_packet(),        // valid
-            vec![0x01, 0x02],    // too short, but won't error (just empty layers)
-            arp_packet(),        // valid
+            arp_packet(),     // valid
+            vec![0x01, 0x02], // too short, but won't error (just empty layers)
+            arp_packet(),     // valid
         ];
         let parsed = parse_batch(&packets);
         assert_eq!(parsed.len(), 3);

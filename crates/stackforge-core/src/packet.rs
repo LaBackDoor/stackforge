@@ -17,6 +17,7 @@ use crate::layer::{
     DnsLayer, HttpLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind,
     RawLayer, SshLayer, TcpLayer, TlsLayer, UdpLayer,
     arp::ArpLayer,
+    dhcp::{DHCP_CLIENT_PORT, DHCP_SERVER_PORT, is_dhcp_payload},
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
     ethertype,
     ftp::{FTP_CONTROL_PORT, is_ftp_payload},
@@ -31,7 +32,6 @@ use crate::layer::{
     ssh::{SSH_PORT, is_ssh_payload},
     tftp::{TFTP_PORT, is_tftp_payload},
     tls::is_tls_payload,
-    dhcp::{DHCP_CLIENT_PORT, DHCP_SERVER_PORT, is_dhcp_payload},
 };
 
 /// Maximum number of layers to store inline before heap allocation.
@@ -591,8 +591,10 @@ impl Packet {
         {
             self.layers
                 .push(LayerIndex::new(LayerKind::Tftp, udp_end, self.data.len()));
-        } else if (dst_port == DHCP_SERVER_PORT || src_port == DHCP_SERVER_PORT
-            || dst_port == DHCP_CLIENT_PORT || src_port == DHCP_CLIENT_PORT)
+        } else if (dst_port == DHCP_SERVER_PORT
+            || src_port == DHCP_SERVER_PORT
+            || dst_port == DHCP_CLIENT_PORT
+            || src_port == DHCP_CLIENT_PORT)
             && udp_end < self.data.len()
             && is_dhcp_payload(&self.data[udp_end..])
         {

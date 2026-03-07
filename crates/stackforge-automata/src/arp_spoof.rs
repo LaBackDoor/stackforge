@@ -68,7 +68,12 @@ impl ArpSpoofer {
     }
 
     /// Build a gratuitous ARP reply: "ip is-at our_mac"
-    fn poison_packet(&self, target_ip: Ipv4Addr, target_mac: MacAddress, spoof_ip: Ipv4Addr) -> Vec<u8> {
+    fn poison_packet(
+        &self,
+        target_ip: Ipv4Addr,
+        target_mac: MacAddress,
+        spoof_ip: Ipv4Addr,
+    ) -> Vec<u8> {
         let eth = EthernetBuilder::new()
             .dst(target_mac)
             .src(self.our_mac)
@@ -112,10 +117,7 @@ impl Automaton for ArpSpoofer {
     fn bpf_filter(&self) -> Option<String> {
         // Capture traffic destined to our MAC (the poisoned traffic)
         // and ARP for monitoring
-        Some(format!(
-            "ether dst {} or arp",
-            format_mac(&self.our_mac)
-        ))
+        Some(format!("ether dst {} or arp", format_mac(&self.our_mac)))
     }
 
     fn is_request(&self, pkt: &Packet) -> bool {
@@ -186,9 +188,19 @@ impl ArpSpoofer {
     pub fn restore_packets(&self) -> Vec<Vec<u8>> {
         vec![
             // Tell target the real gateway MAC
-            self.restore_packet(self.target_ip, self.target_mac, self.gateway_ip, self.gateway_mac),
+            self.restore_packet(
+                self.target_ip,
+                self.target_mac,
+                self.gateway_ip,
+                self.gateway_mac,
+            ),
             // Tell gateway the real target MAC
-            self.restore_packet(self.gateway_ip, self.gateway_mac, self.target_ip, self.target_mac),
+            self.restore_packet(
+                self.gateway_ip,
+                self.gateway_mac,
+                self.target_ip,
+                self.target_mac,
+            ),
         ]
     }
 }
@@ -207,8 +219,8 @@ mod tests {
 
     fn make_spoofer() -> ArpSpoofer {
         ArpSpoofer::new(
-            Ipv4Addr::new(192, 168, 1, 100),  // target
-            Ipv4Addr::new(192, 168, 1, 1),     // gateway
+            Ipv4Addr::new(192, 168, 1, 100),                       // target
+            Ipv4Addr::new(192, 168, 1, 1),                         // gateway
             MacAddress::new([0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff]), // our mac
             MacAddress::new([0x11, 0x22, 0x33, 0x44, 0x55, 0x66]), // target mac
             MacAddress::new([0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc]), // gateway mac

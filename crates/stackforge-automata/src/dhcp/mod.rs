@@ -4,12 +4,10 @@ use std::cell::RefCell;
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use stackforge_core::layer::dhcp::options::{code, msg_type, DhcpOption};
-use stackforge_core::layer::dhcp::{DhcpBuilder, DhcpLayer, DHCP_SERVER_PORT};
+use stackforge_core::layer::dhcp::options::{DhcpOption, code, msg_type};
+use stackforge_core::layer::dhcp::{DHCP_SERVER_PORT, DhcpBuilder, DhcpLayer};
 use stackforge_core::layer::field::MacAddress;
-use stackforge_core::{
-    EthernetBuilder, Ipv4Builder, LayerKind, Packet, UdpBuilder,
-};
+use stackforge_core::{EthernetBuilder, Ipv4Builder, LayerKind, Packet, UdpBuilder};
 
 use crate::traits::Automaton;
 
@@ -222,7 +220,7 @@ impl DhcpServer {
                     info.giaddr,
                     Ipv4Addr::UNSPECIFIED,
                 ));
-            }
+            },
         };
 
         // Try to allocate/confirm the requested IP
@@ -270,7 +268,7 @@ impl DhcpServer {
                     info.giaddr,
                     ip,
                 ))
-            }
+            },
             _ => {
                 // Can't grant requested IP — NAK
                 let dhcp_payload =
@@ -284,7 +282,7 @@ impl DhcpServer {
                     info.giaddr,
                     Ipv4Addr::UNSPECIFIED,
                 ))
-            }
+            },
         }
     }
 
@@ -387,11 +385,11 @@ impl Automaton for DhcpServer {
             msg_type::RELEASE => {
                 self.handle_release(&info);
                 None // no reply for release
-            }
+            },
             msg_type::DECLINE => {
                 self.handle_decline(&info);
                 None // no reply for decline
-            }
+            },
             msg_type::INFORM => self.handle_inform(&info),
             _ => None,
         }
@@ -452,8 +450,7 @@ mod tests {
             .option(DhcpOption::message_type(msg_type_val));
 
         if let Some(ip) = requested_ip {
-            builder =
-                builder.option(DhcpOption::new(code::REQUESTED_IP, ip.octets().to_vec()));
+            builder = builder.option(DhcpOption::new(code::REQUESTED_IP, ip.octets().to_vec()));
         }
         if let Some(sid) = server_id {
             builder = builder.option(DhcpOption::server_id(sid));
@@ -589,16 +586,26 @@ mod tests {
 
         // Discover + Request to get a lease
         let frame = build_dhcp_request_frame(
-            msg_type::DISCOVER, client_mac, 0x1234, 0x8000,
-            Ipv4Addr::UNSPECIFIED, None, None,
+            msg_type::DISCOVER,
+            client_mac,
+            0x1234,
+            0x8000,
+            Ipv4Addr::UNSPECIFIED,
+            None,
+            None,
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();
         server.make_reply(&pkt);
 
         let frame = build_dhcp_request_frame(
-            msg_type::REQUEST, client_mac, 0x1234, 0x8000,
-            Ipv4Addr::UNSPECIFIED, Some(assigned_ip), Some(server_ip),
+            msg_type::REQUEST,
+            client_mac,
+            0x1234,
+            0x8000,
+            Ipv4Addr::UNSPECIFIED,
+            Some(assigned_ip),
+            Some(server_ip),
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();
@@ -607,8 +614,13 @@ mod tests {
 
         // Release
         let frame = build_dhcp_request_frame(
-            msg_type::RELEASE, client_mac, 0x1234, 0,
-            assigned_ip, None, Some(server_ip),
+            msg_type::RELEASE,
+            client_mac,
+            0x1234,
+            0,
+            assigned_ip,
+            None,
+            Some(server_ip),
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();
@@ -625,8 +637,13 @@ mod tests {
 
         // Decline an IP
         let frame = build_dhcp_request_frame(
-            msg_type::DECLINE, client_mac, 0x1234, 0,
-            Ipv4Addr::UNSPECIFIED, Some(declined_ip), None,
+            msg_type::DECLINE,
+            client_mac,
+            0x1234,
+            0,
+            Ipv4Addr::UNSPECIFIED,
+            Some(declined_ip),
+            None,
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();
@@ -636,8 +653,13 @@ mod tests {
         // Next discover should skip the declined IP
         let client_mac2 = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF];
         let frame = build_dhcp_request_frame(
-            msg_type::DISCOVER, client_mac2, 0x5678, 0x8000,
-            Ipv4Addr::UNSPECIFIED, None, None,
+            msg_type::DISCOVER,
+            client_mac2,
+            0x5678,
+            0x8000,
+            Ipv4Addr::UNSPECIFIED,
+            None,
+            None,
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();
@@ -653,8 +675,13 @@ mod tests {
         let client_ip = Ipv4Addr::new(10, 0, 0, 50);
 
         let frame = build_dhcp_request_frame(
-            msg_type::INFORM, client_mac, 0x1234, 0,
-            client_ip, None, None,
+            msg_type::INFORM,
+            client_mac,
+            0x1234,
+            0,
+            client_ip,
+            None,
+            None,
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();
@@ -675,7 +702,10 @@ mod tests {
 
         // Request with wrong server ID
         let frame = build_dhcp_request_frame(
-            msg_type::REQUEST, client_mac, 0x1234, 0x8000,
+            msg_type::REQUEST,
+            client_mac,
+            0x1234,
+            0x8000,
             Ipv4Addr::UNSPECIFIED,
             Some(Ipv4Addr::new(10, 0, 0, 10)),
             Some(Ipv4Addr::new(192, 168, 1, 1)), // wrong server
@@ -695,8 +725,13 @@ mod tests {
             let mac = [i, i, i, i, i, i];
             // Discover
             let frame = build_dhcp_request_frame(
-                msg_type::DISCOVER, mac, u32::from(i), 0x8000,
-                Ipv4Addr::UNSPECIFIED, None, None,
+                msg_type::DISCOVER,
+                mac,
+                u32::from(i),
+                0x8000,
+                Ipv4Addr::UNSPECIFIED,
+                None,
+                None,
             );
             let mut pkt = Packet::from_bytes(frame);
             pkt.parse().unwrap();
@@ -707,8 +742,13 @@ mod tests {
 
             // Request
             let frame = build_dhcp_request_frame(
-                msg_type::REQUEST, mac, u32::from(i), 0x8000,
-                Ipv4Addr::UNSPECIFIED, Some(yiaddr), Some(server_ip),
+                msg_type::REQUEST,
+                mac,
+                u32::from(i),
+                0x8000,
+                Ipv4Addr::UNSPECIFIED,
+                Some(yiaddr),
+                Some(server_ip),
             );
             let mut pkt = Packet::from_bytes(frame);
             pkt.parse().unwrap();
@@ -739,8 +779,13 @@ mod tests {
         let client_mac = [0x00, 0x11, 0x22, 0x33, 0x44, 0x55];
 
         let frame = build_dhcp_request_frame(
-            msg_type::DISCOVER, client_mac, 0xABCD, 0x8000,
-            Ipv4Addr::UNSPECIFIED, None, None,
+            msg_type::DISCOVER,
+            client_mac,
+            0xABCD,
+            0x8000,
+            Ipv4Addr::UNSPECIFIED,
+            None,
+            None,
         );
         let mut pkt = Packet::from_bytes(frame);
         pkt.parse().unwrap();

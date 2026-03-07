@@ -22,10 +22,25 @@ pub const DHCP_CLIENT_PORT: u16 = 68;
 
 /// Field names for Python field access.
 pub const DHCP_FIELD_NAMES: &[&str] = &[
-    "op", "htype", "hlen", "hops", "xid", "secs", "flags",
-    "ciaddr", "yiaddr", "siaddr", "giaddr", "chaddr",
-    "msg_type", "server_id", "requested_ip", "lease_time",
-    "subnet_mask", "router", "dns",
+    "op",
+    "htype",
+    "hlen",
+    "hops",
+    "xid",
+    "secs",
+    "flags",
+    "ciaddr",
+    "yiaddr",
+    "siaddr",
+    "giaddr",
+    "chaddr",
+    "msg_type",
+    "server_id",
+    "requested_ip",
+    "lease_time",
+    "subnet_mask",
+    "router",
+    "dns",
 ];
 
 fn short(need: usize, have: usize) -> FieldError {
@@ -170,7 +185,9 @@ impl DhcpLayer {
     pub fn lease_time(&self, buf: &[u8]) -> Option<u32> {
         self.get_option(buf, code::LEASE_TIME).and_then(|o| {
             if o.data.len() >= 4 {
-                Some(u32::from_be_bytes([o.data[0], o.data[1], o.data[2], o.data[3]]))
+                Some(u32::from_be_bytes([
+                    o.data[0], o.data[1], o.data[2], o.data[3],
+                ]))
             } else {
                 None
             }
@@ -179,7 +196,8 @@ impl DhcpLayer {
 
     /// Get the subnet mask option.
     pub fn subnet_mask(&self, buf: &[u8]) -> Option<Ipv4Addr> {
-        self.get_option(buf, code::SUBNET_MASK).and_then(|o| o.as_ipv4())
+        self.get_option(buf, code::SUBNET_MASK)
+            .and_then(|o| o.as_ipv4())
     }
 
     /// Get the router option.
@@ -213,7 +231,9 @@ impl DhcpLayer {
     pub fn set_op(&self, buf: &mut [u8], val: u8) -> Result<(), FieldError> {
         let start = self.index.start;
         let d = &mut buf[start..self.index.end];
-        if d.is_empty() { return Err(short(1, 0)); }
+        if d.is_empty() {
+            return Err(short(1, 0));
+        }
         d[0] = val;
         Ok(())
     }
@@ -222,7 +242,9 @@ impl DhcpLayer {
     pub fn set_xid(&self, buf: &mut [u8], val: u32) -> Result<(), FieldError> {
         let start = self.index.start;
         let d = &mut buf[start..self.index.end];
-        if d.len() < 8 { return Err(short(8, d.len())); }
+        if d.len() < 8 {
+            return Err(short(8, d.len()));
+        }
         d[4..8].copy_from_slice(&val.to_be_bytes());
         Ok(())
     }
@@ -231,7 +253,9 @@ impl DhcpLayer {
     pub fn set_flags(&self, buf: &mut [u8], val: u16) -> Result<(), FieldError> {
         let start = self.index.start;
         let d = &mut buf[start..self.index.end];
-        if d.len() < 12 { return Err(short(12, d.len())); }
+        if d.len() < 12 {
+            return Err(short(12, d.len()));
+        }
         d[10..12].copy_from_slice(&val.to_be_bytes());
         Ok(())
     }
@@ -250,7 +274,10 @@ impl DhcpLayer {
             "yiaddr" => Some(self.yiaddr(buf).map(|v| FieldValue::Ipv4(v))),
             "siaddr" => Some(self.siaddr(buf).map(|v| FieldValue::Ipv4(v))),
             "giaddr" => Some(self.giaddr(buf).map(|v| FieldValue::Ipv4(v))),
-            "chaddr" => Some(self.chaddr(buf).map(|mac| FieldValue::Mac(MacAddress::new(mac)))),
+            "chaddr" => Some(
+                self.chaddr(buf)
+                    .map(|mac| FieldValue::Mac(MacAddress::new(mac))),
+            ),
             "msg_type" => Some(Ok(match self.msg_type(buf) {
                 Some(v) => FieldValue::U8(v),
                 None => FieldValue::U8(0),
@@ -277,10 +304,14 @@ impl DhcpLayer {
                 if servers.is_empty() {
                     Some(Ok(FieldValue::Str(String::new())))
                 } else {
-                    let s = servers.iter().map(|ip| ip.to_string()).collect::<Vec<_>>().join(",");
+                    let s = servers
+                        .iter()
+                        .map(|ip| ip.to_string())
+                        .collect::<Vec<_>>()
+                        .join(",");
                     Some(Ok(FieldValue::Str(s)))
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -297,23 +328,29 @@ impl DhcpLayer {
                 if let FieldValue::U8(v) = value {
                     Some(self.set_op(buf, v))
                 } else {
-                    Some(Err(FieldError::InvalidValue(format!("op: expected U8, got {value:?}"))))
+                    Some(Err(FieldError::InvalidValue(format!(
+                        "op: expected U8, got {value:?}"
+                    ))))
                 }
-            }
+            },
             "xid" => {
                 if let FieldValue::U32(v) = value {
                     Some(self.set_xid(buf, v))
                 } else {
-                    Some(Err(FieldError::InvalidValue(format!("xid: expected U32, got {value:?}"))))
+                    Some(Err(FieldError::InvalidValue(format!(
+                        "xid: expected U32, got {value:?}"
+                    ))))
                 }
-            }
+            },
             "flags" => {
                 if let FieldValue::U16(v) = value {
                     Some(self.set_flags(buf, v))
                 } else {
-                    Some(Err(FieldError::InvalidValue(format!("flags: expected U16, got {value:?}"))))
+                    Some(Err(FieldError::InvalidValue(format!(
+                        "flags: expected U16, got {value:?}"
+                    ))))
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -377,7 +414,10 @@ mod tests {
 
         assert_eq!(layer.op(&data).unwrap(), 1);
         assert_eq!(layer.xid(&data).unwrap(), 0xaabbccdd);
-        assert_eq!(layer.chaddr(&data).unwrap(), [0x00, 0x11, 0x22, 0x33, 0x44, 0x55]);
+        assert_eq!(
+            layer.chaddr(&data).unwrap(),
+            [0x00, 0x11, 0x22, 0x33, 0x44, 0x55]
+        );
         assert_eq!(layer.msg_type(&data), Some(options::msg_type::DISCOVER));
         assert_eq!(layer.summary(&data), "DHCP Discover");
     }
@@ -404,7 +444,10 @@ mod tests {
         });
 
         assert_eq!(layer.op(&data).unwrap(), 2);
-        assert_eq!(layer.yiaddr(&data).unwrap(), Ipv4Addr::new(192, 168, 1, 100));
+        assert_eq!(
+            layer.yiaddr(&data).unwrap(),
+            Ipv4Addr::new(192, 168, 1, 100)
+        );
         assert_eq!(layer.siaddr(&data).unwrap(), Ipv4Addr::new(192, 168, 1, 1));
         assert_eq!(layer.msg_type(&data), Some(options::msg_type::OFFER));
         assert_eq!(layer.server_id(&data), Some(Ipv4Addr::new(192, 168, 1, 1)));

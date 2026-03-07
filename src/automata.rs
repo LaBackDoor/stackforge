@@ -4,13 +4,13 @@ use std::time::Duration;
 use pyo3::exceptions::{PyOSError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use stackforge_automata::config::AutomatonConfig;
-use stackforge_automata::dhcp::lease::PoolConfig;
 use stackforge_automata::dhcp::DhcpServer;
+use stackforge_automata::dhcp::lease::PoolConfig;
 use stackforge_automata::error::AutomatonError;
 use stackforge_automata::runtime::AutomatonRuntime;
 use stackforge_automata::traits::CallbackAutomaton;
-use stackforge_core::layer::field::MacAddress;
 use stackforge_core::Packet as RustPacket;
+use stackforge_core::layer::field::MacAddress;
 
 use crate::PyPacket;
 
@@ -41,12 +41,7 @@ pub struct PyAutomatonConfig {
 impl PyAutomatonConfig {
     #[new]
     #[pyo3(signature = (iface=None, bpf_filter=None, snaplen=65535, promisc=true))]
-    fn new(
-        iface: Option<&str>,
-        bpf_filter: Option<String>,
-        snaplen: i32,
-        promisc: bool,
-    ) -> Self {
+    fn new(iface: Option<&str>, bpf_filter: Option<String>, snaplen: i32, promisc: bool) -> Self {
         let iface_name = iface.unwrap_or("").to_string();
         Self {
             inner: AutomatonConfig {
@@ -114,21 +109,15 @@ impl PyAnsweringMachine {
 
         let filter_fn = move |pkt: &RustPacket| -> bool {
             Python::attach(|py| {
-                let py_pkt = PyPacket {
-                    inner: pkt.clone(),
-                };
+                let py_pkt = PyPacket { inner: pkt.clone() };
                 let result = is_req.call1(py, (py_pkt,));
-                result
-                    .and_then(|r| r.extract::<bool>(py))
-                    .unwrap_or(false)
+                result.and_then(|r| r.extract::<bool>(py)).unwrap_or(false)
             })
         };
 
         let reply_fn = move |pkt: &RustPacket| -> Option<Vec<u8>> {
             Python::attach(|py| {
-                let py_pkt = PyPacket {
-                    inner: pkt.clone(),
-                };
+                let py_pkt = PyPacket { inner: pkt.clone() };
                 let result = make_rep.call1(py, (py_pkt,));
                 match result {
                     Ok(obj) => {
@@ -136,7 +125,7 @@ impl PyAnsweringMachine {
                             return None;
                         }
                         obj.extract::<Vec<u8>>(py).ok()
-                    }
+                    },
                     Err(_) => None,
                 }
             })
@@ -147,8 +136,8 @@ impl PyAnsweringMachine {
             automaton = automaton.bpf_filter(f);
         }
 
-        let runtime =
-            AutomatonRuntime::start(automaton, config.inner.clone()).map_err(automaton_err_to_py)?;
+        let runtime = AutomatonRuntime::start(automaton, config.inner.clone())
+            .map_err(automaton_err_to_py)?;
         self.runtime = Some(runtime);
         Ok(())
     }
@@ -228,10 +217,7 @@ impl PyDhcpPoolConfig {
                 .iter()
                 .map(|s| parse_ip(s))
                 .collect::<PyResult<Vec<_>>>()?,
-            None => vec![
-                Ipv4Addr::new(8, 8, 8, 8),
-                Ipv4Addr::new(8, 8, 4, 4),
-            ],
+            None => vec![Ipv4Addr::new(8, 8, 8, 8), Ipv4Addr::new(8, 8, 4, 4)],
         };
 
         Ok(Self {
@@ -253,8 +239,7 @@ impl PyDhcpPoolConfig {
     fn __repr__(&self) -> String {
         format!(
             "DhcpPoolConfig(pool={}-{}, server={}, lease_time={})",
-            self.inner.pool_start, self.inner.pool_end,
-            self.inner.server_ip, self.inner.lease_time
+            self.inner.pool_start, self.inner.pool_end, self.inner.server_ip, self.inner.lease_time
         )
     }
 }
@@ -288,7 +273,7 @@ impl PyDhcpServer {
             None => {
                 // Use a locally-administered MAC as default
                 MacAddress::new([0x02, 0x00, 0x00, 0x00, 0x00, 0x01])
-            }
+            },
         };
 
         Ok(Self {

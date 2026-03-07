@@ -10,8 +10,8 @@
 //!                                                      [Worker N] --parsed-->
 //! ```
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
 use crossbeam_channel::{Receiver, Sender, bounded};
@@ -128,9 +128,7 @@ impl WorkerPoolSniffer {
                 .spawn(move || {
                     worker_loop(&rx, &tx, &worker_stop);
                 })
-                .map_err(|e| {
-                    SnifferError::CaptureError(format!("spawn worker thread {i}: {e}"))
-                })?;
+                .map_err(|e| SnifferError::CaptureError(format!("spawn worker thread {i}: {e}")))?;
 
             worker_threads.push(handle);
         }
@@ -239,7 +237,7 @@ fn capture_loop(
                     break;
                 }
                 captured += 1;
-            }
+            },
             Err(pcap::Error::TimeoutExpired) => continue,
             Err(_) => break,
         }
@@ -247,11 +245,7 @@ fn capture_loop(
 }
 
 /// Worker loop: receives raw packets, parses them, sends to output.
-fn worker_loop(
-    input: &Receiver<RawPacket>,
-    output: &Sender<ParsedPacket>,
-    stop_flag: &AtomicBool,
-) {
+fn worker_loop(input: &Receiver<RawPacket>, output: &Sender<ParsedPacket>, stop_flag: &AtomicBool) {
     while !stop_flag.load(Ordering::Relaxed) {
         match input.recv_timeout(std::time::Duration::from_millis(50)) {
             Ok(raw) => {
@@ -266,7 +260,7 @@ fn worker_loop(
                 if output.send(parsed).is_err() {
                     break;
                 }
-            }
+            },
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => continue,
             Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
         }

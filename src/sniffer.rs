@@ -3,11 +3,11 @@ use std::time::Duration;
 use pyo3::exceptions::{PyOSError, PyRuntimeError, PyStopIteration, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use stackforge_core::Packet as RustPacket;
 use stackforge_core::sniffer::{
     RawPacket, SnifferConfig, SnifferError, SnifferHandle, WorkerPoolConfig, WorkerPoolSniffer,
     list_interfaces as rust_list_ifaces, validate_filter as rust_validate_filter,
 };
-use stackforge_core::Packet as RustPacket;
 
 use crate::PyPacket;
 
@@ -19,7 +19,7 @@ fn sniffer_err_to_py(err: SnifferError) -> PyErr {
         SnifferError::InvalidFilter(msg) => PyValueError::new_err(msg),
         SnifferError::ChannelClosed | SnifferError::AlreadyStopped => {
             PyRuntimeError::new_err(err.to_string())
-        }
+        },
         SnifferError::CaptureError(msg) => PyRuntimeError::new_err(msg),
         SnifferError::Pcap(e) => PyOSError::new_err(e.to_string()),
     }
@@ -135,7 +135,11 @@ impl PySniffer {
     }
 
     fn __repr__(&self) -> String {
-        let active = if self.handle.is_some() { "True" } else { "False" };
+        let active = if self.handle.is_some() {
+            "True"
+        } else {
+            "False"
+        };
         format!("Sniffer(iface='{}', active={})", self.config_iface, active)
     }
 }
@@ -192,13 +196,23 @@ pub fn sniff(
 
                 // Call prn callback if provided
                 if let Some(callback) = prn {
-                    let pkt_obj = Py::new(py, PyPacket { inner: pkt.inner.clone() })?;
+                    let pkt_obj = Py::new(
+                        py,
+                        PyPacket {
+                            inner: pkt.inner.clone(),
+                        },
+                    )?;
                     callback.call1((pkt_obj,))?;
                 }
 
                 // Check stop_filter
                 if let Some(sf) = stop_filter {
-                    let pkt_obj = Py::new(py, PyPacket { inner: pkt.inner.clone() })?;
+                    let pkt_obj = Py::new(
+                        py,
+                        PyPacket {
+                            inner: pkt.inner.clone(),
+                        },
+                    )?;
                     let result = sf.call1((pkt_obj,))?;
                     if result.is_truthy()? {
                         packets.push(pkt);
@@ -207,7 +221,7 @@ pub fn sniff(
                 }
 
                 packets.push(pkt);
-            }
+            },
             None => break,
         }
     }
