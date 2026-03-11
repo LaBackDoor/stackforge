@@ -4486,20 +4486,200 @@ impl PyConversation {
     }
 }
 
+// ---- Anonymization Policy ----
+
+/// Policy controlling how network flow data is anonymized for ML training.
+///
+/// Supports prefix-preserving IP anonymization (Crypto-PAn), salted MAC
+/// hashing, port generalization, timestamp epoch shifting, TCP sequence
+/// number offsetting, and payload truncation.
+///
+/// Preset policies:
+///   - ``AnonymizationPolicy()`` -- no anonymization (all fields pass through)
+///   - ``AnonymizationPolicy.ml_optimized()`` -- recommended for ML training
+///   - ``AnonymizationPolicy.maximum_privacy()`` -- strongest anonymization
+#[pyclass(name = "AnonymizationPolicy")]
+#[derive(Clone)]
+struct PyAnonymizationPolicy {
+    inner: stackforge_core::anonymize::AnonymizationPolicy,
+}
+
+#[pymethods]
+impl PyAnonymizationPolicy {
+    #[new]
+    #[pyo3(signature = (
+        ip_mode = "none",
+        mac_mode = "none",
+        port_mode = "none",
+        timestamp_mode = "none",
+        timestamp_jitter_ms = 5,
+        tcp_seq_mode = "none",
+        payload_mode = "none",
+        payload_truncate_bytes = 0,
+        crypto_pan_key = None,
+        hash_salt = None,
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        ip_mode: &str,
+        mac_mode: &str,
+        port_mode: &str,
+        timestamp_mode: &str,
+        timestamp_jitter_ms: u32,
+        tcp_seq_mode: &str,
+        payload_mode: &str,
+        payload_truncate_bytes: usize,
+        crypto_pan_key: Option<Vec<u8>>,
+        hash_salt: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        use stackforge_core::anonymize::*;
+
+        let ip = match ip_mode {
+            "none" => IpAnonymizationMode::None,
+            "crypto_pan" => IpAnonymizationMode::CryptoPan,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown ip_mode '{other}'. Use 'none' or 'crypto_pan'."
+                )));
+            },
+        };
+
+        let mac = match mac_mode {
+            "none" => MacAnonymizationMode::None,
+            "salted_hash" => MacAnonymizationMode::SaltedHash,
+            "salted_hash_preserve_oui" => MacAnonymizationMode::SaltedHashPreserveOui,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown mac_mode '{other}'. Use 'none', 'salted_hash', or 'salted_hash_preserve_oui'."
+                )));
+            },
+        };
+
+        let port = match port_mode {
+            "none" => PortAnonymizationMode::None,
+            "preserve_well_known" => PortAnonymizationMode::PreserveWellKnown,
+            "categorize" => PortAnonymizationMode::Categorize,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown port_mode '{other}'. Use 'none', 'preserve_well_known', or 'categorize'."
+                )));
+            },
+        };
+
+        let ts = match timestamp_mode {
+            "none" => TimestampAnonymizationMode::None,
+            "epoch_shift" => TimestampAnonymizationMode::EpochShift,
+            "epoch_shift_jitter" => TimestampAnonymizationMode::EpochShiftWithJitter {
+                jitter_ms: timestamp_jitter_ms,
+            },
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown timestamp_mode '{other}'. Use 'none', 'epoch_shift', or 'epoch_shift_jitter'."
+                )));
+            },
+        };
+
+        let seq = match tcp_seq_mode {
+            "none" => TcpSeqAnonymizationMode::None,
+            "random_offset" => TcpSeqAnonymizationMode::RandomOffset,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown tcp_seq_mode '{other}'. Use 'none' or 'random_offset'."
+                )));
+            },
+        };
+
+        let payload = match payload_mode {
+            "none" => PayloadAnonymizationMode::None,
+            "truncate_all" => PayloadAnonymizationMode::TruncateAll,
+            "truncate_to" => PayloadAnonymizationMode::TruncateTo(payload_truncate_bytes),
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown payload_mode '{other}'. Use 'none', 'truncate_all', or 'truncate_to'."
+                )));
+            },
+        };
+
+        let cpan_key = if let Some(k) = crypto_pan_key {
+            if k.len() != 32 {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "crypto_pan_key must be exactly 32 bytes.",
+                ));
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&k);
+            Some(arr)
+        } else {
+            None
+        };
+
+        let salt = if let Some(s) = hash_salt {
+            if s.len() != 32 {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "hash_salt must be exactly 32 bytes.",
+                ));
+            }
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&s);
+            Some(arr)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            inner: AnonymizationPolicy {
+                ip_mode: ip,
+                mac_mode: mac,
+                port_mode: port,
+                timestamp_mode: ts,
+                tcp_seq_mode: seq,
+                payload_mode: payload,
+                crypto_pan_key: cpan_key,
+                hash_salt: salt,
+            },
+        })
+    }
+
+    /// Preset optimized for ML model training.
+    #[staticmethod]
+    fn ml_optimized() -> Self {
+        Self {
+            inner: stackforge_core::anonymize::AnonymizationPolicy::ml_optimized(),
+        }
+    }
+
+    /// Maximum privacy preset.
+    #[staticmethod]
+    fn maximum_privacy() -> Self {
+        Self {
+            inner: stackforge_core::anonymize::AnonymizationPolicy::maximum_privacy(),
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AnonymizationPolicy(ip_mode={:?}, port_mode={:?}, payload_mode={:?})",
+            self.inner.ip_mode, self.inner.port_mode, self.inner.payload_mode,
+        )
+    }
+}
+
 /// Extract stateful conversations from a PCAP file.
 ///
 /// Args:
 ///     pcap_path: Path to the PCAP file.
 ///     config: Optional FlowConfig for custom timeouts/limits.
+///     anonymization: Optional AnonymizationPolicy for privacy-preserving output.
 ///
 /// Returns:
 ///     List of Conversation objects sorted by start time.
 #[pyfunction]
-#[pyo3(signature = (pcap_path, config=None, verbose=false))]
+#[pyo3(signature = (pcap_path, config=None, verbose=false, anonymization=None))]
 fn extract_flows(
     pcap_path: &str,
     config: Option<PyFlowConfig>,
     verbose: bool,
+    anonymization: Option<PyAnonymizationPolicy>,
 ) -> PyResult<Vec<PyConversation>> {
     let mut flow_config = config.map(|c| c.inner).unwrap_or_default();
     if verbose {
@@ -4507,7 +4687,7 @@ fn extract_flows(
     }
 
     // Use streaming extraction — never loads all packets into memory at once
-    let conversations =
+    let mut conversations =
         stackforge_core::extract_flows_from_file(pcap_path, flow_config).map_err(|e| {
             let msg = format!("{e}");
             if msg.contains("I/O error")
@@ -4520,6 +4700,11 @@ fn extract_flows(
             }
         })?;
 
+    if let Some(anon) = anonymization {
+        let mut engine = stackforge_core::anonymize::AnonymizationEngine::new(anon.inner);
+        engine.anonymize_conversations(&mut conversations);
+    }
+
     Ok(conversations
         .into_iter()
         .map(|c| PyConversation { inner: c })
@@ -4531,15 +4716,17 @@ fn extract_flows(
 /// Args:
 ///     packets: List of Packet objects.
 ///     config: Optional FlowConfig for custom timeouts/limits.
+///     anonymization: Optional AnonymizationPolicy for privacy-preserving output.
 ///
 /// Returns:
 ///     List of Conversation objects sorted by start time.
 #[pyfunction]
-#[pyo3(signature = (packets, config=None, verbose=false))]
+#[pyo3(signature = (packets, config=None, verbose=false, anonymization=None))]
 fn extract_flows_from_packets(
     packets: Vec<PyRef<'_, PyPacket>>,
     config: Option<PyFlowConfig>,
     verbose: bool,
+    anonymization: Option<PyAnonymizationPolicy>,
 ) -> PyResult<Vec<PyConversation>> {
     let captured: Vec<stackforge_core::CapturedPacket> = packets
         .iter()
@@ -4559,8 +4746,13 @@ fn extract_flows_from_packets(
         flow_config.verbose = true;
     }
 
-    let conversations = stackforge_core::extract_flows_with_config(&captured, flow_config)
+    let mut conversations = stackforge_core::extract_flows_with_config(&captured, flow_config)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
+
+    if let Some(anon) = anonymization {
+        let mut engine = stackforge_core::anonymize::AnonymizationEngine::new(anon.inner);
+        engine.anonymize_conversations(&mut conversations);
+    }
 
     Ok(conversations
         .into_iter()
@@ -4617,6 +4809,7 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Flow extraction
     m.add_class::<PyConversation>()?;
     m.add_class::<PyFlowConfig>()?;
+    m.add_class::<PyAnonymizationPolicy>()?;
     m.add_function(wrap_pyfunction!(extract_flows, m)?)?;
     m.add_function(wrap_pyfunction!(extract_flows_from_packets, m)?)?;
 

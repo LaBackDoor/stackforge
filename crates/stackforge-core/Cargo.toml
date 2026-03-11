@@ -38,9 +38,10 @@ rc4 = { version = "0.1", optional = true }
 des = { version = "0.8", optional = true }
 
 [features]
-default = ["rand", "tls"]
+default = ["rand", "tls", "anonymize"]
 tls = ["hmac", "sha2", "sha1", "md-5", "aes", "cbc", "aes-gcm", "chacha20poly1305", "hkdf", "p256", "x25519-dalek", "digest"]
 tls-weak-crypto = ["tls", "rc4", "des"]
+anonymize = ["rand", "aes"]
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

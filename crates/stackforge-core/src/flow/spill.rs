@@ -127,6 +127,21 @@ impl ReassemblyStorage {
         }
     }
 
+    /// Truncate stored data to at most `max_len` bytes.
+    ///
+    /// For in-memory storage, truncates the `Vec`. For on-disk storage,
+    /// only updates the tracked length (the file is not physically truncated).
+    pub fn truncate(&mut self, max_len: usize) {
+        match self {
+            Self::InMemory(v) => v.truncate(max_len),
+            Self::OnDisk { len, .. } => {
+                if *len > max_len {
+                    *len = max_len;
+                }
+            },
+        }
+    }
+
     /// Drain and return data, resetting to empty. Reads from disk if spilled.
     pub fn drain(&mut self) -> std::io::Result<Vec<u8>> {
         let data = self.read_all()?;

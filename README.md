@@ -16,6 +16,7 @@
 - **Live Packet Capture** — Sniff packets from network interfaces with BPF filters, callbacks, and stop conditions
 - **Answering Machines** — Async automaton framework for building network responders (DHCP server, ARP spoofer, custom callback-based machines)
 - **Stateful Flow Extraction** — Extract bidirectional conversations from PCAP/PcapNG files with TCP state tracking, stream reassembly, UDP timeout handling, and optional max packet/flow length tracking
+- **Flow Anonymization** — ML-optimized anonymization with Crypto-PAn prefix-preserving IP anonymization, port generalization, order-preserving timestamp perturbation, TCP sequence offsetting, and payload truncation
 - **Memory-Budgeted Streaming** — Process gigabyte-sized captures without loading everything into RAM; set a memory budget and reassembly buffers automatically spill to memory-mapped temp files
 - **PCAP & PcapNG I/O** — Read and write both classic PCAP and PcapNG files with auto-detection via `rdpcap()` / `wrpcap()` / `wrpcapng()`
 - **Parallel Parsing** — Multi-threaded packet parsing with `WorkerPool` and `parse_batch()`
@@ -525,6 +526,85 @@ Features:
 - Properties: `icmp_type`, `icmp_code`, `icmp_identifier`, `icmp_request_count`, `icmp_reply_count`, `icmp_last_seq`
 - Returns `None` for non-ICMP flows
 
+### Flow Anonymization
+
+Anonymize extracted flows for ML pipelines and privacy-compliant data sharing. Supports Crypto-PAn prefix-preserving IP anonymization, port generalization, timestamp perturbation, TCP sequence number offsetting, and payload truncation.
+
+```python
+from stackforge import extract_flows, AnonymizationPolicy
+
+# Use a built-in preset optimized for ML feature preservation
+policy = AnonymizationPolicy.ml_optimized()
+flows = extract_flows("capture.pcap", anonymization=policy)
+
+for f in flows:
+    print(f"{f.src_addr}:{f.src_port} -> {f.dst_addr}:{f.dst_port}")
+    # IPs are prefix-preserving anonymized, ports preserve well-known values,
+    # timestamps are shifted, TCP seq numbers are offset, payloads are truncated
+```
+
+#### Presets
+
+```python
+# ML-optimized: Crypto-PAn IPs, preserve well-known ports, epoch shift timestamps,
+# random TCP seq offset, truncate payloads to 256 bytes
+policy = AnonymizationPolicy.ml_optimized()
+
+# Maximum privacy: Crypto-PAn IPs, categorize all ports, epoch shift + jitter,
+# random TCP seq offset, truncate all payloads
+policy = AnonymizationPolicy.maximum_privacy()
+```
+
+#### Custom Policies
+
+```python
+policy = AnonymizationPolicy(
+    ip_mode="crypto_pan",            # "crypto_pan" or None (passthrough)
+    mac_mode="salted_hash",          # "salted_hash", "salted_hash_preserve_oui", or None
+    port_mode="preserve_well_known", # "preserve_well_known", "categorize", or None
+    timestamp_mode="epoch_shift",    # "epoch_shift", "epoch_shift_jitter", or None
+    tcp_seq_mode="random_offset",    # "random_offset" or None
+    payload_mode="truncate_all",     # "truncate_all", "truncate_to", or None
+)
+
+# With explicit keys for reproducibility
+policy = AnonymizationPolicy(
+    ip_mode="crypto_pan",
+    crypto_pan_key=bytes(range(32)),  # 32-byte key (random if omitted)
+)
+
+# Timestamp jitter and payload truncation limit
+policy = AnonymizationPolicy(
+    timestamp_mode="epoch_shift_jitter",
+    timestamp_jitter_ms=10,           # bounded per-timestamp noise (ms)
+    payload_mode="truncate_to",
+    payload_truncate_bytes=256,       # keep first N bytes
+)
+```
+
+#### Works with Any Flow Source
+
+```python
+from stackforge import extract_flows_from_packets, Ether, IP, TCP
+
+# From already-loaded packets
+pkts = [
+    (Ether() / IP(src="192.168.1.1", dst="10.0.0.1") / TCP(dport=80, flags="S")).build()
+    for _ in range(10)
+]
+for p in pkts:
+    p.parse()
+
+policy = AnonymizationPolicy(ip_mode="crypto_pan", crypto_pan_key=bytes(range(32)))
+flows = extract_flows_from_packets(pkts, anonymization=policy)
+```
+
+Key properties:
+- **Prefix-preserving**: Two IPs sharing a /24 subnet will share a /24 subnet after anonymization
+- **Deterministic**: Same key always produces the same mapping
+- **Order-preserving timestamps**: Relative durations and ordering are maintained
+- **ML-friendly**: Flow statistics (packet counts, byte counts, durations) are preserved
+
 ## Rust Crate
 
 The core library is available as a standalone Rust crate:
@@ -544,8 +624,8 @@ uv sync
 uv run maturin develop
 
 # Run tests
-cargo test               # Rust tests (~1000 tests)
-uv run pytest tests/python  # Python tests (~1600 tests)
+cargo test               # Rust tests (~1475 tests)
+uv run pytest tests/python  # Python tests (~1633 tests)
 
 # Lint and format
 cargo fmt

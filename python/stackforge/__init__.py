@@ -20,6 +20,8 @@ from stackforge.stackforge import (
     TFTP,
     TLS,
     UDP,
+    # Anonymization
+    AnonymizationPolicy,
     # Flow extraction
     Conversation,
     Ether,
@@ -104,6 +106,8 @@ __all__ = [
     "wrpcapng",
     "PcapPacket",
     "PcapReader",
+    # Anonymization
+    "AnonymizationPolicy",
     # Flow extraction
     "Conversation",
     "FlowConfig",

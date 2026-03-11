@@ -331,6 +331,36 @@ pub fn extract_flows_from_file(
     extract_flows_streaming(iter, config)
 }
 
+/// Extract flows with anonymization applied to the output.
+///
+/// Combines [`extract_flows_with_config`] with an
+/// [`AnonymizationEngine`](crate::anonymize::AnonymizationEngine) pass
+/// over the resulting conversations.
+#[cfg(feature = "anonymize")]
+pub fn extract_flows_anonymized(
+    packets: &[CapturedPacket],
+    config: FlowConfig,
+    anon_policy: crate::anonymize::AnonymizationPolicy,
+) -> Result<Vec<ConversationState>, FlowError> {
+    let mut conversations = extract_flows_with_config(packets, config)?;
+    let mut engine = crate::anonymize::AnonymizationEngine::new(anon_policy);
+    engine.anonymize_conversations(&mut conversations);
+    Ok(conversations)
+}
+
+/// Extract flows from a file with anonymization applied to the output.
+#[cfg(feature = "anonymize")]
+pub fn extract_flows_from_file_anonymized(
+    path: impl AsRef<Path>,
+    config: FlowConfig,
+    anon_policy: crate::anonymize::AnonymizationPolicy,
+) -> Result<Vec<ConversationState>, FlowError> {
+    let mut conversations = extract_flows_from_file(path, config)?;
+    let mut engine = crate::anonymize::AnonymizationEngine::new(anon_policy);
+    engine.anonymize_conversations(&mut conversations);
+    Ok(conversations)
+}
+
 /// Extract Z-Wave conversations from a list of captured packets.
 ///
 /// Z-Wave is a wireless protocol not carried over IP, so it needs its own

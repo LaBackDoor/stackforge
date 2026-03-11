@@ -50,6 +50,8 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+#[cfg(feature = "anonymize")]
+pub mod anonymize;
 pub mod error;
 pub mod flow;
 pub mod layer;

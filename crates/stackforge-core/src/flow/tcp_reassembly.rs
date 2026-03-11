@@ -113,6 +113,17 @@ impl TcpReassembler {
         self.reassembled.spill_to_disk(spill_dir)
     }
 
+    /// Total bytes in the contiguous reassembled stream.
+    #[must_use]
+    pub fn reassembled_len(&self) -> usize {
+        self.reassembled.len()
+    }
+
+    /// Truncate the reassembled stream to at most `max_len` bytes.
+    pub fn truncate_reassembled(&mut self, max_len: usize) {
+        self.reassembled.truncate(max_len);
+    }
+
     /// Whether the reassembled data has been spilled to disk.
     #[must_use]
     pub fn is_spilled(&self) -> bool {
