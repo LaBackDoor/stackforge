@@ -4,6 +4,7 @@
 //! `PcapIterator` / `PcapNgIterator` / `CaptureIterator` for streaming,
 //! and `wrpcap` / `wrpcapng` for writing.
 
+pub mod mmap_reader;
 pub mod reader;
 pub mod writer;
 
@@ -63,5 +64,6 @@ impl LinkType {
     pub const LINUX_SLL: Self = Self(113);
 }
 
+pub use mmap_reader::MmapPcapReader;
 pub use reader::{CaptureIterator, PcapIterator, PcapNgIterator, rdpcap};
 pub use writer::{PcapNgStreamWriter, wrpcap, wrpcap_packets, wrpcapng, wrpcapng_packets};

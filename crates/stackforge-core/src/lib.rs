@@ -68,11 +68,17 @@ pub use layer::bindings::{
     BindingRegistry, apply_binding, expected_upper_layers, find_binding, find_bindings_from,
     find_bindings_to, infer_upper_layer,
 };
+pub use layer::coap::{COAP_FIELD_NAMES, COAP_MIN_HEADER_LEN, COAP_PORT, CoapBuilder, CoapLayer};
+pub use layer::cotp::{COTP_FIELD_NAMES, COTP_MIN_HEADER_LEN, CotpBuilder, CotpLayer};
+pub use layer::dnp3::{DNP3_FIELD_NAMES, DNP3_MIN_HEADER_LEN, DNP3_PORT, Dnp3Builder, Dnp3Layer};
 pub use layer::ethernet::{
     DOT3_MAX_LENGTH, ETHERNET_HEADER_LEN, EthernetFrameType, dispatch_hook, is_dot3, is_ethernet_ii,
 };
 pub use layer::ftp::{
     FTP_CONTROL_PORT, FTP_DATA_PORT, FTP_FIELD_NAMES, FTP_MIN_HEADER_LEN, FtpBuilder, FtpLayer,
+};
+pub use layer::iec104::{
+    IEC104_FIELD_NAMES, IEC104_MIN_HEADER_LEN, IEC104_PORT, Iec104Builder, Iec104Layer,
 };
 pub use layer::imap::{IMAP_FIELD_NAMES, IMAP_MIN_HEADER_LEN, IMAP_PORT, ImapBuilder, ImapLayer};
 pub use layer::modbus::{
@@ -88,8 +94,10 @@ pub use layer::neighbor::{
 };
 pub use layer::pop3::{POP3_FIELD_NAMES, POP3_MIN_HEADER_LEN, POP3_PORT, Pop3Builder, Pop3Layer};
 pub use layer::quic::builder::QuicBuilder;
+pub use layer::s7comm::{S7COMM_FIELD_NAMES, S7COMM_MIN_HEADER_LEN, S7CommBuilder, S7CommLayer};
 pub use layer::smtp::{SMTP_FIELD_NAMES, SMTP_MIN_HEADER_LEN, SMTP_PORT, SmtpBuilder, SmtpLayer};
 pub use layer::tftp::{TFTP_MIN_HEADER_LEN, TFTP_PORT, TftpBuilder, TftpLayer};
+pub use layer::tpkt::{TPKT_FIELD_NAMES, TPKT_MIN_HEADER_LEN, TPKT_PORT, TpktBuilder, TpktLayer};
 pub use layer::zwave::{
     ZWAVE_FIELD_NAMES, ZWAVE_HEADER_LEN, ZWAVE_MIN_HEADER_LEN, ZWaveBuilder, ZWaveLayer,
 };
@@ -164,8 +172,9 @@ pub use layer::{
 };
 pub use packet::Packet;
 pub use pcap::{
-    CaptureFormat, CaptureIterator, CapturedPacket, LinkType, PcapIterator, PcapMetadata,
-    PcapNgIterator, PcapNgStreamWriter, rdpcap, wrpcap, wrpcap_packets, wrpcapng, wrpcapng_packets,
+    CaptureFormat, CaptureIterator, CapturedPacket, LinkType, MmapPcapReader, PcapIterator,
+    PcapMetadata, PcapNgIterator, PcapNgStreamWriter, rdpcap, wrpcap, wrpcap_packets, wrpcapng,
+    wrpcapng_packets,
 };
 
 // Flow extraction re-exports

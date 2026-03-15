@@ -12,8 +12,8 @@ use rand::rngs::StdRng;
 use super::crypto_pan::CryptoPan;
 use super::hash::SaltedHasher;
 use super::policy::{
-    AnonymizationPolicy, IpAnonymizationMode, PayloadAnonymizationMode,
-    PortAnonymizationMode, TcpSeqAnonymizationMode, TimestampAnonymizationMode,
+    AnonymizationPolicy, IpAnonymizationMode, PayloadAnonymizationMode, PortAnonymizationMode,
+    TcpSeqAnonymizationMode, TimestampAnonymizationMode,
 };
 use super::port::generalize_port;
 use super::timestamp::TimestampAnonymizer;
@@ -172,19 +172,13 @@ impl AnonymizationEngine {
                 .forward_endpoint
                 .next_expected_seq
                 .wrapping_add(fwd_offset);
-            tcp.forward_endpoint.last_ack = tcp
-                .forward_endpoint
-                .last_ack
-                .wrapping_add(rev_offset);
+            tcp.forward_endpoint.last_ack = tcp.forward_endpoint.last_ack.wrapping_add(rev_offset);
 
             tcp.reverse_endpoint.next_expected_seq = tcp
                 .reverse_endpoint
                 .next_expected_seq
                 .wrapping_add(rev_offset);
-            tcp.reverse_endpoint.last_ack = tcp
-                .reverse_endpoint
-                .last_ack
-                .wrapping_add(fwd_offset);
+            tcp.reverse_endpoint.last_ack = tcp.reverse_endpoint.last_ack.wrapping_add(fwd_offset);
         }
     }
 

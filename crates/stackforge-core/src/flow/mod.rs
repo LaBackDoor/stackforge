@@ -57,7 +57,7 @@ use std::time::Instant;
 
 use crate::error::PacketError;
 use crate::layer::LayerKind;
-use crate::pcap::{CaptureIterator, CapturedPacket};
+use crate::pcap::{CaptureIterator, CapturedPacket, MmapPcapReader};
 
 /// Format a byte count into a human-readable string.
 fn format_bytes(bytes: usize) -> String {
@@ -313,8 +313,10 @@ fn count_dropped_segments(conversations: &[ConversationState]) -> (u64, usize) {
 
 /// Extract flows directly from a capture file (PCAP or PcapNG).
 ///
-/// Streams packets from disk — never loads the entire file into memory.
-/// The file format is auto-detected from magic bytes.
+/// For classic PCAP files, this uses memory-mapped I/O for zero-copy packet
+/// access, eliminating per-packet heap allocations. PcapNG files fall back to
+/// the buffered streaming reader. In both cases packets are processed one at a
+/// time — only conversation state is retained in memory.
 pub fn extract_flows_from_file(
     path: impl AsRef<Path>,
     config: FlowConfig,
@@ -327,8 +329,21 @@ pub fn extract_flows_from_file(
             .unwrap_or_else(|_| "unknown".to_string());
         eprintln!("[+] File: {} ({})", file_path.display(), file_size);
     }
-    let iter = CaptureIterator::open(file_path).map_err(FlowError::PacketError)?;
-    extract_flows_streaming(iter, config)
+
+    // Try zero-copy mmap path first (classic PCAP only).
+    match MmapPcapReader::open(file_path) {
+        Ok(reader) => {
+            if verbose {
+                eprintln!("[+] Using memory-mapped I/O (zero-copy)");
+            }
+            extract_flows_streaming(reader, config)
+        },
+        Err(_) => {
+            // Fall back to streaming reader (PcapNG, pipes, etc.)
+            let iter = CaptureIterator::open(file_path).map_err(FlowError::PacketError)?;
+            extract_flows_streaming(iter, config)
+        },
+    }
 }
 
 /// Extract flows with anonymization applied to the output.

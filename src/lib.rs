@@ -24,18 +24,20 @@ mod sniffer;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use stackforge_core::{
-    ArpBuilder as RustArpBuilder, EthernetBuilder as RustEthernetBuilder, FieldValue,
+    ArpBuilder as RustArpBuilder, CoapBuilder as RustCoapBuilder, CotpBuilder as RustCotpBuilder,
+    Dnp3Builder as RustDnp3Builder, EthernetBuilder as RustEthernetBuilder, FieldValue,
     FtpBuilder as RustFtpBuilder, Http2Builder as RustHttp2Builder,
     Http2FrameBuilder as RustHttp2FrameBuilder, HttpRequestBuilder as RustHttpRequestBuilder,
     HttpResponseBuilder as RustHttpResponseBuilder, IcmpBuilder as RustIcmpBuilder,
-    Icmpv6Builder as RustIcmpv6Builder, ImapBuilder as RustImapBuilder,
-    Ipv4Builder as RustIpv4Builder, Ipv6Builder as RustIpv6Builder, L2tpBuilder as RustL2tpBuilder,
-    LayerKind as RustLayerKind, LayerStack as RustLayerStack,
+    Icmpv6Builder as RustIcmpv6Builder, Iec104Builder as RustIec104Builder,
+    ImapBuilder as RustImapBuilder, Ipv4Builder as RustIpv4Builder, Ipv6Builder as RustIpv6Builder,
+    L2tpBuilder as RustL2tpBuilder, LayerKind as RustLayerKind, LayerStack as RustLayerStack,
     LayerStackEntry as RustLayerStackEntry, MacAddress, ModbusBuilder as RustModbusBuilder,
     MqttBuilder as RustMqttBuilder, MqttSnBuilder as RustMqttSnBuilder, Packet as RustPacket,
     PacketError, Pop3Builder as RustPop3Builder, QuicBuilder as RustQuicBuilder,
-    SmtpBuilder as RustSmtpBuilder, SshBuilder as RustSshBuilder, TcpBuilder as RustTcpBuilder,
-    TftpBuilder as RustTftpBuilder, TlsRecordBuilder as RustTlsRecordBuilder,
+    S7CommBuilder as RustS7CommBuilder, SmtpBuilder as RustSmtpBuilder,
+    SshBuilder as RustSshBuilder, TcpBuilder as RustTcpBuilder, TftpBuilder as RustTftpBuilder,
+    TlsRecordBuilder as RustTlsRecordBuilder, TpktBuilder as RustTpktBuilder,
     UdpBuilder as RustUdpBuilder, ZWaveBuilder as RustZWaveBuilder,
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -108,6 +110,18 @@ pub enum PyLayerKind {
     Imap,
     /// Dynamic Host Configuration Protocol
     Dhcp,
+    /// Constrained Application Protocol
+    Coap,
+    /// ISO Transport Service on top of TCP
+    Tpkt,
+    /// Connection-Oriented Transport Protocol
+    Cotp,
+    /// Siemens S7 Communication
+    S7Comm,
+    /// IEC 60870-5-104 Telecontrol Protocol
+    Iec104,
+    /// DNP3 (Distributed Network Protocol)
+    Dnp3,
     /// Raw payload data
     Raw,
 }
@@ -171,6 +185,12 @@ impl PyLayerKind {
             PyLayerKind::Pop3 => RustLayerKind::Pop3,
             PyLayerKind::Imap => RustLayerKind::Imap,
             PyLayerKind::Dhcp => RustLayerKind::Dhcp,
+            PyLayerKind::Coap => RustLayerKind::Coap,
+            PyLayerKind::Tpkt => RustLayerKind::Tpkt,
+            PyLayerKind::Cotp => RustLayerKind::Cotp,
+            PyLayerKind::S7Comm => RustLayerKind::S7Comm,
+            PyLayerKind::Iec104 => RustLayerKind::Iec104,
+            PyLayerKind::Dnp3 => RustLayerKind::Dnp3,
             PyLayerKind::Raw => RustLayerKind::Raw,
         }
     }
@@ -212,6 +232,12 @@ impl PyLayerKind {
             RustLayerKind::Pop3 => PyLayerKind::Pop3,
             RustLayerKind::Imap => PyLayerKind::Imap,
             RustLayerKind::Dhcp => PyLayerKind::Dhcp,
+            RustLayerKind::Coap => PyLayerKind::Coap,
+            RustLayerKind::Tpkt => PyLayerKind::Tpkt,
+            RustLayerKind::Cotp => PyLayerKind::Cotp,
+            RustLayerKind::S7Comm => PyLayerKind::S7Comm,
+            RustLayerKind::Iec104 => PyLayerKind::Iec104,
+            RustLayerKind::Dnp3 => PyLayerKind::Dnp3,
             RustLayerKind::Raw => PyLayerKind::Raw,
         }
     }
@@ -874,6 +900,18 @@ impl PyLayerStack {
             new_stack.add(RustLayerStackEntry::Raw(pop3.inner.build()));
         } else if let Ok(imap) = other.extract::<PyImap>() {
             new_stack.add(RustLayerStackEntry::Raw(imap.inner.build()));
+        } else if let Ok(coap) = other.extract::<PyCoAP>() {
+            new_stack.add(RustLayerStackEntry::Coap(coap.inner));
+        } else if let Ok(tpkt) = other.extract::<PyTPKT>() {
+            new_stack.add(RustLayerStackEntry::Tpkt(tpkt.inner));
+        } else if let Ok(cotp) = other.extract::<PyCOTP>() {
+            new_stack.add(RustLayerStackEntry::Cotp(cotp.inner));
+        } else if let Ok(s7) = other.extract::<PyS7Comm>() {
+            new_stack.add(RustLayerStackEntry::S7Comm(s7.inner));
+        } else if let Ok(iec) = other.extract::<PyIec104>() {
+            new_stack.add(RustLayerStackEntry::Iec104(iec.inner));
+        } else if let Ok(dnp3) = other.extract::<PyDnp3>() {
+            new_stack.add(RustLayerStackEntry::Dnp3(dnp3.inner));
         } else if let Ok(raw) = other.extract::<PyRaw>() {
             new_stack.add(RustLayerStackEntry::Raw(raw.data));
         } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
@@ -3945,18 +3983,30 @@ impl PyPcapReader {
 #[pyfunction]
 #[pyo3(signature = (filename, count=0))]
 fn rdpcap(filename: &str, count: usize) -> PyResult<Vec<PyPcapPacket>> {
-    let iter = stackforge_core::CaptureIterator::open(filename)
-        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
-
-    let results: Vec<PyPcapPacket> = if count > 0 {
-        iter.take(count)
-            .filter_map(|r| r.ok())
-            .map(|cap| PyPcapPacket { inner: cap })
-            .collect()
-    } else {
-        iter.filter_map(|r| r.ok())
-            .map(|cap| PyPcapPacket { inner: cap })
-            .collect()
+    // Try zero-copy mmap reader first (classic PCAP), fall back to streaming.
+    let results: Vec<PyPcapPacket> = match stackforge_core::MmapPcapReader::open(filename) {
+        Ok(reader) => {
+            let iter = reader
+                .filter_map(|r| r.ok())
+                .map(|cap| PyPcapPacket { inner: cap });
+            if count > 0 {
+                iter.take(count).collect()
+            } else {
+                iter.collect()
+            }
+        },
+        Err(_) => {
+            let iter = stackforge_core::CaptureIterator::open(filename)
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{e}")))?;
+            let iter = iter
+                .filter_map(|r| r.ok())
+                .map(|cap| PyPcapPacket { inner: cap });
+            if count > 0 {
+                iter.take(count).collect()
+            } else {
+                iter.collect()
+            }
+        },
     };
 
     Ok(results)
@@ -4687,8 +4737,8 @@ fn extract_flows(
     }
 
     // Use streaming extraction — never loads all packets into memory at once
-    let mut conversations =
-        stackforge_core::extract_flows_from_file(pcap_path, flow_config).map_err(|e| {
+    let mut conversations = stackforge_core::extract_flows_from_file(pcap_path, flow_config)
+        .map_err(|e| {
             let msg = format!("{e}");
             if msg.contains("I/O error")
                 || msg.contains("failed to open")
@@ -4760,6 +4810,517 @@ fn extract_flows_from_packets(
         .collect())
 }
 
+// ============================================================================
+// CoAP Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "CoAP")]
+#[derive(Clone)]
+pub struct PyCoAP {
+    inner: RustCoapBuilder,
+}
+
+#[pymethods]
+impl PyCoAP {
+    #[new]
+    #[pyo3(signature = (msg_type=None, code_class=None, code_detail=None, msg_id=None, token=None, payload=None))]
+    fn new(
+        msg_type: Option<u8>,
+        code_class: Option<u8>,
+        code_detail: Option<u8>,
+        msg_id: Option<u16>,
+        token: Option<Vec<u8>>,
+        payload: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        let mut builder = RustCoapBuilder::new();
+        if let Some(t) = msg_type {
+            builder = builder.msg_type(t);
+        }
+        if let (Some(cls), Some(det)) = (code_class, code_detail) {
+            builder = builder.code(cls, det);
+        } else if let Some(cls) = code_class {
+            builder = builder.code(cls, 0);
+        }
+        if let Some(id) = msg_id {
+            builder = builder.msg_id(id);
+        }
+        if let Some(t) = token {
+            builder = builder.token(t);
+        }
+        if let Some(p) = payload {
+            builder = builder.payload(p);
+        }
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Coap(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(layer_stack.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(layer_stack) = other.extract::<PyLayerStack>() {
+            stack = layer_stack.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Coap(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn __repr__(&self) -> String {
+        "<CoAP>".to_string()
+    }
+}
+
+// ============================================================================
+// TPKT Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "TPKT")]
+#[derive(Clone)]
+pub struct PyTPKT {
+    inner: RustTpktBuilder,
+}
+
+#[pymethods]
+impl PyTPKT {
+    #[new]
+    #[pyo3(signature = (version=None, reserved=None, payload=None))]
+    fn new(version: Option<u8>, reserved: Option<u8>, payload: Option<Vec<u8>>) -> PyResult<Self> {
+        let mut builder = RustTpktBuilder::new();
+        if let Some(v) = version {
+            builder = builder.version(v);
+        }
+        if let Some(r) = reserved {
+            builder = builder.reserved(r);
+        }
+        if let Some(p) = payload {
+            builder = builder.payload(p);
+        }
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Tpkt(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(ls.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = ls.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Tpkt(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn __repr__(&self) -> String {
+        "<TPKT>".to_string()
+    }
+}
+
+// ============================================================================
+// COTP Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "COTP")]
+#[derive(Clone)]
+pub struct PyCOTP {
+    inner: RustCotpBuilder,
+}
+
+#[pymethods]
+impl PyCOTP {
+    #[new]
+    #[pyo3(signature = (pdu_type=None, dst_ref=None, src_ref=None, eot=None))]
+    fn new(
+        pdu_type: Option<u8>,
+        dst_ref: Option<u16>,
+        src_ref: Option<u16>,
+        eot: Option<bool>,
+    ) -> PyResult<Self> {
+        let mut builder = RustCotpBuilder::new();
+        if let Some(t) = pdu_type {
+            builder = builder.pdu_type(t);
+        }
+        if let Some(d) = dst_ref {
+            builder = builder.dst_ref(d);
+        }
+        if let Some(s) = src_ref {
+            builder = builder.src_ref(s);
+        }
+        if let Some(e) = eot {
+            builder = builder.eot(e);
+        }
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Cotp(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(ls.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = ls.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Cotp(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn __repr__(&self) -> String {
+        "<COTP>".to_string()
+    }
+}
+
+// ============================================================================
+// S7Comm Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "S7Comm")]
+#[derive(Clone)]
+pub struct PyS7Comm {
+    inner: RustS7CommBuilder,
+}
+
+#[pymethods]
+impl PyS7Comm {
+    #[new]
+    #[pyo3(signature = (rosctr=None, pdu_ref=None, function=None, parameters=None, data=None))]
+    fn new(
+        rosctr: Option<u8>,
+        pdu_ref: Option<u16>,
+        function: Option<u8>,
+        parameters: Option<Vec<u8>>,
+        data: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        let mut builder = RustS7CommBuilder::new();
+        if let Some(r) = rosctr {
+            builder = builder.rosctr(r);
+        }
+        if let Some(p) = pdu_ref {
+            builder = builder.pdu_ref(p);
+        }
+        if let Some(f) = function {
+            builder = builder.function(f);
+        }
+        if let Some(p) = parameters {
+            builder = builder.parameters(p);
+        }
+        if let Some(d) = data {
+            builder = builder.data(d);
+        }
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::S7Comm(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(ls.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = ls.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::S7Comm(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn __repr__(&self) -> String {
+        "<S7Comm>".to_string()
+    }
+}
+
+// ============================================================================
+// IEC 104 Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "IEC104")]
+#[derive(Clone)]
+pub struct PyIec104 {
+    inner: RustIec104Builder,
+}
+
+#[pymethods]
+impl PyIec104 {
+    #[new]
+    #[pyo3(signature = (apdu_type=None, tx=None, rx=None, u_type=None, type_id=None, cot=None, common_addr=None, ioa=None, asdu_data=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        apdu_type: Option<String>,
+        tx: Option<u16>,
+        rx: Option<u16>,
+        u_type: Option<u8>,
+        type_id: Option<u8>,
+        cot: Option<u8>,
+        common_addr: Option<u16>,
+        ioa: Option<u32>,
+        asdu_data: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        let mut builder = RustIec104Builder::new();
+        if let Some(at) = apdu_type {
+            match at.as_str() {
+                "I" | "i" => builder = builder.i_format(),
+                "S" | "s" => builder = builder.s_format(),
+                "U" | "u" => builder = builder.u_format(),
+                _ => {},
+            }
+        }
+        if let Some(t) = tx {
+            builder = builder.tx(t);
+        }
+        if let Some(r) = rx {
+            builder = builder.rx(r);
+        }
+        if let Some(u) = u_type {
+            builder = builder.u_type(u);
+        }
+        if let Some(t) = type_id {
+            builder = builder.type_id(t);
+        }
+        if let Some(c) = cot {
+            builder = builder.cot(c);
+        }
+        if let Some(ca) = common_addr {
+            builder = builder.common_addr(ca);
+        }
+        if let Some(i) = ioa {
+            builder = builder.ioa(i);
+        }
+        if let Some(d) = asdu_data {
+            builder = builder.asdu_data(d);
+        }
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Iec104(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(ls.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = ls.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Iec104(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn __repr__(&self) -> String {
+        "<IEC104>".to_string()
+    }
+}
+
+// ============================================================================
+// DNP3 Protocol Builder
+// ============================================================================
+
+#[pyclass(name = "DNP3")]
+#[derive(Clone)]
+pub struct PyDnp3 {
+    inner: RustDnp3Builder,
+}
+
+#[pymethods]
+impl PyDnp3 {
+    #[new]
+    #[pyo3(signature = (dst=None, src=None, app_func=None, dir=None, prm=None, objects=None))]
+    fn new(
+        dst: Option<u16>,
+        src: Option<u16>,
+        app_func: Option<u8>,
+        dir: Option<bool>,
+        prm: Option<bool>,
+        objects: Option<Vec<u8>>,
+    ) -> PyResult<Self> {
+        let mut builder = RustDnp3Builder::new();
+        if let Some(d) = dst {
+            builder = builder.dst(d);
+        }
+        if let Some(s) = src {
+            builder = builder.src(s);
+        }
+        if let Some(f) = app_func {
+            builder = builder.app_func(f);
+        }
+        if let Some(d) = dir {
+            builder = builder.dir(d);
+        }
+        if let Some(p) = prm {
+            builder = builder.prm(p);
+        }
+        if let Some(o) = objects {
+            builder = builder.objects(o);
+        }
+        Ok(Self { inner: builder })
+    }
+
+    fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        stack.add(RustLayerStackEntry::Dnp3(self.inner.clone()));
+        if let Ok(raw) = other.extract::<PyRaw>() {
+            stack.add(RustLayerStackEntry::Raw(raw.data));
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = stack.stack(ls.inner);
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type",
+            ));
+        }
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<PyLayerStack> {
+        let mut stack = RustLayerStack::new();
+        if let Ok(ls) = other.extract::<PyLayerStack>() {
+            stack = ls.inner.clone();
+        } else if let Ok(bytes) = other.extract::<Vec<u8>>() {
+            stack.add(RustLayerStackEntry::Raw(bytes));
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "Cannot stack: unsupported layer type on left",
+            ));
+        }
+        stack.add(RustLayerStackEntry::Dnp3(self.inner.clone()));
+        Ok(PyLayerStack { inner: stack })
+    }
+
+    fn build<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new(py, &self.inner.build())
+    }
+    fn __repr__(&self) -> String {
+        "<DNP3>".to_string()
+    }
+}
+
 /// Stackforge: High-performance network packet manipulation.
 ///
 /// This module provides Python bindings to the Rust networking engine,
@@ -4798,6 +5359,13 @@ fn stackforge(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySmtp>()?;
     m.add_class::<PyPop3>()?;
     m.add_class::<PyImap>()?;
+    // ICS/IoT protocol builders
+    m.add_class::<PyCoAP>()?;
+    m.add_class::<PyTPKT>()?;
+    m.add_class::<PyCOTP>()?;
+    m.add_class::<PyS7Comm>()?;
+    m.add_class::<PyIec104>()?;
+    m.add_class::<PyDnp3>()?;
 
     // PCAP I/O
     m.add_class::<PyPcapPacket>()?;

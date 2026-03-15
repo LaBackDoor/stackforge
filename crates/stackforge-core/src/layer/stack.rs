@@ -37,12 +37,16 @@
 //! ```
 
 use super::bindings::apply_binding;
+use super::coap::builder::CoapBuilder;
+use super::cotp::builder::CotpBuilder;
+use super::dnp3::builder::Dnp3Builder;
 use super::dns::builder::DnsBuilder;
 use super::ethernet::{ETHERNET_HEADER_LEN, EthernetBuilder};
 use super::ftp::builder::FtpBuilder;
 use super::http2::builder::Http2FrameBuilder;
 use super::icmp::builder::IcmpBuilder;
 use super::icmpv6::builder::Icmpv6Builder;
+use super::iec104::builder::Iec104Builder;
 use super::imap::builder::ImapBuilder;
 use super::ipv4::builder::Ipv4Builder;
 use super::ipv6::builder::Ipv6Builder;
@@ -51,20 +55,26 @@ use super::modbus::builder::ModbusBuilder;
 use super::mqtt::builder::MqttBuilder;
 use super::mqttsn::builder::MqttSnBuilder;
 use super::pop3::builder::Pop3Builder;
+use super::s7comm::builder::S7CommBuilder;
 use super::smtp::builder::SmtpBuilder;
 use super::ssh::builder::SshBuilder;
 use super::tcp::builder::TcpBuilder;
 use super::tftp::builder::TftpBuilder;
 use super::tls::builder::TlsRecordBuilder;
+use super::tpkt::builder::TpktBuilder;
 use super::udp::builder::UdpBuilder;
 use super::zwave::builder::ZWaveBuilder;
 use super::{ArpBuilder, LayerKind};
 use crate::Packet;
 use crate::layer::arp::ARP_HEADER_LEN;
+use crate::layer::coap::COAP_MIN_HEADER_LEN;
+use crate::layer::cotp::COTP_MIN_HEADER_LEN;
+use crate::layer::dnp3::DNP3_MIN_HEADER_LEN;
 use crate::layer::dns::DNS_HEADER_LEN;
 use crate::layer::ftp::FTP_MIN_HEADER_LEN;
 use crate::layer::icmp::ICMP_MIN_HEADER_LEN;
 use crate::layer::icmpv6::ICMPV6_MIN_HEADER_LEN;
+use crate::layer::iec104::IEC104_MIN_HEADER_LEN;
 use crate::layer::imap::IMAP_MIN_HEADER_LEN;
 use crate::layer::ipv4::IPV4_MIN_HEADER_LEN;
 use crate::layer::ipv6::IPV6_HEADER_LEN;
@@ -73,9 +83,11 @@ use crate::layer::modbus::MODBUS_MIN_HEADER_LEN;
 use crate::layer::mqtt::MQTT_MIN_HEADER_LEN;
 use crate::layer::mqttsn::MQTTSN_MIN_HEADER_LEN;
 use crate::layer::pop3::POP3_MIN_HEADER_LEN;
+use crate::layer::s7comm::S7COMM_MIN_HEADER_LEN;
 use crate::layer::smtp::SMTP_MIN_HEADER_LEN;
 use crate::layer::tcp::TCP_MIN_HEADER_LEN;
 use crate::layer::tftp::TFTP_MIN_HEADER_LEN;
+use crate::layer::tpkt::TPKT_MIN_HEADER_LEN;
 use crate::layer::udp::UDP_HEADER_LEN;
 use crate::layer::zwave::ZWAVE_MIN_HEADER_LEN;
 
@@ -126,6 +138,18 @@ pub enum LayerStackEntry {
     Pop3(Pop3Builder),
     /// IMAP layer
     Imap(ImapBuilder),
+    /// CoAP layer
+    Coap(CoapBuilder),
+    /// TPKT layer
+    Tpkt(TpktBuilder),
+    /// COTP layer
+    Cotp(CotpBuilder),
+    /// S7 Comm layer
+    S7Comm(S7CommBuilder),
+    /// IEC 104 layer
+    Iec104(Iec104Builder),
+    /// DNP3 layer
+    Dnp3(Dnp3Builder),
     /// Raw bytes payload
     Raw(Vec<u8>),
 }
@@ -157,6 +181,12 @@ impl LayerStackEntry {
             Self::Smtp(_) => LayerKind::Smtp,
             Self::Pop3(_) => LayerKind::Pop3,
             Self::Imap(_) => LayerKind::Imap,
+            Self::Coap(_) => LayerKind::Coap,
+            Self::Tpkt(_) => LayerKind::Tpkt,
+            Self::Cotp(_) => LayerKind::Cotp,
+            Self::S7Comm(_) => LayerKind::S7Comm,
+            Self::Iec104(_) => LayerKind::Iec104,
+            Self::Dnp3(_) => LayerKind::Dnp3,
             Self::Raw(_) => LayerKind::Raw,
         }
     }
@@ -187,6 +217,12 @@ impl LayerStackEntry {
             Self::Smtp(b) => b.build(),
             Self::Pop3(b) => b.build(),
             Self::Imap(b) => b.build(),
+            Self::Coap(b) => b.build(),
+            Self::Tpkt(b) => b.build(),
+            Self::Cotp(b) => b.build(),
+            Self::S7Comm(b) => b.build(),
+            Self::Iec104(b) => b.build(),
+            Self::Dnp3(b) => b.build(),
             Self::Raw(data) => data.clone(),
         }
     }
@@ -217,6 +253,12 @@ impl LayerStackEntry {
             Self::Smtp(b) => b.build().len(),
             Self::Pop3(b) => b.build().len(),
             Self::Imap(b) => b.build().len(),
+            Self::Coap(b) => b.build().len(),
+            Self::Tpkt(b) => b.build().len(),
+            Self::Cotp(b) => b.build().len(),
+            Self::S7Comm(b) => b.build().len(),
+            Self::Iec104(b) => b.build().len(),
+            Self::Dnp3(b) => b.build().len(),
             Self::Raw(data) => data.len(),
         }
     }
@@ -247,6 +289,12 @@ impl LayerStackEntry {
             Self::Smtp(_) => SMTP_MIN_HEADER_LEN,
             Self::Pop3(_) => POP3_MIN_HEADER_LEN,
             Self::Imap(_) => IMAP_MIN_HEADER_LEN,
+            Self::Coap(_) => COAP_MIN_HEADER_LEN,
+            Self::Tpkt(_) => TPKT_MIN_HEADER_LEN,
+            Self::Cotp(_) => COTP_MIN_HEADER_LEN,
+            Self::S7Comm(_) => S7COMM_MIN_HEADER_LEN,
+            Self::Iec104(_) => IEC104_MIN_HEADER_LEN,
+            Self::Dnp3(_) => DNP3_MIN_HEADER_LEN,
             Self::Raw(data) => data.len(),
         }
     }
@@ -754,6 +802,42 @@ impl IntoLayerStackEntry for ModbusBuilder {
 impl IntoLayerStackEntry for ZWaveBuilder {
     fn into_layer_stack_entry(self) -> LayerStackEntry {
         LayerStackEntry::ZWave(self)
+    }
+}
+
+impl IntoLayerStackEntry for CoapBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Coap(self)
+    }
+}
+
+impl IntoLayerStackEntry for TpktBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Tpkt(self)
+    }
+}
+
+impl IntoLayerStackEntry for CotpBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Cotp(self)
+    }
+}
+
+impl IntoLayerStackEntry for S7CommBuilder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::S7Comm(self)
+    }
+}
+
+impl IntoLayerStackEntry for Iec104Builder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Iec104(self)
+    }
+}
+
+impl IntoLayerStackEntry for Dnp3Builder {
+    fn into_layer_stack_entry(self) -> LayerStackEntry {
+        LayerStackEntry::Dnp3(self)
     }
 }
 

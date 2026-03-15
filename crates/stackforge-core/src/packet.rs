@@ -17,13 +17,16 @@ use crate::layer::{
     DnsLayer, HttpLayer, IcmpLayer, Icmpv6Layer, Ipv6Layer, LayerEnum, LayerIndex, LayerKind,
     RawLayer, SshLayer, TcpLayer, TlsLayer, UdpLayer,
     arp::ArpLayer,
+    coap::{COAP_PORT, COAP_SECURE_PORT, is_coap_payload},
     dhcp::{DHCP_CLIENT_PORT, DHCP_SERVER_PORT, is_dhcp_payload},
+    dnp3::{DNP3_PORT, is_dnp3_payload},
     ethernet::{Dot3Layer, ETHERNET_HEADER_LEN, EthernetLayer},
     ethertype,
     ftp::{FTP_CONTROL_PORT, is_ftp_payload},
     http,
     http2::{Http2Layer, is_http2_payload},
     icmp,
+    iec104::{IEC104_PORT, is_iec104_payload},
     imap::{IMAP_PORT, is_imap_payload},
     ip_protocol,
     ipv4::Ipv4Layer,
@@ -32,6 +35,7 @@ use crate::layer::{
     ssh::{SSH_PORT, is_ssh_payload},
     tftp::{TFTP_PORT, is_tftp_payload},
     tls::is_tls_payload,
+    tpkt::{TPKT_PORT, is_tpkt_payload},
 };
 
 /// Maximum number of layers to store inline before heap allocation.
@@ -278,6 +282,42 @@ impl Packet {
             .map(|idx| crate::layer::imap::ImapLayer::new(*idx))
     }
 
+    /// Get the CoAP layer view if present.
+    pub fn coap(&self) -> Option<crate::layer::coap::CoapLayer> {
+        self.get_layer(LayerKind::Coap)
+            .map(|idx| crate::layer::coap::CoapLayer::new(*idx))
+    }
+
+    /// Get the TPKT layer view if present.
+    pub fn tpkt(&self) -> Option<crate::layer::tpkt::TpktLayer> {
+        self.get_layer(LayerKind::Tpkt)
+            .map(|idx| crate::layer::tpkt::TpktLayer::new(*idx))
+    }
+
+    /// Get the COTP layer view if present.
+    pub fn cotp(&self) -> Option<crate::layer::cotp::CotpLayer> {
+        self.get_layer(LayerKind::Cotp)
+            .map(|idx| crate::layer::cotp::CotpLayer::new(*idx))
+    }
+
+    /// Get the S7 Comm layer view if present.
+    pub fn s7comm(&self) -> Option<crate::layer::s7comm::S7CommLayer> {
+        self.get_layer(LayerKind::S7Comm)
+            .map(|idx| crate::layer::s7comm::S7CommLayer::new(*idx))
+    }
+
+    /// Get the IEC 104 layer view if present.
+    pub fn iec104(&self) -> Option<crate::layer::iec104::Iec104Layer> {
+        self.get_layer(LayerKind::Iec104)
+            .map(|idx| crate::layer::iec104::Iec104Layer::new(*idx))
+    }
+
+    /// Get the DNP3 layer view if present.
+    pub fn dnp3(&self) -> Option<crate::layer::dnp3::Dnp3Layer> {
+        self.get_layer(LayerKind::Dnp3)
+            .map(|idx| crate::layer::dnp3::Dnp3Layer::new(*idx))
+    }
+
     /// Get a `LayerEnum` for a given `LayerIndex`.
     pub fn layer_enum(&self, idx: &LayerIndex) -> LayerEnum {
         match idx.kind {
@@ -316,6 +356,12 @@ impl Packet {
             LayerKind::Pop3 => LayerEnum::Pop3(crate::layer::pop3::Pop3Layer::new(*idx)),
             LayerKind::Imap => LayerEnum::Imap(crate::layer::imap::ImapLayer::new(*idx)),
             LayerKind::Dhcp => LayerEnum::Dhcp(crate::layer::dhcp::DhcpLayer::new(*idx)),
+            LayerKind::Coap => LayerEnum::Coap(crate::layer::coap::CoapLayer::new(*idx)),
+            LayerKind::Tpkt => LayerEnum::Tpkt(crate::layer::tpkt::TpktLayer::new(*idx)),
+            LayerKind::Cotp => LayerEnum::Cotp(crate::layer::cotp::CotpLayer::new(*idx)),
+            LayerKind::S7Comm => LayerEnum::S7Comm(crate::layer::s7comm::S7CommLayer::new(*idx)),
+            LayerKind::Iec104 => LayerEnum::Iec104(crate::layer::iec104::Iec104Layer::new(*idx)),
+            LayerKind::Dnp3 => LayerEnum::Dnp3(crate::layer::dnp3::Dnp3Layer::new(*idx)),
             LayerKind::Raw
             | LayerKind::Dot1Q
             | LayerKind::Dot1AD
@@ -527,6 +573,16 @@ impl Packet {
             } else if (src_port == IMAP_PORT || dst_port == IMAP_PORT) && is_imap_payload(payload) {
                 self.layers
                     .push(LayerIndex::new(LayerKind::Imap, tcp_end, self.data.len()));
+            } else if (src_port == TPKT_PORT || dst_port == TPKT_PORT) && is_tpkt_payload(payload) {
+                self.parse_tpkt(tcp_end)?;
+            } else if (src_port == IEC104_PORT || dst_port == IEC104_PORT)
+                && is_iec104_payload(payload)
+            {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Iec104, tcp_end, self.data.len()));
+            } else if (src_port == DNP3_PORT || dst_port == DNP3_PORT) && is_dnp3_payload(payload) {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Dnp3, tcp_end, self.data.len()));
             } else if is_tls_payload(payload) {
                 self.parse_tls(tcp_end)?;
             } else if is_http2_payload(payload) {
@@ -600,6 +656,21 @@ impl Packet {
         {
             self.layers
                 .push(LayerIndex::new(LayerKind::Dhcp, udp_end, self.data.len()));
+        } else if (dst_port == COAP_PORT
+            || src_port == COAP_PORT
+            || dst_port == COAP_SECURE_PORT
+            || src_port == COAP_SECURE_PORT)
+            && udp_end < self.data.len()
+            && is_coap_payload(&self.data[udp_end..])
+        {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Coap, udp_end, self.data.len()));
+        } else if (dst_port == DNP3_PORT || src_port == DNP3_PORT)
+            && udp_end < self.data.len()
+            && is_dnp3_payload(&self.data[udp_end..])
+        {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Dnp3, udp_end, self.data.len()));
         } else if udp_end < self.data.len() {
             self.layers
                 .push(LayerIndex::new(LayerKind::Raw, udp_end, self.data.len()));
@@ -708,6 +779,73 @@ impl Packet {
             self.layers
                 .push(LayerIndex::new(LayerKind::Raw, record_end, self.data.len()));
         }
+
+        Ok(())
+    }
+
+    // ========================================================================
+    // TPKT/COTP/S7Comm Chained Parsing
+    // ========================================================================
+
+    fn parse_tpkt(&mut self, offset: usize) -> Result<()> {
+        if offset + 4 > self.data.len() {
+            return Err(PacketError::BufferTooShort {
+                expected: offset + 4,
+                actual: self.data.len(),
+            });
+        }
+
+        let tpkt_length =
+            u16::from_be_bytes([self.data[offset + 2], self.data[offset + 3]]) as usize;
+        let tpkt_end = (offset + tpkt_length).min(self.data.len());
+        self.layers
+            .push(LayerIndex::new(LayerKind::Tpkt, offset, offset + 4));
+
+        // Parse COTP inside TPKT (starts after 4-byte TPKT header)
+        let cotp_offset = offset + 4;
+        if cotp_offset < tpkt_end {
+            self.parse_cotp(cotp_offset, tpkt_end)?;
+        }
+
+        Ok(())
+    }
+
+    fn parse_cotp(&mut self, offset: usize, container_end: usize) -> Result<()> {
+        if offset + 2 > self.data.len() {
+            return Err(PacketError::BufferTooShort {
+                expected: offset + 2,
+                actual: self.data.len(),
+            });
+        }
+
+        let li = self.data[offset] as usize;
+        let cotp_end = (offset + 1 + li).min(self.data.len());
+        self.layers
+            .push(LayerIndex::new(LayerKind::Cotp, offset, cotp_end));
+
+        // Check if DT PDU type — if so, try to parse S7 Comm
+        let pdu_type = self.data[offset + 1];
+        if (pdu_type & 0xF0) == 0xF0 && cotp_end < container_end {
+            self.parse_s7comm(cotp_end, container_end)?;
+        } else if cotp_end < container_end {
+            self.layers
+                .push(LayerIndex::new(LayerKind::Raw, cotp_end, container_end));
+        }
+
+        Ok(())
+    }
+
+    fn parse_s7comm(&mut self, offset: usize, container_end: usize) -> Result<()> {
+        if offset + 10 > self.data.len() || self.data[offset] != 0x32 {
+            if offset < container_end {
+                self.layers
+                    .push(LayerIndex::new(LayerKind::Raw, offset, container_end));
+            }
+            return Ok(());
+        }
+
+        self.layers
+            .push(LayerIndex::new(LayerKind::S7Comm, offset, container_end));
 
         Ok(())
     }

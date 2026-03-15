@@ -99,8 +99,7 @@ impl CryptoPan {
         let orig = u128::from(addr);
         let mut result: u128 = 0;
 
-        let pad128 =
-            u128::from_be_bytes(self.pad);
+        let pad128 = u128::from_be_bytes(self.pad);
 
         for pos in 0..128u32 {
             // Build input: first `pos` bits from original, rest from pad

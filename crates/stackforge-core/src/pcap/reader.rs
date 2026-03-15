@@ -35,11 +35,22 @@ fn detect_format(magic: &[u8; 4]) -> Result<CaptureFormat> {
 
 /// Read all packets from a PCAP or PcapNG file into memory.
 ///
-/// Auto-detects the file format from magic bytes.
-/// This is the simple Scapy-like API. For large files, use [`CaptureIterator`] instead.
+/// Auto-detects the file format from magic bytes. For classic PCAP files this
+/// uses memory-mapped I/O for zero-copy packet access, eliminating per-packet
+/// heap allocations. PcapNG files fall back to the streaming reader.
+///
+/// This is the simple Scapy-like API. For large files, use [`CaptureIterator`]
+/// or [`super::MmapPcapReader`] instead.
 pub fn rdpcap(path: impl AsRef<Path>) -> Result<Vec<CapturedPacket>> {
-    let iter = CaptureIterator::open(&path)?;
-    iter.collect()
+    // Try the zero-copy mmap path first (classic PCAP only).
+    match super::MmapPcapReader::open(path.as_ref()) {
+        Ok(reader) => reader.collect(),
+        // Fall back to the streaming reader for PcapNG or other errors.
+        Err(_) => {
+            let iter = CaptureIterator::open(path.as_ref())?;
+            iter.collect()
+        },
+    }
 }
 
 use std::path::Path;

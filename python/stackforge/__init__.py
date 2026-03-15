@@ -3,10 +3,13 @@ __version__ = "0.2.0"
 # Re-export all public classes from the Rust extension
 from stackforge.stackforge import (
     ARP,
+    COTP,
+    DNP3,
     FTP,
     HTTP,
     HTTP2,
     ICMP,
+    IEC104,
     IMAP,
     IP,
     L2TP,
@@ -19,11 +22,19 @@ from stackforge.stackforge import (
     TCP,
     TFTP,
     TLS,
+    TPKT,
     UDP,
     # Anonymization
     AnonymizationPolicy,
+    # Automata (AnsweringMachine framework)
+    AnsweringMachine,
+    AutomatonConfig,
+    # ICS/IoT protocols
+    CoAP,
     # Flow extraction
     Conversation,
+    DhcpPoolConfig,
+    DhcpServerAM,
     Ether,
     FlowConfig,
     HTTPResponse,
@@ -38,9 +49,10 @@ from stackforge.stackforge import (
     PcapPacket,
     PcapReader,
     Raw,
-    ZWave,
+    S7Comm,
     Sniffer,
     WorkerPool,
+    ZWave,
     extract_flows,
     extract_flows_from_packets,
     list_interfaces,
@@ -50,11 +62,6 @@ from stackforge.stackforge import (
     validate_filter,
     wrpcap,
     wrpcapng,
-    # Automata (AnsweringMachine framework)
-    AnsweringMachine,
-    AutomatonConfig,
-    DhcpPoolConfig,
-    DhcpServerAM,
 )
 
 from .custom import (
@@ -100,6 +107,13 @@ __all__ = [
     "SMTP",
     "POP3",
     "IMAP",
+    # ICS/IoT protocols
+    "CoAP",
+    "TPKT",
+    "COTP",
+    "S7Comm",
+    "IEC104",
+    "DNP3",
     # PCAP I/O
     "rdpcap",
     "wrpcap",

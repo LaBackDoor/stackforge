@@ -7,7 +7,10 @@ use enum_dispatch::enum_dispatch;
 
 pub mod arp;
 pub mod bindings;
+pub mod coap;
+pub mod cotp;
 pub mod dhcp;
+pub mod dnp3;
 pub mod dns;
 pub mod dot11;
 pub mod dot15d4;
@@ -20,6 +23,7 @@ pub mod http;
 pub mod http2;
 pub mod icmp;
 pub mod icmpv6;
+pub mod iec104;
 pub mod imap;
 pub mod ipv4;
 pub mod ipv6;
@@ -31,12 +35,14 @@ pub mod neighbor;
 pub mod pop3;
 pub mod quic;
 pub mod raw;
+pub mod s7comm;
 pub mod smtp;
 pub mod ssh;
 pub mod stack;
 pub mod tcp;
 pub mod tftp;
 pub mod tls;
+pub mod tpkt;
 pub mod udp;
 pub mod zwave;
 
@@ -45,6 +51,11 @@ use std::ops::Range;
 // Re-export layer types
 pub use arp::{ArpBuilder, ArpLayer};
 pub use bindings::{LAYER_BINDINGS, LayerBinding};
+pub use coap::{COAP_FIELD_NAMES, COAP_MIN_HEADER_LEN, COAP_PORT, CoapBuilder, CoapLayer};
+pub use cotp::{COTP_FIELD_NAMES, COTP_MIN_HEADER_LEN, CotpBuilder, CotpLayer};
+pub use dnp3::{
+    DNP3_FIELD_NAMES, DNP3_MIN_HEADER_LEN, DNP3_PORT, Dnp3Builder, Dnp3Layer, is_dnp3_payload,
+};
 pub use ethernet::{Dot3Builder, Dot3Layer, EthernetBuilder, EthernetLayer};
 pub use field::{BytesField, Field, FieldDesc, FieldError, FieldType, FieldValue, MacAddress};
 pub use ftp::{
@@ -56,6 +67,9 @@ pub use http2::{HTTP2_FIELD_NAMES, Http2Builder, Http2FrameBuilder, Http2Layer};
 pub use icmp::{ICMP_MIN_HEADER_LEN, IcmpBuilder, IcmpLayer, icmp_checksum, verify_icmp_checksum};
 pub use icmpv6::{
     ICMPV6_MIN_HEADER_LEN, Icmpv6Builder, Icmpv6Layer, icmpv6_checksum, verify_icmpv6_checksum,
+};
+pub use iec104::{
+    IEC104_FIELD_NAMES, IEC104_MIN_HEADER_LEN, IEC104_PORT, Iec104Builder, Iec104Layer,
 };
 pub use imap::{
     IMAP_FIELD_NAMES, IMAP_MIN_HEADER_LEN, IMAP_PORT, ImapBuilder, ImapLayer, is_imap_payload,
@@ -79,6 +93,7 @@ pub use pop3::{
     POP3_FIELD_NAMES, POP3_MIN_HEADER_LEN, POP3_PORT, Pop3Builder, Pop3Layer, is_pop3_payload,
 };
 pub use raw::{RAW_FIELDS, RawBuilder, RawLayer};
+pub use s7comm::{S7COMM_FIELD_NAMES, S7COMM_MIN_HEADER_LEN, S7CommBuilder, S7CommLayer};
 pub use smtp::{
     SMTP_FIELD_NAMES, SMTP_MIN_HEADER_LEN, SMTP_PORT, SmtpBuilder, SmtpLayer, is_smtp_payload,
 };
@@ -94,6 +109,7 @@ pub use tls::{
     TLS_FIELDS, TLS_PORT, TLS_RECORD_HEADER_LEN, TlsAlertBuilder, TlsCcsBuilder, TlsContentType,
     TlsLayer, TlsRecordBuilder, TlsVersion,
 };
+pub use tpkt::{TPKT_FIELD_NAMES, TPKT_MIN_HEADER_LEN, TPKT_PORT, TpktBuilder, TpktLayer};
 pub use udp::{
     UDP_HEADER_LEN, UdpBuilder, UdpLayer, udp_checksum_ipv4, udp_checksum_ipv6,
     verify_udp_checksum_ipv4, verify_udp_checksum_ipv6,
@@ -141,6 +157,12 @@ pub enum LayerKind {
     Pop3 = 32,
     Imap = 33,
     Dhcp = 34,
+    Coap = 35,
+    Tpkt = 36,
+    Cotp = 37,
+    S7Comm = 38,
+    Iec104 = 39,
+    Dnp3 = 40,
     Raw = 255,
 }
 
@@ -184,6 +206,12 @@ impl LayerKind {
             Self::Pop3 => "POP3",
             Self::Imap => "IMAP",
             Self::Dhcp => "DHCP",
+            Self::Coap => "CoAP",
+            Self::Tpkt => "TPKT",
+            Self::Cotp => "COTP",
+            Self::S7Comm => "S7Comm",
+            Self::Iec104 => "IEC 104",
+            Self::Dnp3 => "DNP3",
             Self::Raw => "Raw",
         }
     }
@@ -225,6 +253,12 @@ impl LayerKind {
             Self::Pop3 => pop3::POP3_MIN_HEADER_LEN,
             Self::Imap => imap::IMAP_MIN_HEADER_LEN,
             Self::Dhcp => dhcp::DHCP_MIN_HEADER_LEN,
+            Self::Coap => coap::COAP_MIN_HEADER_LEN,
+            Self::Tpkt => tpkt::TPKT_MIN_HEADER_LEN,
+            Self::Cotp => cotp::COTP_MIN_HEADER_LEN,
+            Self::S7Comm => s7comm::S7COMM_MIN_HEADER_LEN,
+            Self::Iec104 => iec104::IEC104_MIN_HEADER_LEN,
+            Self::Dnp3 => dnp3::DNP3_MIN_HEADER_LEN,
             Self::Raw => 0,
         }
     }
@@ -580,6 +614,12 @@ pub enum LayerEnum {
     Pop3(pop3::Pop3Layer),
     Imap(imap::ImapLayer),
     Dhcp(dhcp::DhcpLayer),
+    Coap(coap::CoapLayer),
+    Tpkt(tpkt::TpktLayer),
+    Cotp(cotp::CotpLayer),
+    S7Comm(s7comm::S7CommLayer),
+    Iec104(iec104::Iec104Layer),
+    Dnp3(dnp3::Dnp3Layer),
     Raw(RawLayer),
 }
 
@@ -1694,6 +1734,207 @@ fn dhcp_show_fields(l: &dhcp::DhcpLayer, buf: &[u8]) -> Vec<(&'static str, Strin
     fields
 }
 
+fn coap_show_fields(l: &coap::CoapLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "ver",
+        l.ver(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    let t = l.msg_type(buf).unwrap_or(0);
+    fields.push(("type", format!("{} ({})", t, coap::coap_type_name(t))));
+    fields.push((
+        "tkl",
+        l.tkl(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    let code = l.code(buf).unwrap_or(0);
+    let class = (code >> 5) & 0x07;
+    let detail = code & 0x1F;
+    fields.push((
+        "code",
+        format!("{}.{:02} ({})", class, detail, coap::coap_code_name(code)),
+    ));
+    fields.push((
+        "msg_id",
+        l.msg_id(buf)
+            .map_or_else(|_| "?".into(), |v| format!("{v:#06x}")),
+    ));
+    if let Ok(token) = l.token(buf) {
+        if !token.is_empty() {
+            let hex: String = token.iter().map(|b| format!("{b:02x}")).collect();
+            fields.push(("token", hex));
+        }
+    }
+    fields
+}
+
+fn tpkt_show_fields(l: &tpkt::TpktLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "version",
+        l.version(buf)
+            .map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "reserved",
+        l.reserved(buf)
+            .map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "length",
+        l.length(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields
+}
+
+fn cotp_show_fields(l: &cotp::CotpLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "length",
+        l.length(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    let pdu = l.pdu_type(buf).unwrap_or(0);
+    fields.push((
+        "pdu_type",
+        format!("{:#04x} ({})", pdu, cotp::pdu_type_name(pdu)),
+    ));
+    if l.is_dt(buf) {
+        fields.push((
+            "tpdu_nr",
+            l.tpdu_nr(buf)
+                .map_or_else(|_| "?".into(), |v| v.to_string()),
+        ));
+        fields.push((
+            "eot",
+            l.eot(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+        ));
+    } else {
+        fields.push((
+            "dst_ref",
+            l.dst_ref(buf)
+                .map_or_else(|_| "?".into(), |v| format!("{v:#06x}")),
+        ));
+        fields.push((
+            "src_ref",
+            l.src_ref(buf)
+                .map_or_else(|_| "?".into(), |v| format!("{v:#06x}")),
+        ));
+    }
+    fields
+}
+
+fn s7comm_show_fields(l: &s7comm::S7CommLayer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "protocol_id",
+        l.protocol_id(buf)
+            .map_or_else(|_| "?".into(), |v| format!("{v:#04x}")),
+    ));
+    let rosctr = l.rosctr(buf).unwrap_or(0);
+    fields.push((
+        "rosctr",
+        format!("{:#04x} ({})", rosctr, s7comm::rosctr_name(rosctr)),
+    ));
+    fields.push((
+        "pdu_ref",
+        l.pdu_ref(buf)
+            .map_or_else(|_| "?".into(), |v| format!("{v:#06x}")),
+    ));
+    fields.push((
+        "param_length",
+        l.param_length(buf)
+            .map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    fields.push((
+        "data_length",
+        l.data_length(buf)
+            .map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    if l.is_ack_data(buf) {
+        fields.push((
+            "error_class",
+            l.error_class(buf)
+                .map_or_else(|_| "?".into(), |v| format!("{v:#04x}")),
+        ));
+        fields.push((
+            "error_code",
+            l.error_code(buf)
+                .map_or_else(|_| "?".into(), |v| format!("{v:#04x}")),
+        ));
+    }
+    if let Ok(f) = l.function(buf) {
+        fields.push((
+            "function",
+            format!("{:#04x} ({})", f, s7comm::function_name(f)),
+        ));
+    }
+    fields
+}
+
+fn iec104_show_fields(l: &iec104::Iec104Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    let mut fields = Vec::new();
+    fields.push((
+        "apdu_length",
+        l.apdu_length(buf)
+            .map_or_else(|_| "?".into(), |v| v.to_string()),
+    ));
+    let atype = l.apdu_type_name(buf);
+    fields.push(("type", atype.to_string()));
+    match l.apdu_type(buf) {
+        Some(iec104::ApduType::I) => {
+            fields.push((
+                "tx",
+                l.tx(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+            ));
+            fields.push((
+                "rx",
+                l.rx(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+            ));
+            if l.has_asdu(buf) {
+                let tid = l.type_id(buf).unwrap_or(0);
+                fields.push((
+                    "type_id",
+                    format!("{} ({})", tid, iec104::type_id_name(tid)),
+                ));
+                fields.push((
+                    "num_objects",
+                    l.num_objects(buf)
+                        .map_or_else(|_| "?".into(), |v| v.to_string()),
+                ));
+                let cot = l.cot_cause(buf).unwrap_or(0);
+                fields.push(("cot", format!("{} ({})", cot, iec104::cot_name(cot))));
+                fields.push((
+                    "common_addr",
+                    l.common_addr(buf)
+                        .map_or_else(|_| "?".into(), |v| v.to_string()),
+                ));
+                fields.push((
+                    "ioa",
+                    l.ioa(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+                ));
+            }
+        },
+        Some(iec104::ApduType::S) => {
+            fields.push((
+                "rx",
+                l.rx(buf).map_or_else(|_| "?".into(), |v| v.to_string()),
+            ));
+        },
+        Some(iec104::ApduType::U) => {
+            let ut = l.u_type(buf).unwrap_or(0);
+            fields.push((
+                "u_type",
+                format!("{:#04x} ({})", ut, iec104::u_type_name(ut)),
+            ));
+        },
+        None => {},
+    }
+    fields
+}
+
+fn dnp3_show_fields(l: &dnp3::Dnp3Layer, buf: &[u8]) -> Vec<(&'static str, String)> {
+    dnp3::dnp3_show_fields(l, buf)
+}
+
 pub use dns::DnsLayer;
 
 // ============================================================================
@@ -1735,6 +1976,12 @@ impl_layer_dispatch!(smtp::SmtpLayer, show = smtp::smtp_show_fields, readonly);
 impl_layer_dispatch!(pop3::Pop3Layer, show = pop3::pop3_show_fields, readonly);
 impl_layer_dispatch!(imap::ImapLayer, show = imap::imap_show_fields, readonly);
 impl_layer_dispatch!(dhcp::DhcpLayer, show = dhcp_show_fields);
+impl_layer_dispatch!(coap::CoapLayer, show = coap_show_fields);
+impl_layer_dispatch!(tpkt::TpktLayer, show = tpkt_show_fields);
+impl_layer_dispatch!(cotp::CotpLayer, show = cotp_show_fields);
+impl_layer_dispatch!(s7comm::S7CommLayer, show = s7comm_show_fields);
+impl_layer_dispatch!(iec104::Iec104Layer, show = iec104_show_fields);
+impl_layer_dispatch!(dnp3::Dnp3Layer, show = dnp3_show_fields);
 // RawLayer: header_len depends on buf, so we need a custom impl
 impl LayerDispatch for RawLayer {
     #[inline]

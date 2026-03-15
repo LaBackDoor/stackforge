@@ -108,10 +108,56 @@ fn bench_parse_vs_clone(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_mmap_vs_copy_rdpcap(c: &mut Criterion) {
+    use std::io::Cursor;
+    use std::time::Duration;
+
+    use pcap_file::pcap::{PcapHeader, PcapPacket, PcapWriter};
+
+    // Generate a PCAP file with 10k packets.
+    let batch = generate_tcp_batch(10_000);
+    let mut pcap_buf = Vec::new();
+    let header = PcapHeader::default();
+    let mut writer = PcapWriter::with_header(Cursor::new(&mut pcap_buf), header).unwrap();
+    for (i, raw) in batch.iter().enumerate() {
+        let pkt = PcapPacket::new(Duration::from_secs(i as u64), raw.len() as u32, raw);
+        writer.write_packet(&pkt).unwrap();
+    }
+    drop(writer);
+
+    let total_bytes = pcap_buf.len() as u64;
+    let tmpdir = tempfile::tempdir().unwrap();
+    let path = tmpdir.path().join("bench.pcap");
+    std::fs::write(&path, &pcap_buf).unwrap();
+
+    let mut group = c.benchmark_group("rdpcap_mmap_vs_copy");
+    group.throughput(Throughput::Bytes(total_bytes));
+    group.sample_size(20);
+
+    group.bench_function("mmap_zero_copy", |b| {
+        b.iter(|| {
+            let reader = stackforge_core::MmapPcapReader::open(&path).unwrap();
+            let pkts: Vec<_> = reader.collect::<Result<Vec<_>, _>>().unwrap();
+            black_box(&pkts);
+        })
+    });
+
+    group.bench_function("streaming_copy", |b| {
+        b.iter(|| {
+            let iter = stackforge_core::CaptureIterator::open(&path).unwrap();
+            let pkts: Vec<_> = iter.collect::<Result<Vec<_>, _>>().unwrap();
+            black_box(&pkts);
+        })
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_sequential_throughput,
     bench_parallel_throughput,
     bench_parse_vs_clone,
+    bench_mmap_vs_copy_rdpcap,
 );
 criterion_main!(benches);

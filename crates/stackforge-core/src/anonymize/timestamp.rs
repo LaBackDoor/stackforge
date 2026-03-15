@@ -51,9 +51,7 @@ impl TimestampAnonymizer {
         if self.jitter_ms == 0 {
             return shifted;
         }
-        let jitter = Duration::from_millis(
-            self.rng.random_range(0..=u64::from(self.jitter_ms)),
-        );
+        let jitter = Duration::from_millis(self.rng.random_range(0..=u64::from(self.jitter_ms)));
         shifted + jitter
     }
 
